@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import sys
 
+
+
+
 # KEGG API base URL
 KEGG_API_BASE = "http://rest.kegg.jp/"
 
@@ -54,6 +57,8 @@ def pathways_lists(species_code):
     return pathways
 
 
+
+
 def pathways_to_matrix(pathway_list, species_list):
     flattened_list = [item for sublist in pathway_list for item in sublist]
     prefixes = sorted(set([item[:item.find("0")] for item in flattened_list]))
@@ -73,8 +78,10 @@ def pathways_to_matrix(pathway_list, species_list):
     return df
 
 
+
 def plot_heatmap(matrix, pathways_dict, output_pdf):
-    fig, ax = plt.subplots(figsize=(25, 35))
+    
+    fig, ax = plt.subplots(figsize=(matrix.shape[0]*1+15, matrix.shape[1]*0.4))
     cmap = sns.color_palette("coolwarm", as_cmap=True)
     sns.heatmap(matrix.T, cmap=cmap, annot=False, linewidths=.5, ax=ax, cbar=False)
     ax.invert_yaxis()
@@ -93,7 +100,7 @@ def plot_heatmap(matrix, pathways_dict, output_pdf):
 
     n_lines = len(pathways_dict)
     for idx, (pathway_id, pathway_name) in enumerate(pathways_dict.items()):
-        legend_ax.text(0, 1 - idx / n_lines, f'{pathway_id}: {pathway_name}', fontsize=8, ha='left', va='center')
+        legend_ax.text(0, 1 - idx / n_lines, f'{pathway_id}: {pathway_name}', fontsize=7, ha='left', va='center', wrap=True, max_lines=2)
 
     legend_ax.set_axis_off()
 
@@ -110,6 +117,7 @@ def main(genus, output_csv, output_pdf):
     pathway_matrix = pathways_to_matrix(pathways_list, species_list)
     pathway_matrix.to_csv(output_csv, index=True, header=True, index_label='row_name', float_format='%.0f')
     plot_heatmap(pathway_matrix, pathways_dict, output_pdf)
+
 
 
 if __name__ == "__main__":
