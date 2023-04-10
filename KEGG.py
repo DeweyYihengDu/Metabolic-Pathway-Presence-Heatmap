@@ -38,7 +38,7 @@ def get_metabolic_pathways(species_code):
     return pathways
 
 
-a=get_species_list("Vibrio")
+a=get_species_list("Planctomycetales")
 b=[]
 for c, d in a:
     b.append(get_metabolic_pathways(c))
