@@ -32,3 +32,4 @@ The script generates two output files:
 
 1. A CSV file containing a matrix representation of the presence of metabolic pathways across different species within the specified genus.
 2. A PDF file with a heatmap visualization of the data.
+
