@@ -132,4 +132,3 @@ if __name__ == "__main__":
         output_heatmap_pdf = "heatmap.pdf"
 
     main(genus_name, output_matrix_csv, output_heatmap_pdf)
-
