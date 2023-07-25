@@ -90,5 +90,3 @@ def plot_heatmap(matrix):
     plt.show()
 
 plot_heatmap(pathway_matrix)
-
-
