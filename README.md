@@ -33,3 +33,10 @@ The script generates two output files:
 1. A CSV file containing a matrix representation of the presence of metabolic pathways across different species within the specified genus.
 2. A PDF file with a heatmap visualization of the data.
 
+## Citation
+
+If you use this project in your research, please cite the following paper:
+
+```
+[1]Y.-H. Du and J.-H. Mu, “Metabolic-Pathway-Presence-Heatmap (MPPH):Constructing phylogenetic trees based on metabolic pathways.,” Jun. 2023, doi: https://doi.org/10.1101/2023.06.27.546232.
+```
