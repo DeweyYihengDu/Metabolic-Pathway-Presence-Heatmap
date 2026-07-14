@@ -1,0 +1,60 @@
+position,feature_id,name
+1,00626,Naphthalene degradation
+2,00946,Degradation of flavonoids
+3,00999,Biosynthesis of various plant secondary metabolites
+4,00525,Acarbose and validamycin biosynthesis
+5,00650,Butanoate metabolism
+6,00523,Polyketide sugar unit biosynthesis
+7,00920,Sulfur metabolism
+8,00910,Nitrogen metabolism
+9,00906,Carotenoid biosynthesis
+10,00900,Terpenoid backbone biosynthesis
+11,00750,Vitamin B6 metabolism
+12,00740,Riboflavin metabolism
+13,00730,Thiamine metabolism
+14,00720,Other carbon fixation pathways
+15,00670,One carbon pool by folate
+16,00660,C5-Branched dibasic acid metabolism
+17,00640,Propanoate metabolism
+18,00625,Chloroalkane and chloroalkene degradation
+19,00564,Glycerophospholipid metabolism
+20,00562,Inositol phosphate metabolism
+21,00552,Teichoic acid biosynthesis
+22,00550,Peptidoglycan biosynthesis
+23,00543,Exopolysaccharide biosynthesis
+24,00541,Biosynthesis of various nucleotide sugars
+25,00540,Lipopolysaccharide biosynthesis
+26,00521,Streptomycin biosynthesis
+27,00480,Glutathione metabolism
+28,00470,D-Amino acid metabolism
+29,00460,Cyanoamino acid metabolism
+30,00450,Selenocompound metabolism
+31,00410,beta-Alanine metabolism
+32,00401,Novobiocin biosynthesis
+33,00400,"Phenylalanine, tyrosine and tryptophan biosynthesis"
+34,00380,Tryptophan metabolism
+35,00360,Phenylalanine metabolism
+36,00350,Tyrosine metabolism
+37,00340,Histidine metabolism
+38,00332,Carbapenem biosynthesis
+39,00330,Arginine and proline metabolism
+40,00310,Lysine degradation
+41,00300,Lysine biosynthesis
+42,00280,"Valine, leucine and isoleucine degradation"
+43,00261,Monobactam biosynthesis
+44,00260,"Glycine, serine and threonine metabolism"
+45,00220,Arginine biosynthesis
+46,00196,Photosynthesis - antenna proteins
+47,00130,Ubiquinone and other terpenoid-quinone biosynthesis
+48,00071,Fatty acid degradation
+49,00052,Galactose metabolism
+50,00053,Ascorbate and aldarate metabolism
+51,00623,Toluene degradation
+52,00361,Chlorocyclohexane and chlorobenzene degradation
+53,00364,Fluorobenzoate degradation
+54,00430,Taurine and hypotaurine metabolism
+55,00643,Styrene degradation
+56,00627,Aminobenzoate degradation
+57,00600,Sphingolipid metabolism
+58,00511,Other glycan degradation
+59,00542,O-Antigen repeat unit biosynthesis

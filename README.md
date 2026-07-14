@@ -1,21 +1,25 @@
 # Metabolic Pathway Presence Heatmap (MPPH)
 
 [![CI](https://github.com/DeweyYihengDu/Metabolic-Pathway-Presence-Heatmap/actions/workflows/ci.yml/badge.svg)](https://github.com/DeweyYihengDu/Metabolic-Pathway-Presence-Heatmap/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![DOI](https://img.shields.io/badge/DOI-10.1101%2F2023.06.27.546232-b31b1b.svg)](https://doi.org/10.1101/2023.06.27.546232)
 
 MPPH profiles KEGG metabolism across a set of genomes and renders a
 category-aware heatmap with UPGMA dendrograms. It works two ways:
 
-- **Pathway presence** — for every sequenced genome in a taxon, which KEGG
-  pathways are present/absent.
+- **Pathway-map association** — for each genome, whether KEGG provides an
+  organism-specific version of a pathway map. This means the pathway *has some
+  annotated KOs*, **not** that the complete pathway is present. By default only
+  `Metabolism` top-level pathways are kept.
 - **Module completeness** — the fraction of each KEGG *module*'s reaction steps
   covered by an organism's KO repertoire (0–1), a far more quantitative signal
-  than binary presence.
+  and the recommended mode for metabolic-capability analysis.
 
 It runs on genomes **KEGG already has**, on an explicit **list of organism
-codes**, or on **your own MAGs** via their KO annotations.
+codes**, or on **your own MAGs** via their KO annotations. The clustered
+dendrogram reflects **functional-profile similarity**, and should not be read as
+a sequence-based species phylogeny without external validation.
 
 <p align="center">
   <img src="examples/Prochlorococcus_presence_heatmap.png" width="90%"
@@ -49,7 +53,7 @@ cd Metabolic-Pathway-Presence-Heatmap
 pip install .          # or: pip install -e ".[dev]" for development
 ```
 
-This installs the `mpph` command. Requires Python 3.8+.
+This installs the `mpph` command. Requires Python 3.9+.
 
 ## Usage
 
@@ -74,12 +78,13 @@ mpph --user annotations/ --cluster --format png pdf
 
 | Option | Description |
 | --- | --- |
-| `taxon` | Taxon name to query (whole-word match; `--exact` for a full `Genus species`). |
-| `--codes FILE` / `--user PATH` | Use organism codes, or your own KO annotations, instead of a taxon. |
-| `--completeness` | Score KEGG module completeness (0–1) instead of pathway presence. |
-| `--cluster` / `--metric` | UPGMA-cluster both axes; distance `euclidean\|jaccard\|dice\|hamming`. |
-| `--newick` | Export the organism tree as `.nwk`. |
-| `--drop-core`, `--min/--max-prevalence` | Filter uninformative features by prevalence. |
+| `taxon` | Taxon name to query. `--match {word,prefix,exact,regex}` (default `word`). |
+| `--codes FILE` / `--user PATH` | Use organism codes, or your own KO annotations (mutually exclusive with a taxon). |
+| `--completeness` / `--all-modules` | Score module completeness (0–1); by default only `Pathway` modules. |
+| `--top-category` / `--all-categories` | Restrict presence mode to a BRITE top-level category (default `Metabolism`). |
+| `--cluster` / `--metric` | UPGMA-cluster both axes. Metric defaults to `jaccard` (presence) / `euclidean` (completeness); also `dice`, `hamming`, `braycurtis`, `cosine`. |
+| `--newick` | Export organism and feature trees as `.nwk`. |
+| `--drop-core`, `--min/--max-prevalence`, `--present-threshold` | Filter uninformative features by prevalence. |
 | `--format {pdf,png,svg}`, `--outdir DIR` | Figure format(s) and output directory. |
 | `--refresh`, `--no-cache`, `--cache-dir` | Control KEGG response caching. |
 
@@ -104,21 +109,40 @@ For a run on `<name>`, MPPH writes to the output directory:
 | File | Contents |
 | --- | --- |
 | `<name>_matrix.csv` | Organism × feature matrix (0/1 presence, or 0–1 completeness). |
-| `<name>_features.csv` | Feature id → name → functional category. |
+| `<name>_features.csv` | Feature id → name → functional category → top category. |
+| `<name>_qc.csv` | Per-organism annotated-feature count and status. |
 | `<name>_heatmap.<fmt>` | The figure. |
-| `<name>_tree.nwk` | Newick organism tree (with `--newick`). |
-| `<name>_manifest.json` | Run parameters, KEGG release, filters, organism list. |
+| `<name>_ordered_matrix.csv`, `<name>_row_order.csv`, `<name>_col_order.csv` | Clustered order, so every column in the figure is traceable. |
+| `<name>_organism_tree.nwk`, `<name>_feature_tree.nwk` | Newick trees (with `--newick`). |
+| `<name>_manifest.json` | Full command, KEGG release, filters, excluded organisms, output list. |
 
 ## How it works
 
 1. Resolve organisms from a taxon (`list/genome`), a code file, or user KO files.
 2. **Presence:** fetch each organism's pathway list (`list/pathway/<code>`).
    **Completeness:** fetch module definitions (`get/md:` in batches of 10) and
-   each organism's KO set (`link/ko/<code>`), then score every module's
-   top-level steps against the KO set.
-3. Assemble and filter the matrix; drop aggregate overview maps.
-4. Render the heatmap, clustering both axes when `--cluster` is set, and colour
-   by KEGG functional category (`br08901` / module `CLASS`).
+   each organism's KO set (`link/ko/<code>`), then score each module — top-level
+   steps split on spaces, `,`=OR, `+`=AND, `-`=optional, `--`=gap (excluded),
+   and nested `M#####` references resolved recursively.
+3. Assemble and filter the matrix (top-level category, overview maps, empty
+   genomes, prevalence).
+4. Render the heatmap, clustering when `--cluster` is set, coloured by KEGG
+   functional category (`br08901` / module `CLASS`).
+
+## Limitations
+
+- **`pathway-map` ≠ complete pathway.** A `1` means KEGG lists an
+  organism-specific map (some KOs annotated), not that the whole pathway is
+  functional. Use `--completeness` for capability analysis.
+- **Functional similarity ≠ phylogeny.** The dendrogram clusters KEGG functional
+  profiles; horizontal transfer, niche convergence, gene loss, annotation
+  coverage and genome completeness all affect it. Validate against a reference
+  tree before making evolutionary claims.
+- **Annotation depth varies** between genomes, and a MAG's missing features may
+  reflect incomplete assembly rather than true absence.
+- **Taxon matching is by organism name**, so it is reliable for genus/species
+  but not for family/phylum. Results depend on the KEGG release (recorded in the
+  manifest).
 
 ## Citation
 

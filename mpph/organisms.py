@@ -14,8 +14,10 @@ def list_genomes(
 ) -> list[tuple[str, str]]:
     """Return ``[(org_code, organism_name), ...]`` for every KEGG genome.
 
-    Uses the ``list/genome`` endpoint (the old ``list/organism`` endpoint was
-    retired by KEGG and now returns HTTP 400). Each line looks like::
+    Uses the ``list/genome`` endpoint, which carries genome-level metadata and
+    supports taxonomy-rank queries. (The bare ``list/organism`` endpoint
+    returned HTTP 400 in our testing; ``list/genome`` is used regardless.) Each
+    line looks like::
 
         T00034<TAB>vch; Vibrio cholerae O1 El Tor N16961
     """
@@ -33,19 +35,28 @@ def list_genomes(
 
 
 def select_by_taxon(
-    genomes: list[tuple[str, str]], taxon: str, exact: bool
+    genomes: list[tuple[str, str]], taxon: str, match: str = "word"
 ) -> list[tuple[str, str]]:
-    """Filter genomes whose name matches ``taxon``.
+    """Filter genomes whose name matches ``taxon`` under one of four modes.
 
-    ``exact=False`` (default) matches ``taxon`` as a whole word, so ``Vibrio``
-    no longer accidentally captures ``Vibrionimonas``. ``exact=True`` requires
-    the name to *start* with ``taxon`` (useful for a full "Genus species").
+    * ``word`` (default) -- ``taxon`` as a whole word, so ``Vibrio`` does not
+      capture ``Vibrionimonas``;
+    * ``prefix`` -- the name starts with ``taxon`` (a full "Genus species");
+    * ``exact`` -- the name equals ``taxon`` (case-insensitive);
+    * ``regex`` -- ``taxon`` is a user-supplied regular expression.
+
+    Note: this matches organism *names*, not a taxonomic hierarchy, so it is
+    reliable for genus/species but not for family/phylum.
     """
-    if exact:
-        prefix = taxon.lower()
-        return [(c, n) for c, n in genomes if n.lower().startswith(prefix)]
-
-    pattern = re.compile(rf"\b{re.escape(taxon)}\b", re.IGNORECASE)
+    q = taxon.lower()
+    if match == "exact":
+        return [(c, n) for c, n in genomes if n.lower() == q]
+    if match == "prefix":
+        return [(c, n) for c, n in genomes if n.lower().startswith(q)]
+    if match == "regex":
+        pattern = re.compile(taxon, re.IGNORECASE)
+    else:  # "word"
+        pattern = re.compile(rf"\b{re.escape(taxon)}\b", re.IGNORECASE)
     return [(c, n) for c, n in genomes if pattern.search(n)]
 
 

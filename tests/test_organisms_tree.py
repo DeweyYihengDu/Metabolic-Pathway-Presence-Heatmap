@@ -13,14 +13,20 @@ GENOMES = [
 
 
 def test_whole_word_match_excludes_lookalikes():
-    hits = {c for c, _ in select_by_taxon(GENOMES, "Vibrio", exact=False)}
+    hits = {c for c, _ in select_by_taxon(GENOMES, "Vibrio", match="word")}
     assert "vch" in hits
     assert "vibn" not in hits  # "Vibrionimonas" must not match "Vibrio"
 
 
-def test_exact_prefix_match():
-    hits = {c for c, _ in select_by_taxon(GENOMES, "Vibrio cholerae", exact=True)}
+def test_prefix_match():
+    hits = {c for c, _ in select_by_taxon(GENOMES, "Vibrio cholerae", match="prefix")}
     assert hits == {"vch"}
+
+
+def test_exact_match():
+    assert {c for c, _ in select_by_taxon(GENOMES, "Vibrio cholerae O1",
+                                          match="exact")} == {"vch"}
+    assert select_by_taxon(GENOMES, "Vibrio", match="exact") == []
 
 
 def test_select_by_codes_preserves_order():

@@ -37,26 +37,29 @@ def get_pathways(
 
 def fetch_pathway_categories(
     session: requests.Session, cache_dir: Path | None, *, refresh: bool = False
-) -> dict[str, str]:
-    """Return ``{map_id: functional_category}`` from KEGG BRITE ``br08901``.
+) -> dict[str, tuple[str, str]]:
+    """Return ``{map_id: (top_category, functional_category)}`` from ``br08901``.
 
-    The category is the second-level ("B") heading of the KEGG pathway
-    hierarchy, e.g. ``Carbohydrate metabolism`` or ``Energy metabolism`` -- the
-    granularity that is most informative for a microbial comparison.
+    ``top_category`` is the first-level ("A") heading (``Metabolism``, ``Genetic
+    Information Processing``, ...); ``functional_category`` is the second-level
+    ("B") heading (``Carbohydrate metabolism``, ...) used for figure colouring.
     """
     text = kegg_get(session, "get/br:br08901", cache_dir, refresh=refresh)
-    categories: dict[str, str] = {}
+    categories: dict[str, tuple[str, str]] = {}
+    current_a: str | None = None
     current_b: str | None = None
     for line in text.splitlines():
         if not line or line[0] in "!+#":
             continue
         level, body = line[0], line[1:].strip()
         if level == "A":
+            current_a = body
             current_b = None
         elif level == "B":
             current_b = body
         elif level == "C":
             parts = body.split(None, 1)
             if parts and parts[0].isdigit():
-                categories[parts[0].zfill(5)] = current_b or "Other"
+                categories[parts[0].zfill(5)] = (current_a or "Other",
+                                                 current_b or "Other")
     return categories

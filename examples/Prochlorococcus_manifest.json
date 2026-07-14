@@ -1,13 +1,19 @@
 {
   "mpph_version": "3.0.0",
+  "command": "mpph Prochlorococcus --cluster --drop-core --newick --format png pdf --outdir C:/Users/DuYih/AppData/Local/Temp/exP",
+  "python": "3.11.0",
+  "platform": "win32",
   "source": "Prochlorococcus",
   "mode": "presence",
-  "metric": "euclidean",
+  "metric": "jaccard",
+  "match": "word",
   "clustered": true,
-  "generated_utc": "2026-07-14T21:39:54+00:00",
+  "generated_utc": "2026-07-14T22:13:54+00:00",
   "kegg_release": "pathway        587  2026/07/14",
+  "n_organisms_matched": 15,
   "n_organisms": 15,
-  "n_features": 73,
+  "n_features_before_filtering": 123,
+  "n_features": 59,
   "organisms": [
     "Prochlorococcus marinus subsp. marinus CCMP1375 (pma)",
     "Prochlorococcus marinus subsp. pastoris CCMP1986 (pmm)",
@@ -25,19 +31,29 @@
     "Prochlorococcus sp. MIT 0801 (prm)",
     "Prochlorococcus sp. RSP50 (pror)"
   ],
+  "excluded_organisms": [],
   "filters": {
+    "mode_metric": "jaccard",
+    "top_category": "Metabolism",
+    "keep_overview": false,
     "min_prevalence": 0.0,
     "max_prevalence": 1.0,
     "drop_core": true,
-    "keep_overview": false
+    "present_threshold": 1e-09,
+    "module_types": "Pathway"
   },
   "outputs": {
     "matrix": "Prochlorococcus_matrix.csv",
     "features": "Prochlorococcus_features.csv",
+    "qc": "Prochlorococcus_qc.csv",
     "figures": [
       "Prochlorococcus_heatmap.png",
       "Prochlorococcus_heatmap.pdf"
     ],
-    "newick": "Prochlorococcus_tree.nwk"
+    "ordered_matrix": "Prochlorococcus_ordered_matrix.csv",
+    "row_order": "Prochlorococcus_row_order.csv",
+    "col_order": "Prochlorococcus_col_order.csv",
+    "organism_tree": "Prochlorococcus_organism_tree.nwk",
+    "feature_tree": "Prochlorococcus_feature_tree.nwk"
   }
 }

@@ -10,7 +10,7 @@ doi:10.1101/2023.06.27.546232
 """
 from __future__ import annotations
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
 from .matrix import build_completeness_matrix, build_presence_matrix, filter_matrix
 from .modules import module_completeness

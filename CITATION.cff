@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use MPPH, please cite the preprint below."
+title: "MPPH: Metabolic-Pathway-Presence-Heatmap"
+authors:
+  - family-names: Du
+    given-names: Yiheng
+repository-code: "https://github.com/DeweyYihengDu/Metabolic-Pathway-Presence-Heatmap"
+version: "3.1.0"
+license: MIT
+preferred-citation:
+  type: article
+  title: "Metabolic-Pathway-Presence-Heatmap (MPPH): Constructing phylogenetic trees based on metabolic pathways"
+  authors:
+    - family-names: Du
+      given-names: Yi-Heng
+    - family-names: Mu
+      given-names: Jing-Han
+  year: 2023
+  doi: "10.1101/2023.06.27.546232"
+  journal: "bioRxiv"

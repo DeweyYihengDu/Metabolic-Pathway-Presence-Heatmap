@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mpph"
-version = "3.0.0"
+version = "3.1.0"
 description = "Metabolic Pathway Presence Heatmap: KEGG pathway presence and module completeness across genomes or your own MAGs."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Yiheng Du" }]
 keywords = ["KEGG", "metabolism", "pathway", "metagenomics", "heatmap", "bioinformatics"]
@@ -40,7 +40,7 @@ packages = ["mpph"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py39"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

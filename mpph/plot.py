@@ -26,6 +26,19 @@ CATEGORY_PALETTE = [
     "#2a78d6", "#1baf7a", "#eda100", "#008300",
     "#4a3aa7", "#e34948", "#e87ba4", "#eb6834",
 ]
+# Fixed hue slots for the common KEGG categories, so a category keeps the same
+# colour across figures (and across prevalence thresholds); anything else takes
+# a leftover slot by frequency, then folds into "Other".
+FIXED_CATEGORY_COLORS = {
+    "Carbohydrate metabolism": "#2a78d6",
+    "Energy metabolism": "#1baf7a",
+    "Amino acid metabolism": "#eda100",
+    "Metabolism of cofactors and vitamins": "#008300",
+    "Nucleotide metabolism": "#4a3aa7",
+    "Lipid metabolism": "#e34948",
+    "Glycan biosynthesis and metabolism": "#e87ba4",
+    "Metabolism of terpenoids and polyketides": "#eb6834",
+}
 COMPLETENESS_CMAP = mcolors.LinearSegmentedColormap.from_list(
     "mpph_seq", ["#eceef1", "#9ec5f4", "#2a78d6", "#184f95"]
 )
@@ -41,12 +54,28 @@ plt.rcParams.update({
 
 
 def _assign_category_colors(columns, categories):
-    """Map each column to a functional category colour + ordered legend."""
+    """Map each column to a functional category colour + ordered legend.
+
+    Known categories take a fixed hue (stable across figures); remaining
+    categories take leftover palette slots by frequency, then fold into "Other".
+    """
     col_cats = [categories.get(c, "Other") for c in columns]
-    counts = Counter(c for c in col_cats if c != "Other")
-    top = [cat for cat, _ in counts.most_common(len(CATEGORY_PALETTE))]
-    color_of = {cat: CATEGORY_PALETTE[i] for i, cat in enumerate(top)}
-    legend = [(cat, color_of[cat]) for cat in top]
+    present = [c for c in dict.fromkeys(col_cats) if c != "Other"]
+
+    color_of: dict[str, str] = {}
+    for cat in present:
+        if cat in FIXED_CATEGORY_COLORS:
+            color_of[cat] = FIXED_CATEGORY_COLORS[cat]
+    leftover = [c for c in CATEGORY_PALETTE if c not in color_of.values()]
+    extras = [cat for cat, _ in Counter(
+        c for c in col_cats if c != "Other" and c not in color_of).most_common()]
+    for cat, color in zip(extras, leftover):
+        color_of[cat] = color
+
+    # Legend ordered as: fixed (in canonical order) then extras, then Other.
+    ordered = [c for c in FIXED_CATEGORY_COLORS if c in color_of]
+    ordered += [c for c in extras if c in color_of and c not in ordered]
+    legend = [(cat, color_of[cat]) for cat in ordered]
     if any(c not in color_of for c in col_cats):
         legend.append(("Other", OTHER_COLOR))
     return col_cats, color_of, legend
@@ -54,7 +83,7 @@ def _assign_category_colors(columns, categories):
 
 def _leaf_order(matrix, metric):
     """UPGMA leaf order for the rows of ``matrix`` (and the linkage, or None)."""
-    if matrix.shape[0] < 3:
+    if matrix.shape[0] < 2:
         return np.arange(matrix.shape[0]), None
     link = linkage(matrix, method="average", metric=metric)
     order = dendrogram(link, no_plot=True)["leaves"]
@@ -121,10 +150,11 @@ def plot_matrix(
     # --- geometry ------------------------------------------------------------
     width = min(30.0, max(7.0, n_cols * 0.14 + 4.5))
     height = min(40.0, max(4.5, n_rows * 0.28 + 3.0))
-    show_dendro = cluster and row_link is not None
+    show_row_dendro = cluster and row_link is not None
+    show_col_dendro = cluster and col_link is not None
     show_xlabels = n_cols <= 50
-    left_w = 0.11 if show_dendro else 0.012
-    top_h = 0.15 if show_dendro else 0.012
+    left_w = 0.11 if show_row_dendro else 0.012
+    top_h = 0.15 if show_col_dendro else 0.012
 
     fig = plt.figure(figsize=(width, height))
     gs = fig.add_gridspec(
@@ -180,21 +210,25 @@ def plot_matrix(
     for s in ax_strip.spines.values():
         s.set_visible(False)
 
-    # dendrograms
-    if show_dendro:
+    # dendrograms (each axis drawn only if its linkage exists)
+    if show_col_dendro:
         dendrogram(col_link, ax=ax_top, orientation="top", no_labels=True,
                    color_threshold=0, above_threshold_color=DENDRO)
+        for coll in ax_top.collections:
+            coll.set_linewidth(0.8)
+    if show_row_dendro:
         dendrogram(row_link, ax=ax_left, orientation="left", no_labels=True,
                    color_threshold=0, above_threshold_color=DENDRO)
-        for coll in list(ax_top.collections) + list(ax_left.collections):
+        for coll in ax_left.collections:
             coll.set_linewidth(0.8)
     for ax in (ax_top, ax_left):
         ax.set_xticks([])
         ax.set_yticks([])
         for s in ax.spines.values():
             s.set_visible(False)
-    if not show_dendro:
+    if not show_col_dendro:
         ax_top.set_visible(False)
+    if not show_row_dendro:
         ax_left.set_visible(False)
 
     # titles
