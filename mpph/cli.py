@@ -73,6 +73,12 @@ def run(args: argparse.Namespace) -> int:
             return 2
         print(f"      matched {len(organisms)} genome(s)")
 
+    if args.dry_run:
+        print("Matched organisms (dry run, no data fetched):")
+        for code, name in organisms:
+            print(f"  {code}\t{name}")
+        return 0
+
     # --- build the matrix (per-organism errors are recorded, not fatal) ------
     top_categories: dict[str, str] = {}
     if mode == "completeness":
@@ -322,6 +328,8 @@ def build_parser() -> argparse.ArgumentParser:
                           "euclidean for completeness).")
     ana.add_argument("--newick", action="store_true",
                      help="Export the organism and feature trees as Newick.")
+    ana.add_argument("--dry-run", action="store_true",
+                     help="List the matched organisms and exit (fetch nothing).")
 
     filt = p.add_argument_group("feature filters")
     filt.add_argument("--min-prevalence", type=float, default=0.0,
@@ -373,6 +381,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if sum(sources) > 1:
         print("Choose only one input source (taxon / --codes / --user).",
+              file=sys.stderr)
+        return 2
+    if not 0.0 <= args.min_prevalence <= args.max_prevalence <= 1.0:
+        print("Error: require 0 <= --min-prevalence <= --max-prevalence <= 1.",
               file=sys.stderr)
         return 2
     try:
