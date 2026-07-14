@@ -3,7 +3,7 @@ feature_id,name,category
 00053,Ascorbate and aldarate metabolism,Carbohydrate metabolism
 00071,Fatty acid degradation,Lipid metabolism
 00130,Ubiquinone and other terpenoid-quinone biosynthesis,Metabolism of cofactors and vitamins
-00196,Photosynthesis,Energy metabolism
+00196,Photosynthesis - antenna proteins,Energy metabolism
 00220,Arginine biosynthesis,Amino acid metabolism
 00260,"Glycine, serine and threonine metabolism",Amino acid metabolism
 00261,Monobactam biosynthesis,Biosynthesis of other secondary metabolites
@@ -63,7 +63,7 @@ feature_id,name,category
 01503,Cationic antimicrobial peptide (CAMP) resistance,Drug resistance: antimicrobial
 02010,ABC transporters,Membrane transport
 03030,DNA replication,Replication and repair
-03250,Viral life cycle,Information processing in viruses
+03250,Viral life cycle - HIV-1,Information processing in viruses
 03410,Base excision repair,Replication and repair
 03420,Nucleotide excision repair,Replication and repair
 03430,Mismatch repair,Replication and repair

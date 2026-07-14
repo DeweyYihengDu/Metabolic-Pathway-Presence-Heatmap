@@ -105,10 +105,24 @@ def run(args: argparse.Namespace) -> int:
         df, feature_names = build_presence_matrix(org_pathways)
 
     # --- filter --------------------------------------------------------------
+    # Order matters: drop aggregate overview maps, THEN organisms left with no
+    # real features (e.g. an unannotated genome carrying only overview maps),
+    # and only then apply prevalence/core filtering -- otherwise one all-absent
+    # genome caps every prevalence below 1.0 and neuters --drop-core.
     print("[3/4] Filtering matrix ...", flush=True)
     if mode == "presence" and not args.keep_overview:
         overview = {m for m, c in categories.items() if c == OVERVIEW_CATEGORY}
         df = df.drop(columns=[c for c in df.columns if c in overview])
+    if not args.keep_empty:
+        empty = list(df.index[df.sum(axis=1) == 0])
+        if empty:
+            print(f"      dropping {len(empty)} unannotated organism(s) with no "
+                  f"features: {', '.join(empty)}", flush=True)
+            df = df.drop(index=empty)
+        if df.shape[0] < 1:
+            print("All organisms were empty (no KEGG annotation). Nothing to plot.",
+                  file=sys.stderr)
+            return 3
     df = filter_matrix(df, args.min_prevalence, args.max_prevalence,
                        args.drop_core)
     if df.shape[1] == 0:
@@ -229,6 +243,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Drop features present in ALL organisms (uninformative).")
     filt.add_argument("--keep-overview", action="store_true",
                       help="Keep KEGG 'Global and overview maps' (presence mode).")
+    filt.add_argument("--keep-empty", action="store_true",
+                      help="Keep organisms with zero annotated features (by "
+                           "default such genomes are dropped, as an all-absent "
+                           "row is unannotated, not truly featureless).")
 
     out = p.add_argument_group("output")
     out.add_argument("--outdir", default="output", help="Directory for outputs.")

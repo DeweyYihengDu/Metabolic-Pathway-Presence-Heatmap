@@ -122,13 +122,15 @@ def plot_matrix(
     width = min(30.0, max(7.0, n_cols * 0.14 + 4.5))
     height = min(40.0, max(4.5, n_rows * 0.28 + 3.0))
     show_dendro = cluster and row_link is not None
+    show_xlabels = n_cols <= 50
     left_w = 0.11 if show_dendro else 0.012
     top_h = 0.15 if show_dendro else 0.012
 
     fig = plt.figure(figsize=(width, height))
     gs = fig.add_gridspec(
         3, 2, width_ratios=[left_w, 1.0], height_ratios=[top_h, 0.035, 1.0],
-        wspace=0.015, hspace=0.02, left=0.02, right=0.995, top=0.88, bottom=0.16,
+        wspace=0.015, hspace=0.02, left=0.02, right=0.995, top=0.88,
+        bottom=0.22 if show_xlabels else 0.16,
     )
     ax_top = fig.add_subplot(gs[0, 1])
     ax_strip = fig.add_subplot(gs[1, 1])
@@ -147,7 +149,15 @@ def plot_matrix(
     if n_rows <= 90:
         for y in range(10, ymax, 10):
             ax_heat.axhline(y, color="white", linewidth=0.6)
-    ax_heat.set_xticks([])
+    # Feature ids on the x-axis when few enough to stay legible; the full
+    # ordered list is always in <name>_features.csv for traceability.
+    if show_xlabels:
+        ax_heat.set_xticks([10 * j + 5 for j in range(n_cols)])
+        ax_heat.set_xticklabels(cols, rotation=90, color=MUTED,
+                                fontsize=min(8.0, 420 / max(n_cols, 1)))
+        ax_heat.xaxis.set_ticks_position("bottom")
+    else:
+        ax_heat.set_xticks([])
     ax_heat.set_yticks([10 * i + 5 for i in range(n_rows)])
     ax_heat.set_yticklabels(names, fontsize=min(10, 380 / max(n_rows, 1)),
                             color=SECONDARY, style="italic")

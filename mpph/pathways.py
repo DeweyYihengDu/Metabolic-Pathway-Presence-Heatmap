@@ -28,7 +28,9 @@ def get_pathways(
         if len(parts) < 2:
             continue
         pathway_number = parts[0][-5:]  # trailing 5 digits are the map id
-        pathway_name = parts[1].split(" - ")[0].strip()
+        # Strip only the trailing " - <organism>" suffix; rsplit keeps names
+        # that themselves contain " - " (e.g. "Photosynthesis - antenna proteins").
+        pathway_name = parts[1].rsplit(" - ", 1)[0].strip()
         pathways[pathway_number] = pathway_name
     return pathways
 
