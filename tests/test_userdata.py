@@ -32,3 +32,16 @@ def test_no_ko_raises(tmp_path):
     f.write_text("no kegg orthologs here\n")
     with pytest.raises(ValueError):
         load_user_kos(f)
+
+
+def test_eggnog_format(tmp_path):
+    f = tmp_path / "MAG1.emapper.annotations"
+    f.write_text(
+        "##  eggNOG-mapper\n"
+        "#query\tseed_ortholog\tKEGG_ko\tKEGG_Pathway\n"
+        "gene1\tx\tko:K00844,ko:K12407\tmap00010\n"
+        "gene2\tx\t-\t-\n"
+        "gene3\tx\tko:K01810\tmap00010\n"
+    )
+    kos = load_user_kos(f, fmt="eggnog")
+    assert kos["MAG1.emapper"] == {"K00844", "K12407", "K01810"}

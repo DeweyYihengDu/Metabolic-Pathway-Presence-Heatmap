@@ -1,0 +1,13 @@
+AMetabolism
+B  Global and overview maps
+C    01100  Metabolic pathways
+B  Carbohydrate metabolism
+C    00010  Glycolysis / Gluconeogenesis
+C    00020  Citrate cycle (TCA cycle)
+B  Energy metabolism
+C    00190  Oxidative phosphorylation
+B  Nucleotide metabolism
+C    00230  Purine metabolism
+AGenetic Information Processing
+B  Replication and repair
+C    03430  Mismatch repair

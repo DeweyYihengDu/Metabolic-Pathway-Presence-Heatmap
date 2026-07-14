@@ -24,6 +24,25 @@ def _kos_from_text(text: str) -> set[str]:
     return set(_KO.findall(text))
 
 
+def _kos_from_eggnog(text: str) -> set[str]:
+    """Extract KOs from an eggNOG-mapper ``.annotations`` file's KEGG_ko column."""
+    header: list[str] | None = None
+    idx = None
+    kos: set[str] = set()
+    for line in text.splitlines():
+        if line.startswith("##") or not line.strip():
+            continue
+        fields = line.lstrip("#").split("\t")
+        if header is None:
+            if "KEGG_ko" in fields:
+                header = fields
+                idx = header.index("KEGG_ko")
+            continue
+        if idx is not None and idx < len(fields):
+            kos.update(_KO.findall(fields[idx]))
+    return kos
+
+
 def _load_long_table(path: Path) -> dict[str, set[str]]:
     """Parse a ``sample<TAB>...KO...`` table (one record per line)."""
     samples: dict[str, set[str]] = {}
@@ -39,11 +58,17 @@ def _load_long_table(path: Path) -> dict[str, set[str]]:
     return samples
 
 
-def load_user_kos(path: str | Path) -> dict[str, set[str]]:
-    """Load KO sets keyed by sample name from ``path`` (dir or file)."""
+def load_user_kos(path: str | Path, fmt: str = "auto") -> dict[str, set[str]]:
+    """Load KO sets keyed by sample name from ``path`` (dir or file).
+
+    ``fmt`` is ``auto`` (default), ``ko-list`` (scan any ``K#####``), or
+    ``eggnog`` (read the ``KEGG_ko`` column of eggNOG-mapper output). For a
+    directory, each file is one sample (named by its stem).
+    """
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"user KO input not found: {p}")
+    extract = _kos_from_eggnog if fmt == "eggnog" else _kos_from_text
 
     if p.is_dir():
         samples: dict[str, set[str]] = {}
@@ -52,22 +77,26 @@ def load_user_kos(path: str | Path) -> dict[str, set[str]]:
         if not files:
             raise ValueError(f"no files found in directory: {p}")
         for f in files:
-            kos = _kos_from_text(f.read_text(encoding="utf-8", errors="ignore"))
+            kos = extract(f.read_text(encoding="utf-8", errors="ignore"))
             if kos:
                 samples[f.stem] = kos
         if not samples:
             raise ValueError(f"no KO ids (K#####) found in any file under {p}")
         return samples
 
-    # Single file: decide long-table vs. whole-file-is-one-sample.
     text = p.read_text(encoding="utf-8", errors="ignore")
-    first = next((ln for ln in text.splitlines() if ln.strip()), "")
-    n_cols = len(first.split("\t"))
-    if n_cols >= 2 and _KO.search(text):
-        table = _load_long_table(p)
-        if len(table) > 1:
-            return table
-    # Fallback: the entire file is a single sample's KO list.
+    if fmt == "eggnog":
+        kos = _kos_from_eggnog(text)
+        if not kos:
+            raise ValueError(f"no KEGG_ko entries found in {p}")
+        return {p.stem: kos}
+    if fmt == "auto":
+        # long table (sample<TAB>KO) vs. whole-file-is-one-sample
+        first = next((ln for ln in text.splitlines() if ln.strip()), "")
+        if len(first.split("\t")) >= 2 and _KO.search(text):
+            table = _load_long_table(p)
+            if len(table) > 1:
+                return table
     kos = _kos_from_text(text)
     if not kos:
         raise ValueError(f"no KO ids (K#####) found in {p}")

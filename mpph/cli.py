@@ -56,7 +56,7 @@ def run(args: argparse.Namespace) -> int:
     if from_user:
         from .userdata import load_user_kos
         print(f"[1/4] Loading user KO annotations from {args.user} ...", flush=True)
-        org_kos = load_user_kos(args.user)
+        org_kos = load_user_kos(args.user, args.input_format)
         organisms = [(name, name) for name in org_kos]
         print(f"      loaded {len(org_kos)} sample(s)")
     else:
@@ -300,6 +300,10 @@ def build_parser() -> argparse.ArgumentParser:
     src.add_argument("--user", metavar="PATH",
                      help="Your own KO annotations (a directory of per-MAG KO "
                           "lists, or a KO table). Implies --completeness.")
+    src.add_argument("--input-format", default="auto",
+                     choices=["auto", "ko-list", "eggnog"],
+                     help="Format of --user input (eggnog reads the KEGG_ko "
+                          "column of eggNOG-mapper output).")
 
     ana = p.add_argument_group("analysis")
     ana.add_argument("--completeness", action="store_true",
