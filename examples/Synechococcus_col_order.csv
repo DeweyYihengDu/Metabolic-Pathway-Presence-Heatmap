@@ -1,0 +1,79 @@
+position,feature_id,name
+1,00100,Steroid biosynthesis
+2,00909,Sesquiterpenoid and triterpenoid biosynthesis
+3,00440,Phosphonate and phosphinate metabolism
+4,00311,Penicillin and cephalosporin biosynthesis
+5,00791,Atrazine degradation
+6,00514,Other types of O-glycan biosynthesis
+7,00515,Mannose type O-glycan biosynthesis
+8,00907,"Pinene, camphor and geraniol degradation"
+9,00626,Naphthalene degradation
+10,00623,Toluene degradation
+11,00361,Chlorocyclohexane and chlorobenzene degradation
+12,00364,Fluorobenzoate degradation
+13,00600,Sphingolipid metabolism
+14,00511,Other glycan degradation
+15,00310,Lysine degradation
+16,00380,Tryptophan metabolism
+17,00650,Butanoate metabolism
+18,00430,Taurine and hypotaurine metabolism
+19,00627,Aminobenzoate degradation
+20,00071,Fatty acid degradation
+21,00625,Chloroalkane and chloroalkene degradation
+22,00946,Degradation of flavonoids
+23,00999,Biosynthesis of various plant secondary metabolites
+24,00910,Nitrogen metabolism
+25,00566,Sulfoquinovose metabolism
+26,00561,Glycerolipid metabolism
+27,00250,"Alanine, aspartate and glutamate metabolism"
+28,00520,Amino sugar and nucleotide sugar metabolism
+29,00920,Sulfur metabolism
+30,00906,Carotenoid biosynthesis
+31,00900,Terpenoid backbone biosynthesis
+32,00790,Folate biosynthesis
+33,00770,Pantothenate and CoA biosynthesis
+34,00760,Nicotinate and nicotinamide metabolism
+35,00750,Vitamin B6 metabolism
+36,00740,Riboflavin metabolism
+37,00730,Thiamine metabolism
+38,00720,Other carbon fixation pathways
+39,00660,C5-Branched dibasic acid metabolism
+40,00564,Glycerophospholipid metabolism
+41,00562,Inositol phosphate metabolism
+42,00552,Teichoic acid biosynthesis
+43,00550,Peptidoglycan biosynthesis
+44,00543,Exopolysaccharide biosynthesis
+45,00542,O-Antigen repeat unit biosynthesis
+46,00540,Lipopolysaccharide biosynthesis
+47,00521,Streptomycin biosynthesis
+48,00500,Starch and sucrose metabolism
+49,00480,Glutathione metabolism
+50,00470,D-Amino acid metabolism
+51,00460,Cyanoamino acid metabolism
+52,00450,Selenocompound metabolism
+53,00410,beta-Alanine metabolism
+54,00401,Novobiocin biosynthesis
+55,00360,Phenylalanine metabolism
+56,00350,Tyrosine metabolism
+57,00340,Histidine metabolism
+58,00332,Carbapenem biosynthesis
+59,00330,Arginine and proline metabolism
+60,00300,Lysine biosynthesis
+61,00270,Cysteine and methionine metabolism
+62,00261,Monobactam biosynthesis
+63,00220,Arginine biosynthesis
+64,00052,Galactose metabolism
+65,00130,Ubiquinone and other terpenoid-quinone biosynthesis
+66,00196,Photosynthesis - antenna proteins
+67,00541,Biosynthesis of various nucleotide sugars
+68,00053,Ascorbate and aldarate metabolism
+69,00523,Polyketide sugar unit biosynthesis
+70,00525,Acarbose and validamycin biosynthesis
+71,00121,Secondary bile acid biosynthesis
+72,00930,Caprolactam degradation
+73,00643,Styrene degradation
+74,00633,Nitrotoluene degradation
+75,01040,Biosynthesis of unsaturated fatty acids
+76,01054,Nonribosomal peptide structures
+77,00405,Phenazine biosynthesis
+78,00975,Biosynthesis of various siderophores

@@ -1,0 +1,79 @@
+feature_id,name,category,top_category
+00052,Galactose metabolism,Carbohydrate metabolism,Metabolism
+00053,Ascorbate and aldarate metabolism,Carbohydrate metabolism,Metabolism
+00071,Fatty acid degradation,Lipid metabolism,Metabolism
+00100,Steroid biosynthesis,Lipid metabolism,Metabolism
+00121,Secondary bile acid biosynthesis,Lipid metabolism,Metabolism
+00130,Ubiquinone and other terpenoid-quinone biosynthesis,Metabolism of cofactors and vitamins,Metabolism
+00196,Photosynthesis - antenna proteins,Energy metabolism,Metabolism
+00220,Arginine biosynthesis,Amino acid metabolism,Metabolism
+00250,"Alanine, aspartate and glutamate metabolism",Amino acid metabolism,Metabolism
+00261,Monobactam biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00270,Cysteine and methionine metabolism,Amino acid metabolism,Metabolism
+00300,Lysine biosynthesis,Amino acid metabolism,Metabolism
+00310,Lysine degradation,Amino acid metabolism,Metabolism
+00311,Penicillin and cephalosporin biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00330,Arginine and proline metabolism,Amino acid metabolism,Metabolism
+00332,Carbapenem biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00340,Histidine metabolism,Amino acid metabolism,Metabolism
+00350,Tyrosine metabolism,Amino acid metabolism,Metabolism
+00360,Phenylalanine metabolism,Amino acid metabolism,Metabolism
+00361,Chlorocyclohexane and chlorobenzene degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00364,Fluorobenzoate degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00380,Tryptophan metabolism,Amino acid metabolism,Metabolism
+00401,Novobiocin biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00405,Phenazine biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00410,beta-Alanine metabolism,Metabolism of other amino acids,Metabolism
+00430,Taurine and hypotaurine metabolism,Metabolism of other amino acids,Metabolism
+00440,Phosphonate and phosphinate metabolism,Metabolism of other amino acids,Metabolism
+00450,Selenocompound metabolism,Metabolism of other amino acids,Metabolism
+00460,Cyanoamino acid metabolism,Metabolism of other amino acids,Metabolism
+00470,D-Amino acid metabolism,Metabolism of other amino acids,Metabolism
+00480,Glutathione metabolism,Metabolism of other amino acids,Metabolism
+00500,Starch and sucrose metabolism,Carbohydrate metabolism,Metabolism
+00511,Other glycan degradation,Glycan biosynthesis and metabolism,Metabolism
+00514,Other types of O-glycan biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00515,Mannose type O-glycan biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00520,Amino sugar and nucleotide sugar metabolism,Glycan biosynthesis and metabolism,Metabolism
+00521,Streptomycin biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00523,Polyketide sugar unit biosynthesis,Metabolism of terpenoids and polyketides,Metabolism
+00525,Acarbose and validamycin biosynthesis,Biosynthesis of other secondary metabolites,Metabolism
+00540,Lipopolysaccharide biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00541,Biosynthesis of various nucleotide sugars,Glycan biosynthesis and metabolism,Metabolism
+00542,O-Antigen repeat unit biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00543,Exopolysaccharide biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00550,Peptidoglycan biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00552,Teichoic acid biosynthesis,Glycan biosynthesis and metabolism,Metabolism
+00561,Glycerolipid metabolism,Lipid metabolism,Metabolism
+00562,Inositol phosphate metabolism,Carbohydrate metabolism,Metabolism
+00564,Glycerophospholipid metabolism,Lipid metabolism,Metabolism
+00566,Sulfoquinovose metabolism,Carbohydrate metabolism,Metabolism
+00600,Sphingolipid metabolism,Lipid metabolism,Metabolism
+00623,Toluene degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00625,Chloroalkane and chloroalkene degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00626,Naphthalene degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00627,Aminobenzoate degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00633,Nitrotoluene degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00643,Styrene degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00650,Butanoate metabolism,Carbohydrate metabolism,Metabolism
+00660,C5-Branched dibasic acid metabolism,Carbohydrate metabolism,Metabolism
+00720,Other carbon fixation pathways,Energy metabolism,Metabolism
+00730,Thiamine metabolism,Metabolism of cofactors and vitamins,Metabolism
+00740,Riboflavin metabolism,Metabolism of cofactors and vitamins,Metabolism
+00750,Vitamin B6 metabolism,Metabolism of cofactors and vitamins,Metabolism
+00760,Nicotinate and nicotinamide metabolism,Metabolism of cofactors and vitamins,Metabolism
+00770,Pantothenate and CoA biosynthesis,Metabolism of cofactors and vitamins,Metabolism
+00790,Folate biosynthesis,Metabolism of cofactors and vitamins,Metabolism
+00791,Atrazine degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00900,Terpenoid backbone biosynthesis,Metabolism of terpenoids and polyketides,Metabolism
+00906,Carotenoid biosynthesis,Metabolism of terpenoids and polyketides,Metabolism
+00907,"Pinene, camphor and geraniol degradation",Metabolism of terpenoids and polyketides,Metabolism
+00909,Sesquiterpenoid and triterpenoid biosynthesis,Metabolism of terpenoids and polyketides,Metabolism
+00910,Nitrogen metabolism,Energy metabolism,Metabolism
+00920,Sulfur metabolism,Energy metabolism,Metabolism
+00930,Caprolactam degradation,Xenobiotics biodegradation and metabolism,Metabolism
+00946,Degradation of flavonoids,Biosynthesis of other secondary metabolites,Metabolism
+00975,Biosynthesis of various siderophores,Biosynthesis of other secondary metabolites,Metabolism
+00999,Biosynthesis of various plant secondary metabolites,Biosynthesis of other secondary metabolites,Metabolism
+01040,Biosynthesis of unsaturated fatty acids,Lipid metabolism,Metabolism
+01054,Nonribosomal peptide structures,Metabolism of terpenoids and polyketides,Metabolism

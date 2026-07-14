@@ -24,13 +24,19 @@ a sequence-based species phylogeny without external validation.
 <p align="center">
   <img src="examples/Prochlorococcus_presence_heatmap.png" width="90%"
        alt="Clustered pathway-presence heatmap for the genus Prochlorococcus"><br>
-  <em>Pathway presence — cells coloured by KEGG functional category.</em>
+  <em>Pathway-map association, <code>Prochlorococcus</code> (15 genomes) — cells
+  coloured by KEGG functional category, UPGMA-clustered on Jaccard distance.</em>
 </p>
 <p align="center">
-  <img src="examples/Prochlorococcus_completeness_heatmap.png" width="90%"
-       alt="Module-completeness heatmap for the genus Prochlorococcus"><br>
-  <em>Module completeness — sequential ramp, category strip on top.</em>
+  <img src="examples/Synechococcus_completeness_heatmap.png" width="90%"
+       alt="Module-completeness heatmap for the genus Synechococcus"><br>
+  <em>Module completeness, <code>Synechococcus</code> (25 genomes) — the
+  dendrogram separates several thermophilic and streamlined strains (top four
+  rows) from the rest, visible as a near-empty completeness profile.</em>
 </p>
+
+More examples, including the matching `Synechococcus` pathway-presence figure
+and every underlying data/QC/tree file, are in [`examples/`](examples/).
 
 ## Features
 
