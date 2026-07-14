@@ -33,11 +33,12 @@ def build_presence_matrix(
 
 def build_completeness_matrix(
     org_kos: dict[str, set[str]],
-    module_defs: dict[str, tuple[str, str]],
+    module_defs: dict[str, tuple[str, str, str]],
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Organism x module completeness (0..1) matrix + ``{id: name}`` unused map.
 
-    ``module_defs`` maps ``module_id -> (definition, category)``.
+    ``module_defs`` maps ``module_id -> (definition, category, type)``. The full
+    map is passed to the scorer so nested module references resolve.
     """
     modules = sorted(module_defs)
     rows = list(org_kos)
@@ -46,7 +47,7 @@ def build_completeness_matrix(
         kos = org_kos[organism]
         for j, mid in enumerate(modules):
             definition = module_defs[mid][0]
-            matrix[i, j] = module_completeness(definition, kos)
+            matrix[i, j] = module_completeness(definition, kos, module_defs)
     names = {mid: mid for mid in modules}
     return pd.DataFrame(matrix, index=rows, columns=modules), names
 

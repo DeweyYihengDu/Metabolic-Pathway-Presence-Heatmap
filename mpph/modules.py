@@ -66,15 +66,22 @@ def fetch_module_definition(
     return definition, category
 
 
-def _parse_entry(entry: str) -> tuple[str, str, str]:
-    """Parse one ``get/md:`` entry -> ``(module_id, definition, category)``."""
-    module_id, definition, category = "", "", "Other"
+def _parse_entry(entry: str) -> tuple[str, str, str, str]:
+    """Parse one ``get/md:`` entry -> ``(module_id, definition, category, type)``.
+
+    ``type`` is the ENTRY line's module type (e.g. ``Pathway``, ``Signature``);
+    ``category`` is the second ``;``-field of CLASS (e.g. ``Carbohydrate
+    metabolism``).
+    """
+    module_id, definition, category, mtype = "", "", "Other", "Unknown"
     in_def = False
     for line in entry.splitlines():
         if line.startswith("ENTRY"):
             parts = line.split()
             if len(parts) >= 2:
                 module_id = parts[1]
+            if len(parts) >= 3:
+                mtype = parts[2]  # e.g. "Pathway", "Signature", "Reaction"
         if line.startswith("DEFINITION"):
             definition = line[len("DEFINITION"):].strip()
             in_def = True
@@ -86,20 +93,20 @@ def _parse_entry(entry: str) -> tuple[str, str, str]:
             fields = line[len("CLASS"):].strip().split(";")
             if len(fields) >= 2:
                 category = fields[1].strip()
-    return module_id, definition, category
+    return module_id, definition, category, mtype
 
 
 def fetch_module_definitions(
     session: requests.Session, module_ids: list[str], cache_dir: Path | None,
     *, refresh: bool = False, progress=None,
-) -> dict[str, tuple[str, str]]:
-    """Fetch ``{module_id: (definition, category)}`` for many modules.
+) -> dict[str, tuple[str, str, str]]:
+    """Fetch ``{module_id: (definition, category, type)}`` for many modules.
 
     KEGG's ``get`` accepts up to 10 entries per call, so definitions are fetched
     in batches of 10 (entries are separated by ``///``) -- ~90 requests for the
     full module set instead of ~900.
     """
-    defs: dict[str, tuple[str, str]] = {}
+    defs: dict[str, tuple[str, str, str]] = {}
     chunks = [module_ids[i:i + 10] for i in range(0, len(module_ids), 10)]
     for n, chunk in enumerate(chunks, 1):
         endpoint = "get/" + "+".join(f"md:{m}" for m in chunk)
@@ -107,9 +114,9 @@ def fetch_module_definitions(
         for entry in text.split("///"):
             if not entry.strip():
                 continue
-            mid, definition, category = _parse_entry(entry)
+            mid, definition, category, mtype = _parse_entry(entry)
             if mid:
-                defs[mid] = (definition, category)
+                defs[mid] = (definition, category, mtype)
         if progress is not None:
             progress(n, len(chunks))
     return defs
@@ -161,15 +168,39 @@ def _strip_optional(step: str) -> str:
     return step
 
 
-def step_complete(step: str, ko_set: set[str]) -> bool:
-    """Evaluate whether a single module step is satisfied by ``ko_set``."""
+def _is_gap(step: str) -> bool:
+    """True for a KEGG placeholder step ('--', a reaction with no assigned KO)."""
+    s = step.strip()
+    return bool(s) and set(s) <= {"-"}
+
+
+def step_complete(
+    step: str, ko_set: set[str],
+    module_defs: dict[str, tuple[str, str, str]] | None = None,
+    _stack: frozenset[str] = frozenset(),
+) -> bool:
+    """Evaluate whether a single module step is satisfied by ``ko_set``.
+
+    A nested module reference (``M#####``) is resolved recursively: it counts as
+    satisfied only if that referenced module is itself fully complete for
+    ``ko_set``. ``_stack`` guards against cyclic definitions.
+    """
     step = _strip_optional(step).strip()
-    if not step:
+    if not step or _is_gap(step):
         return True
+
+    def _resolve_module(match) -> str:
+        mid = match.group(0)
+        if module_defs and mid in module_defs and mid not in _stack:
+            sub = module_completeness(module_defs[mid][0], ko_set, module_defs,
+                                      _stack | {mid})
+            return "1" if sub >= 1.0 else "0"
+        return "0"  # module we didn't fetch, or a cycle: treat as absent
+
     # space (AND) and '+' (complex, AND) -> '&';  ',' (OR) -> '|'
     expr = step.replace(" ", "&").replace("+", "&").replace(",", "|")
     expr = _KO.sub(lambda m: "1" if m.group(0) in ko_set else "0", expr)
-    expr = re.sub(r"M\d{5}", "0", expr)  # nested module refs: treat as absent
+    expr = re.sub(r"M\d{5}", _resolve_module, expr)
     if not _SAFE.match(expr) or not expr:
         return False
     try:
@@ -178,10 +209,19 @@ def step_complete(step: str, ko_set: set[str]) -> bool:
         return False
 
 
-def module_completeness(definition: str, ko_set: set[str]) -> float:
-    """Fraction of a module's top-level steps satisfied by ``ko_set`` (0..1)."""
-    steps = split_steps(definition)
+def module_completeness(
+    definition: str, ko_set: set[str],
+    module_defs: dict[str, tuple[str, str, str]] | None = None,
+    _stack: frozenset[str] = frozenset(),
+) -> float:
+    """Fraction of a module's real top-level steps satisfied by ``ko_set`` (0..1).
+
+    ``--`` placeholder steps (reactions with no assigned KO) are excluded from
+    both numerator and denominator. Pass ``module_defs`` so nested module
+    references resolve; omit it and they count as absent.
+    """
+    steps = [s for s in split_steps(definition) if not _is_gap(s)]
     if not steps:
         return 0.0
-    done = sum(1 for s in steps if step_complete(s, ko_set))
+    done = sum(1 for s in steps if step_complete(s, ko_set, module_defs, _stack))
     return done / len(steps)

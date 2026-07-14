@@ -44,3 +44,32 @@ def test_module_completeness_fraction():
 
 def test_module_completeness_empty_definition():
     assert module_completeness("", {"K00001"}) == 0.0
+
+
+def test_double_dash_gap_not_counted():
+    # '--' is a placeholder step (reaction with no assigned KO); it must not
+    # drag completeness below 1.0 when every real step is satisfied.
+    defn = "K14652 K22100 -- K01633 K13941 K22099 K00287"
+    kos = {"K14652", "K22100", "K01633", "K13941", "K22099", "K00287"}
+    assert module_completeness(defn, kos) == 1.0
+
+
+def test_nested_module_reference_resolves():
+    # A module that references sub-modules is complete iff the sub-modules are.
+    module_defs = {
+        "M00161": ("K00001", "cat", "Pathway"),
+        "M00163": ("K00002", "cat", "Pathway"),
+        "M00165": ("K00003", "cat", "Pathway"),
+    }
+    defn = "(M00161,M00163) M00165"
+    assert module_completeness(defn, {"K00001", "K00003"}, module_defs) == 1.0
+    assert module_completeness(defn, {"K00003"}, module_defs) == 0.5
+    # Without module_defs the references cannot resolve -> counted absent.
+    assert module_completeness(defn, {"K00001", "K00003"}) == 0.0
+
+
+def test_nested_module_cycle_is_safe():
+    module_defs = {"M00001": ("M00002", "c", "Pathway"),
+                   "M00002": ("M00001", "c", "Pathway")}
+    # Must terminate rather than recurse forever.
+    assert module_completeness("M00001", {"K00001"}, module_defs) == 0.0

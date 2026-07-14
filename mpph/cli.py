@@ -80,7 +80,11 @@ def run(args: argparse.Namespace) -> int:
                                         end="\r", flush=True),
         )
         print()
-        categories = {mid: cat for mid, (_d, cat) in module_defs.items()}
+        if not args.all_modules:
+            module_defs = {m: v for m, v in module_defs.items() if v[2] == "Pathway"}
+            print(f"      {len(module_defs)} pathway modules "
+                  "(use --all-modules to include signature/reaction modules)")
+        categories = {mid: cat for mid, (_d, cat, _t) in module_defs.items()}
         feature_names = modules
         if from_user:
             kos = org_kos
@@ -226,6 +230,10 @@ def build_parser() -> argparse.ArgumentParser:
     ana.add_argument("--completeness", action="store_true",
                      help="Score KEGG *module completeness* (0..1) instead of "
                           "pathway presence/absence.")
+    ana.add_argument("--all-modules", action="store_true",
+                     help="In completeness mode, score all module types; by "
+                          "default only 'Pathway' modules are used (signature "
+                          "and reaction modules are excluded).")
     ana.add_argument("--cluster", action="store_true",
                      help="UPGMA-cluster rows/columns and draw dendrograms.")
     ana.add_argument("--metric", default="euclidean",
