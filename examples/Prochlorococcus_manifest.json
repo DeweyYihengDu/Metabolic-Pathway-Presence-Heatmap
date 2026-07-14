@@ -1,0 +1,22 @@
+{
+  "taxon": "Prochlorococcus",
+  "exact_match": false,
+  "generated_utc": "2026-07-14T17:13:17+00:00",
+  "kegg_api": "https://rest.kegg.jp",
+  "n_organisms": 15,
+  "n_pathways": 73,
+  "filters": {
+    "min_prevalence": 0.0,
+    "max_prevalence": 1.0,
+    "drop_core": true
+  },
+  "clustered": true,
+  "outputs": {
+    "matrix": "Prochlorococcus_matrix.csv",
+    "pathways": "Prochlorococcus_pathways.csv",
+    "figures": [
+      "Prochlorococcus_heatmap.png",
+      "Prochlorococcus_heatmap.pdf"
+    ]
+  }
+}

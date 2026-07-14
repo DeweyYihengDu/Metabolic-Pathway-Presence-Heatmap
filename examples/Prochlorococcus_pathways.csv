@@ -1,0 +1,74 @@
+map_id,pathway_name,category
+00052,Galactose metabolism,Carbohydrate metabolism
+00053,Ascorbate and aldarate metabolism,Carbohydrate metabolism
+00071,Fatty acid degradation,Lipid metabolism
+00130,Ubiquinone and other terpenoid-quinone biosynthesis,Metabolism of cofactors and vitamins
+00196,Photosynthesis,Energy metabolism
+00220,Arginine biosynthesis,Amino acid metabolism
+00260,"Glycine, serine and threonine metabolism",Amino acid metabolism
+00261,Monobactam biosynthesis,Biosynthesis of other secondary metabolites
+00280,"Valine, leucine and isoleucine degradation",Amino acid metabolism
+00300,Lysine biosynthesis,Amino acid metabolism
+00310,Lysine degradation,Amino acid metabolism
+00330,Arginine and proline metabolism,Amino acid metabolism
+00332,Carbapenem biosynthesis,Biosynthesis of other secondary metabolites
+00340,Histidine metabolism,Amino acid metabolism
+00350,Tyrosine metabolism,Amino acid metabolism
+00360,Phenylalanine metabolism,Amino acid metabolism
+00361,Chlorocyclohexane and chlorobenzene degradation,Xenobiotics biodegradation and metabolism
+00364,Fluorobenzoate degradation,Xenobiotics biodegradation and metabolism
+00380,Tryptophan metabolism,Amino acid metabolism
+00400,"Phenylalanine, tyrosine and tryptophan biosynthesis",Amino acid metabolism
+00401,Novobiocin biosynthesis,Biosynthesis of other secondary metabolites
+00410,beta-Alanine metabolism,Metabolism of other amino acids
+00430,Taurine and hypotaurine metabolism,Metabolism of other amino acids
+00450,Selenocompound metabolism,Metabolism of other amino acids
+00460,Cyanoamino acid metabolism,Metabolism of other amino acids
+00470,D-Amino acid metabolism,Metabolism of other amino acids
+00480,Glutathione metabolism,Metabolism of other amino acids
+00511,Other glycan degradation,Glycan biosynthesis and metabolism
+00521,Streptomycin biosynthesis,Biosynthesis of other secondary metabolites
+00523,Polyketide sugar unit biosynthesis,Metabolism of terpenoids and polyketides
+00525,Acarbose and validamycin biosynthesis,Biosynthesis of other secondary metabolites
+00540,Lipopolysaccharide biosynthesis,Glycan biosynthesis and metabolism
+00541,Biosynthesis of various nucleotide sugars,Glycan biosynthesis and metabolism
+00542,O-Antigen repeat unit biosynthesis,Glycan biosynthesis and metabolism
+00543,Exopolysaccharide biosynthesis,Glycan biosynthesis and metabolism
+00550,Peptidoglycan biosynthesis,Glycan biosynthesis and metabolism
+00552,Teichoic acid biosynthesis,Glycan biosynthesis and metabolism
+00562,Inositol phosphate metabolism,Carbohydrate metabolism
+00564,Glycerophospholipid metabolism,Lipid metabolism
+00600,Sphingolipid metabolism,Lipid metabolism
+00623,Toluene degradation,Xenobiotics biodegradation and metabolism
+00625,Chloroalkane and chloroalkene degradation,Xenobiotics biodegradation and metabolism
+00626,Naphthalene degradation,Xenobiotics biodegradation and metabolism
+00627,Aminobenzoate degradation,Xenobiotics biodegradation and metabolism
+00640,Propanoate metabolism,Carbohydrate metabolism
+00643,Styrene degradation,Xenobiotics biodegradation and metabolism
+00650,Butanoate metabolism,Carbohydrate metabolism
+00660,C5-Branched dibasic acid metabolism,Carbohydrate metabolism
+00670,One carbon pool by folate,Metabolism of cofactors and vitamins
+00720,Other carbon fixation pathways,Energy metabolism
+00730,Thiamine metabolism,Metabolism of cofactors and vitamins
+00740,Riboflavin metabolism,Metabolism of cofactors and vitamins
+00750,Vitamin B6 metabolism,Metabolism of cofactors and vitamins
+00900,Terpenoid backbone biosynthesis,Metabolism of terpenoids and polyketides
+00906,Carotenoid biosynthesis,Metabolism of terpenoids and polyketides
+00910,Nitrogen metabolism,Energy metabolism
+00920,Sulfur metabolism,Energy metabolism
+00946,Degradation of flavonoids,Biosynthesis of other secondary metabolites
+00999,Biosynthesis of various plant secondary metabolites,Biosynthesis of other secondary metabolites
+01501,beta-Lactam resistance,Drug resistance: antimicrobial
+01502,Vancomycin resistance,Drug resistance: antimicrobial
+01503,Cationic antimicrobial peptide (CAMP) resistance,Drug resistance: antimicrobial
+02010,ABC transporters,Membrane transport
+03030,DNA replication,Replication and repair
+03250,Viral life cycle,Information processing in viruses
+03410,Base excision repair,Replication and repair
+03420,Nucleotide excision repair,Replication and repair
+03430,Mismatch repair,Replication and repair
+04122,Sulfur relay system,"Folding, sorting and degradation"
+04142,Lysosome biogenesis,Transport and catabolism
+04146,Peroxisome,Transport and catabolism
+04980,Cobalamin transport and metabolism,Digestive system
+04981,Folate transport and metabolism,Digestive system
