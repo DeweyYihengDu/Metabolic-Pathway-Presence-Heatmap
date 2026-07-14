@@ -1,22 +1,43 @@
 {
-  "taxon": "Prochlorococcus",
-  "exact_match": false,
-  "generated_utc": "2026-07-14T17:13:17+00:00",
-  "kegg_api": "https://rest.kegg.jp",
+  "mpph_version": "3.0.0",
+  "source": "Prochlorococcus",
+  "mode": "presence",
+  "metric": "euclidean",
+  "clustered": true,
+  "generated_utc": "2026-07-14T18:42:36+00:00",
+  "kegg_release": "pathway        587  2026/07/14",
   "n_organisms": 15,
-  "n_pathways": 73,
+  "n_features": 73,
+  "organisms": [
+    "Prochlorococcus marinus subsp. marinus CCMP1375 (pma)",
+    "Prochlorococcus marinus subsp. pastoris CCMP1986 (pmm)",
+    "Prochlorococcus marinus MIT 9313 (pmt)",
+    "Prochlorococcus marinus NATL2A (pmn)",
+    "Prochlorococcus marinus MIT 9312 (pmi)",
+    "Prochlorococcus marinus AS9601 (pmb)",
+    "Prochlorococcus marinus MIT 9515 (pmc)",
+    "Prochlorococcus marinus MIT 9303 (pmf)",
+    "Prochlorococcus marinus MIT 9301 (pmg)",
+    "Prochlorococcus marinus MIT 9215 (pmh)",
+    "Prochlorococcus marinus MIT 9211 (pmj)",
+    "Prochlorococcus marinus NATL1A (pme)",
+    "Prochlorococcus sp. MIT 0604 (prc)",
+    "Prochlorococcus sp. MIT 0801 (prm)",
+    "Prochlorococcus sp. RSP50 (pror)"
+  ],
   "filters": {
     "min_prevalence": 0.0,
     "max_prevalence": 1.0,
-    "drop_core": true
+    "drop_core": true,
+    "keep_overview": false
   },
-  "clustered": true,
   "outputs": {
     "matrix": "Prochlorococcus_matrix.csv",
-    "pathways": "Prochlorococcus_pathways.csv",
+    "features": "Prochlorococcus_features.csv",
     "figures": [
       "Prochlorococcus_heatmap.png",
       "Prochlorococcus_heatmap.pdf"
-    ]
+    ],
+    "newick": "Prochlorococcus_tree.nwk"
   }
 }

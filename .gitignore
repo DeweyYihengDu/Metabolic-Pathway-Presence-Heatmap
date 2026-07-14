@@ -25,3 +25,8 @@ output/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

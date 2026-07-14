@@ -1,4 +1,4 @@
-map_id,pathway_name,category
+feature_id,name,category
 00052,Galactose metabolism,Carbohydrate metabolism
 00053,Ascorbate and aldarate metabolism,Carbohydrate metabolism
 00071,Fatty acid degradation,Lipid metabolism
