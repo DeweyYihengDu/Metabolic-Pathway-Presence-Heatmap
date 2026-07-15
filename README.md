@@ -80,6 +80,31 @@ mpph --user annotations/ --cluster --format png pdf
 
 `mpph` and `python -m mpph` are equivalent.
 
+### Subcommands
+
+`mpph <taxon> …` is a shortcut for `mpph run …`. The full toolkit:
+
+```bash
+# Score a metabolic-trait panel (built-in biogeochemistry, or your own JSON/YAML)
+mpph traits Prochlorococcus --panel biogeochemistry --cluster
+
+# Explain one module's evidence for one organism (matched / missing KOs per step)
+mpph explain Prochlorococcus --module M00002 --organism pmt
+
+# --- these post-process a previous `run --outdir results/` ---
+mpph pan        --results results/                       # core/shell/cloud
+mpph ordination --results results/ --metadata meta.tsv --color habitat   # PCoA + PERMANOVA
+mpph compare    --results results/ --metadata meta.tsv \
+                --group-column habitat --group-a surface --group-b deep   # differential
+mpph report     --results results/                       # interactive report.html
+
+# Metabolic complementarity across organisms (union completes a module)
+mpph community  --codes genomes.txt --max-combination-size 2
+
+# Validate a sample sheet before a user-data run
+mpph validate   --samples samples.tsv
+```
+
 ### Key options
 
 | Option | Description |

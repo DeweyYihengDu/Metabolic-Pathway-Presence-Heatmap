@@ -1,5 +1,46 @@
 # Changelog
 
+## 3.2.0
+
+Turns MPPH from a heatmap tool into a functional-profile analysis toolkit. The
+CLI is now subcommand-based; `mpph <taxon> ...` still works as a shortcut for
+`mpph run`.
+
+### New analysis
+- **Evidence-aware scoring** (`mpph.modules.evaluate_module`): per-step
+  matched/missing KOs, complete/partial/absent/unknown state, unresolved
+  references, parser status. Surfaced by **`mpph explain`**.
+- **`mpph compare`** — differential features between two groups (Fisher exact /
+  Mann-Whitney U, odds ratio / Cliff's delta, BH-FDR).
+- **`mpph pan`** — core / soft-core / shell / cloud classes + bootstrap
+  pan/core accumulation curve.
+- **`mpph ordination`** — PCoA (classical MDS) with a scatter plot, and
+  PERMANOVA when a grouping is supplied.
+- **`mpph community`** — pairwise metabolic complementarity (modules completed
+  by a union of organisms that neither completes alone).
+- **`mpph traits`** — score JSON/YAML metabolic-trait panels; ships a built-in
+  biogeochemistry marker panel (N/S/C/methane cycles, photosynthesis).
+- **`mpph report`** — self-contained interactive HTML report (searchable colour
+  heatmap, QC and manifest tabs).
+- **`mpph validate`** — sample-sheet checks.
+
+### New input / metadata
+- `mpph.samplesheet`: reproducible sample-sheet input; CheckM2 and GTDB-Tk
+  metadata import.
+- `--input-format eggnog` reads the eggNOG-mapper `KEGG_ko` column.
+
+### Public API
+- The KEGG REST client and data-access functions are exported from the
+  top-level package (see the README "Public Python API").
+
+### Comparison / trees
+- `mpph.treecompare`: Robinson-Foulds distance to a reference tree and
+  feature-bootstrap clade support.
+
+## 3.1.1
+- Expose the KEGG connection interface as public API; derive the request
+  User-Agent from the package version.
+
 ## 3.1.0
 
 ### Scientific correctness
