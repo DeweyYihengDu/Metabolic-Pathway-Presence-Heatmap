@@ -194,11 +194,14 @@ def run(args: argparse.Namespace) -> int:
     subtitle = (f"{df.shape[0]} organisms × {df.shape[1]} "
                 + ("KEGG modules" if mode == "completeness" else "KEGG pathways")
                 + (f"  ·  UPGMA ({metric})" if args.cluster else ""))
+    strip_label = ("KEGG module functional category" if mode == "completeness"
+                   else "KEGG functional category")
     figures, layout = [], {}
     for fmt in args.format:
         fig_path = outdir / f"{slug}_heatmap.{fmt}"
         layout = plot_matrix(df, categories, fig_path, title, subtitle,
-                             cluster=args.cluster, mode=mode, metric=metric)
+                             cluster=args.cluster, mode=mode, metric=metric,
+                             strip_label=strip_label)
         figures.append(fig_path.name)
 
     # --- clustered order + trees (traceability) ------------------------------
@@ -488,7 +491,8 @@ def cmd_traits(args) -> int:
     for fmt in args.format:
         plot_matrix(matrix, categories, outdir / f"{slug}_heatmap.{fmt}",
                     title, subtitle, cluster=args.cluster, mode="completeness",
-                    metric="euclidean")
+                    metric="euclidean", value_label="trait completeness",
+                    strip_label="trait category")
     print(f"Scored {matrix.shape[1]} traits for {matrix.shape[0]} organisms. "
           f"Wrote to {outdir}/")
     return 0

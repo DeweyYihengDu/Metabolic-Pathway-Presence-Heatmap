@@ -35,6 +35,14 @@ a sequence-based species phylogeny without external validation.
   rows) from the rest, visible as a near-empty completeness profile.</em>
 </p>
 
+<p align="center">
+  <img src="examples/Prochlorococcus_traits_heatmap.png" width="90%"
+       alt="Biogeochemical-trait completeness for the genus Prochlorococcus"><br>
+  <em>Trait panel (<code>mpph traits</code>) — every <code>Prochlorococcus</code>
+  scores complete carbon fixation (RuBisCO) and oxygenic photosynthesis, and
+  (correctly) lacks nitrogen fixation, nitrification and methanogenesis.</em>
+</p>
+
 More examples, including the matching `Synechococcus` pathway-presence figure
 and every underlying data/QC/tree file, are in [`examples/`](examples/).
 

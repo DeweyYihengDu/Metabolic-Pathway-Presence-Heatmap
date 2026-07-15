@@ -131,12 +131,16 @@ def plot_matrix(
     cluster: bool = False,
     mode: str = "presence",
     metric: str = "euclidean",
+    value_label: str = "module completeness",
+    strip_label: str = "KEGG functional category",
 ) -> dict:
     """Render the matrix; return ``{row_link, col_link, row_labels, col_labels}``.
 
     ``mode='presence'`` colours present cells by functional category;
     ``mode='completeness'`` colours cells by a sequential completeness ramp with
     a colorbar. Rows are organisms, columns are pathways or modules.
+    ``value_label`` / ``strip_label`` name the colorbar and category strip (so a
+    trait heatmap reads "trait completeness" / "trait category").
     """
     if df.shape[1] == 0:
         raise ValueError("Nothing to plot: the matrix has no columns after "
@@ -271,15 +275,15 @@ def plot_matrix(
     handles = [Patch(facecolor=color, edgecolor="none", label=cat)
                for cat, color in legend]
     if continuous:
-        leg_title = "Category strip: KEGG module functional category"
+        leg_title = f"Category strip: {strip_label}"
         cax = fig.add_axes([0.055, 0.93, 0.17, 0.018])
         sm = ScalarMappable(norm=mcolors.Normalize(0, 1), cmap=COMPLETENESS_CMAP)
         cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
-        cbar.set_label("module completeness", fontsize=9, color=SECONDARY)
+        cbar.set_label(value_label, fontsize=9, color=SECONDARY)
         cbar.ax.tick_params(labelsize=8, color=MUTED, labelcolor=MUTED)
         cbar.outline.set_visible(False)
     else:
-        leg_title = ("Present pathway coloured by KEGG functional category"
+        leg_title = (f"Present pathway coloured by {strip_label}"
                      "  ·  light grey = absent")
         handles.append(Patch(facecolor=ABSENT, edgecolor=MUTED, linewidth=0.5,
                              label="absent"))

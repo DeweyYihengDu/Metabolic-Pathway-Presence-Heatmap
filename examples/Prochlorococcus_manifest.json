@@ -1,6 +1,6 @@
 {
-  "mpph_version": "3.0.0",
-  "command": "mpph Prochlorococcus --cluster --drop-core --newick --format png pdf --outdir C:/Users/DuYih/AppData/Local/Temp/exP",
+  "mpph_version": "3.2.0",
+  "command": "mpph run Prochlorococcus --cluster --drop-core --newick --format png pdf --outdir C:/Users/DuYih/AppData/Local/Temp/rg_Prochlorococcus_p",
   "python": "3.11.0",
   "platform": "win32",
   "source": "Prochlorococcus",
@@ -8,7 +8,7 @@
   "metric": "jaccard",
   "match": "word",
   "clustered": true,
-  "generated_utc": "2026-07-14T22:13:54+00:00",
+  "generated_utc": "2026-07-15T03:20:42+00:00",
   "kegg_release": "pathway        587  2026/07/14",
   "n_organisms_matched": 15,
   "n_organisms": 15,
