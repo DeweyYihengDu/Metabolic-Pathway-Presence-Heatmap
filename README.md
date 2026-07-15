@@ -135,6 +135,37 @@ For a run on `<name>`, MPPH writes to the output directory:
 4. Render the heatmap, clustering when `--cluster` is set, coloured by KEGG
    functional category (`br08901` / module `CLASS`).
 
+## Public Python API (KEGG interface)
+
+The KEGG REST client and the data-access functions are a **public, open part of
+the package** — nothing is gated. They always connect directly to the official
+KEGG endpoint (`https://rest.kegg.jp`), so you can reuse them to talk to KEGG
+programmatically:
+
+```python
+import mpph
+
+session = mpph.make_session()            # pooled, retrying HTTPS session
+
+# Low-level: any KEGG REST endpoint, with optional on-disk caching
+text = mpph.kegg_get(session, "list/genome", cache_dir=None)
+print(mpph.KEGG_API_BASE)                # https://rest.kegg.jp
+
+# Higher-level helpers
+genomes = mpph.list_genomes(session, None)
+vibrio  = mpph.select_by_taxon(genomes, "Vibrio", match="word")
+paths   = mpph.get_pathways(session, "vch", None)     # {map_id: name}
+kos     = mpph.organism_kos(session, "vch", None)     # {K#####, ...}
+score   = mpph.module_completeness("K00844 K12407 K00845", kos)
+```
+
+`mpph.KEGG_API_BASE`, `make_session`, `kegg_get`, `kegg_release`,
+`list_genomes`, `select_by_taxon`, `select_by_codes`, `get_pathways`,
+`fetch_pathway_categories`, `list_modules`, `fetch_module_definitions`,
+`organism_kos`, and the matrix/plot helpers are all exported from the top-level
+`mpph` package. (Note the [KEGG terms](DATA_SOURCES.md) apply to the *data* you
+retrieve; the client code is MIT-licensed.)
+
 ## Limitations
 
 - **`pathway-map` ≠ complete pathway.** A `1` means KEGG lists an

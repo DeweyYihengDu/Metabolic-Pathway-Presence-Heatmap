@@ -4,20 +4,53 @@ Fetch KEGG metabolic-pathway presence (or module completeness) across genomes
 in a taxon -- or across your own MAGs -- and render category-aware heatmaps
 with UPGMA dendrograms.
 
+The KEGG REST client and all data-access functions are part of the **public
+API**: they talk directly to the official KEGG REST endpoint
+(``https://rest.kegg.jp``), so anyone can reuse them to connect to KEGG
+programmatically. See ``mpph.kegg`` for the low-level connection layer.
+
 Reference: Y.-H. Du & J.-H. Mu, "Metabolic-Pathway-Presence-Heatmap (MPPH):
 Constructing phylogenetic trees based on metabolic pathways", bioRxiv 2023,
 doi:10.1101/2023.06.27.546232
 """
 from __future__ import annotations
 
-__version__ = "3.1.0"
+__version__ = "3.1.1"
 
+# --- Public KEGG connection interface (open; talks to rest.kegg.jp) ---------
+from .kegg import KEGG_API_BASE, kegg_get, kegg_release, make_session
+
+# --- Public data-access interface -------------------------------------------
+from .modules import (
+    fetch_module_definitions,
+    list_modules,
+    module_completeness,
+    organism_kos,
+)
+from .organisms import list_genomes, select_by_codes, select_by_taxon
+from .pathways import fetch_pathway_categories, get_pathways
+
+# --- Matrix + figure helpers ------------------------------------------------
 from .matrix import build_completeness_matrix, build_presence_matrix, filter_matrix
-from .modules import module_completeness
 from .plot import plot_matrix
 
 __all__ = [
     "__version__",
+    # KEGG connection interface (public)
+    "KEGG_API_BASE",
+    "make_session",
+    "kegg_get",
+    "kegg_release",
+    # data access
+    "list_genomes",
+    "select_by_taxon",
+    "select_by_codes",
+    "get_pathways",
+    "fetch_pathway_categories",
+    "list_modules",
+    "fetch_module_definitions",
+    "organism_kos",
+    # analysis + plotting
     "build_presence_matrix",
     "build_completeness_matrix",
     "filter_matrix",

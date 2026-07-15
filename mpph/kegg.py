@@ -30,7 +30,9 @@ def make_session() -> requests.Session:
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
-    session.headers.update({"User-Agent": "MPPH/3.0 (+github.com/DeweyYihengDu)"})
+    from . import __version__  # local import avoids a circular import at load
+    session.headers.update(
+        {"User-Agent": f"MPPH/{__version__} (+github.com/DeweyYihengDu)"})
     return session
 
 
