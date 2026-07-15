@@ -46,6 +46,29 @@ a sequence-based species phylogeny without external validation.
 More examples, including the matching `Synechococcus` pathway-presence figure
 and every underlying data/QC/tree file, are in [`examples/`](examples/).
 
+### Beyond heatmaps
+
+The analysis subcommands turn a run into comparative figures. Below, the
+25-genome `Synechococcus` set (module completeness):
+
+<p align="center">
+  <img src="examples/Synechococcus_pan_accumulation.png" width="48%"
+       alt="Functional pan/core accumulation curve">
+  <img src="examples/Synechococcus_pan_prevalence.png" width="48%"
+       alt="Pan-functional prevalence histogram"><br>
+  <em><code>mpph pan</code> — an open functional pangenome: the pan set keeps
+  growing while the core shrinks and levels off; most modules are accessory
+  (prevalence ≈ 0) with a smaller core spike at 1.0.</em>
+</p>
+<p align="center">
+  <img src="examples/Synechococcus_differential_volcano.png" width="60%"
+       alt="Differential module volcano plot, marine vs freshwater"><br>
+  <em><code>mpph compare</code> — differential module completeness between marine
+  Synechococcus and six non-marine strains (<em>S. elongatus</em> + thermophilic
+  JA isolates); 21 modules at q&lt;0.05 (red). Exploratory — not corrected for
+  phylogenetic non-independence.</em>
+</p>
+
 ## Features
 
 - **Two analyses** — pathway presence/absence *or* KEGG module completeness.
