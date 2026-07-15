@@ -38,6 +38,9 @@ mpph = "mpph.cli:main"
 [tool.setuptools]
 packages = ["mpph"]
 
+[tool.setuptools.package-data]
+mpph = ["data/traits/*.json", "data/traits/*.yaml"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py39"

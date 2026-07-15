@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "description": "Illustrative biogeochemical-cycle marker traits. Marker KOs only; verify against a curated source before publication.",
+  "traits": {
+    "nitrogen_fixation": {
+      "name": "Nitrogen fixation",
+      "category": "Nitrogen cycle",
+      "source": "nif structural genes",
+      "steps": [{"all_of": ["K02586", "K02588", "K02591"]}]
+    },
+    "nitrification_amo": {
+      "name": "Ammonia oxidation (amo)",
+      "category": "Nitrogen cycle",
+      "steps": [{"all_of": ["K10944", "K10945", "K10946"]}]
+    },
+    "denitrification": {
+      "name": "Denitrification",
+      "category": "Nitrogen cycle",
+      "steps": [
+        {"any_of": ["K00370", "K00368", "K15864"]},
+        {"any_of": ["K04561", "K02305"]},
+        {"any_of": ["K00376"]}
+      ]
+    },
+    "dissimilatory_sulfate_reduction": {
+      "name": "Dissimilatory sulfate reduction",
+      "category": "Sulfur cycle",
+      "steps": [
+        {"any_of": ["K00958"]},
+        {"all_of": ["K00394", "K00395"]},
+        {"all_of": ["K11180", "K11181"]}
+      ]
+    },
+    "sulfur_oxidation_sox": {
+      "name": "Thiosulfate oxidation (sox)",
+      "category": "Sulfur cycle",
+      "steps": [{"all_of": ["K17222", "K17223", "K17224", "K17226"]}]
+    },
+    "methanogenesis": {
+      "name": "Methanogenesis (mcr)",
+      "category": "Methane cycle",
+      "steps": [{"all_of": ["K00399", "K00401", "K00402"]}]
+    },
+    "oxygenic_photosynthesis": {
+      "name": "Oxygenic photosynthesis (PSI+PSII)",
+      "category": "Energy metabolism",
+      "steps": [
+        {"any_of": ["K02703"]},
+        {"any_of": ["K02689", "K02690"]}
+      ]
+    },
+    "carbon_fixation_rubisco": {
+      "name": "Carbon fixation (RuBisCO)",
+      "category": "Carbon cycle",
+      "steps": [{"all_of": ["K01601", "K01602"]}]
+    }
+  }
+}
