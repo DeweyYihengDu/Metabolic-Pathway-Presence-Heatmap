@@ -90,6 +90,37 @@ def _leaf_order(matrix, metric):
     return np.asarray(order), link
 
 
+def plot_ordination(
+    coords: pd.DataFrame, explained, outfile: Path, title: str,
+    groups: pd.Series | None = None,
+) -> None:
+    """Scatter of the first two PCoA axes, optionally coloured by group."""
+    fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    x, y = coords.iloc[:, 0], coords.iloc[:, 1]
+    if groups is not None:
+        labels = [groups.get(i, "n/a") for i in coords.index]
+        uniq = list(dict.fromkeys(labels))
+        cmap = {g: CATEGORY_PALETTE[i % len(CATEGORY_PALETTE)]
+                for i, g in enumerate(uniq)}
+        for g in uniq:
+            m = [lab == g for lab in labels]
+            ax.scatter(x[m], y[m], s=60, color=cmap[g], label=str(g),
+                       edgecolor="white", linewidth=0.6)
+        ax.legend(frameon=False, fontsize=9, title_fontsize=10)
+    else:
+        ax.scatter(x, y, s=60, color=CATEGORY_PALETTE[0],
+                   edgecolor="white", linewidth=0.6)
+    ev = list(explained) + [0, 0]
+    ax.set_xlabel(f"PCo1 ({ev[0] * 100:.1f}%)", color=SECONDARY)
+    ax.set_ylabel(f"PCo2 ({ev[1] * 100:.1f}%)", color=SECONDARY)
+    ax.set_title(title, fontsize=15, color=INK)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_matrix(
     df: pd.DataFrame,
     categories: dict[str, str],
