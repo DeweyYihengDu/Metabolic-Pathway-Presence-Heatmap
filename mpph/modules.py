@@ -14,6 +14,7 @@ same approximation used by KEGG-Decoder / MicrobeAnnotator.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
@@ -225,3 +226,79 @@ def module_completeness(
         return 0.0
     done = sum(1 for s in steps if step_complete(s, ko_set, module_defs, _stack))
     return done / len(steps)
+
+
+# --------------------------------------------------------------------------- #
+# Evidence-aware evaluation (for `mpph explain` and complete/partial states)
+# --------------------------------------------------------------------------- #
+@dataclass
+class StepResult:
+    """One module step and whether ``ko_set`` satisfies it."""
+    expression: str
+    satisfied: bool
+    matched_kos: list[str]
+    missing_kos: list[str]
+
+
+@dataclass
+class ModuleEvaluation:
+    """Full evidence for one module scored against one KO set."""
+    module_id: str
+    score: float
+    state: str  # complete | partial | absent | unknown
+    n_steps: int
+    n_satisfied: int
+    steps: list[StepResult] = field(default_factory=list)
+    matched_kos: set[str] = field(default_factory=set)
+    missing_kos: set[str] = field(default_factory=set)
+    unresolved_references: set[str] = field(default_factory=set)
+    parser_status: str = "valid"
+
+
+def classify_state(score: float, complete_threshold: float = 1.0,
+                   partial_threshold: float = 1e-9) -> str:
+    """Map a completeness score to complete / partial / absent."""
+    if score >= complete_threshold:
+        return "complete"
+    if score > partial_threshold:
+        return "partial"
+    return "absent"
+
+
+def evaluate_module(
+    module_id: str, definition: str, ko_set: set[str],
+    module_defs: dict[str, tuple[str, str, str]] | None = None,
+    *, complete_threshold: float = 1.0, _stack: frozenset[str] = frozenset(),
+) -> ModuleEvaluation:
+    """Score ``definition`` against ``ko_set`` with per-step matched/missing KOs."""
+    steps_raw = [s for s in split_steps(definition) if not _is_gap(s)]
+    if not steps_raw:
+        return ModuleEvaluation(module_id, 0.0, "unknown", 0, 0,
+                                parser_status="empty_definition")
+
+    results: list[StepResult] = []
+    unresolved: set[str] = set()
+    matched_all: set[str] = set()
+    missing_all: set[str] = set()
+    for step in steps_raw:
+        stripped = _strip_optional(step)
+        kos = set(_KO.findall(stripped))
+        for ref in re.findall(r"M\d{5}", stripped):
+            if not (module_defs and ref in module_defs):
+                unresolved.add(ref)
+        matched = sorted(kos & ko_set)
+        missing = sorted(kos - ko_set)
+        satisfied = step_complete(step, ko_set, module_defs, _stack)
+        results.append(StepResult(step, satisfied, matched, missing))
+        matched_all.update(matched)
+        if not satisfied:
+            missing_all.update(missing)
+
+    n_sat = sum(1 for r in results if r.satisfied)
+    score = n_sat / len(results)
+    status = "valid" if not unresolved else "unresolved_references"
+    return ModuleEvaluation(
+        module_id, score, classify_state(score, complete_threshold),
+        len(results), n_sat, results, matched_all, missing_all,
+        unresolved, status,
+    )

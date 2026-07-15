@@ -1,5 +1,11 @@
 """Unit tests for the KEGG module-completeness evaluator."""
-from mpph.modules import module_completeness, split_steps, step_complete
+from mpph.modules import (
+    classify_state,
+    evaluate_module,
+    module_completeness,
+    split_steps,
+    step_complete,
+)
 
 
 def test_split_steps_flat():
@@ -73,3 +79,28 @@ def test_nested_module_cycle_is_safe():
                    "M00002": ("M00001", "c", "Pathway")}
     # Must terminate rather than recurse forever.
     assert module_completeness("M00001", {"K00001"}, module_defs) == 0.0
+
+
+def test_classify_state():
+    assert classify_state(1.0) == "complete"
+    assert classify_state(0.5) == "partial"
+    assert classify_state(0.0) == "absent"
+
+
+def test_evaluate_module_evidence():
+    defn = "(K00844,K12407) (K01810) K01803"
+    ev = evaluate_module("M99999", defn, {"K00844", "K01803"})
+    assert ev.state == "partial"
+    assert ev.n_steps == 3
+    assert ev.n_satisfied == 2
+    assert "K00844" in ev.matched_kos
+    # The unsatisfied middle step contributes its KO to missing.
+    assert "K01810" in ev.missing_kos
+    # Per-step detail is recorded.
+    assert [s.satisfied for s in ev.steps] == [True, False, True]
+
+
+def test_evaluate_module_unresolved_reference():
+    ev = evaluate_module("M99999", "M00161 K00001", {"K00001"})
+    assert "M00161" in ev.unresolved_references
+    assert ev.parser_status == "unresolved_references"
