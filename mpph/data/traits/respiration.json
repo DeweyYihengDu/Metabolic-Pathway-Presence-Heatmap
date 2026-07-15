@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "description": "Illustrative terminal-oxidase / respiration marker traits. Marker KOs only; verify against a curated source before publication.",
+  "traits": {
+    "cytochrome_c_oxidase_aa3": {
+      "name": "Cytochrome c oxidase (aa3)",
+      "category": "Aerobic respiration",
+      "steps": [{"all_of": ["K02274", "K02275"]}]
+    },
+    "cytochrome_bo3_ubiquinol_oxidase": {
+      "name": "Cytochrome bo3 ubiquinol oxidase",
+      "category": "Aerobic respiration",
+      "steps": [{"all_of": ["K02297", "K02298"]}]
+    },
+    "cytochrome_bd_oxidase": {
+      "name": "Cytochrome bd oxidase",
+      "category": "Aerobic respiration",
+      "steps": [{"all_of": ["K00425", "K00426"]}]
+    },
+    "cbb3_type_oxidase": {
+      "name": "cbb3-type cytochrome c oxidase",
+      "category": "Microaerobic respiration",
+      "steps": [{"all_of": ["K00404", "K00405"]}]
+    },
+    "nitrate_reductase_nar": {
+      "name": "Respiratory nitrate reductase (nar)",
+      "category": "Anaerobic respiration",
+      "steps": [{"all_of": ["K00370", "K00371"]}]
+    }
+  }
+}

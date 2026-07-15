@@ -121,6 +121,78 @@ def plot_ordination(
     plt.close(fig)
 
 
+def plot_volcano(diff: pd.DataFrame, outfile: Path, title: str,
+                 alpha: float = 0.05) -> None:
+    """Volcano plot for `compare` output: effect size vs -log10(q-value)."""
+    if "prevalence_diff" in diff.columns:
+        xcol, xlabel = "prevalence_diff", "prevalence difference (A − B)"
+    elif "cliffs_delta" in diff.columns:
+        xcol, xlabel = "cliffs_delta", "Cliff's delta (A − B)"
+    else:
+        xcol, xlabel = diff.columns[0], diff.columns[0]
+    q = diff["q_value"].to_numpy(dtype=float)
+    qmin = q[q > 0].min() if (q > 0).any() else 1e-300
+    y = -np.log10(np.clip(q, qmin, 1.0))
+    sig = q < alpha
+    fig, ax = plt.subplots(figsize=(7.5, 6))
+    ax.scatter(diff[xcol][~sig], y[~sig], s=28, color="#bcbab2",
+               edgecolor="white", linewidth=0.4, label=f"q ≥ {alpha}")
+    ax.scatter(diff[xcol][sig], y[sig], s=34, color="#e34948",
+               edgecolor="white", linewidth=0.4, label=f"q < {alpha}")
+    ax.axhline(-np.log10(alpha), color=MUTED, linewidth=0.8, linestyle="--")
+    ax.set_xlabel(xlabel, color=SECONDARY)
+    ax.set_ylabel("−log10(q-value)", color=SECONDARY)
+    ax.set_title(title, fontsize=15, color=INK)
+    ax.legend(frameon=False, fontsize=9)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+_PAN_COLORS = {"core": "#184f95", "soft-core": "#2a78d6",
+               "shell": "#9ec5f4", "cloud": "#eceef1"}
+
+
+def plot_prevalence(pan: pd.DataFrame, outfile: Path, title: str) -> None:
+    """Prevalence histogram coloured by pan-functional class."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+    order = ["cloud", "shell", "soft-core", "core"]
+    bins = np.linspace(0, 1, 21)
+    present = [pan.loc[pan["pan_class"] == c, "prevalence"] for c in order]
+    ax.hist(present, bins=bins, stacked=True,
+            color=[_PAN_COLORS[c] for c in order], label=order,
+            edgecolor="white", linewidth=0.4)
+    ax.set_xlabel("prevalence across organisms", color=SECONDARY)
+    ax.set_ylabel("number of features", color=SECONDARY)
+    ax.set_title(title, fontsize=15, color=INK)
+    ax.legend(frameon=False, fontsize=9, title="pan class")
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_accumulation(acc: pd.DataFrame, outfile: Path, title: str) -> None:
+    """Pan / core accumulation curve as organisms are added."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(acc["n_genomes"], acc["pan_mean"], "-o", color="#2a78d6",
+            markersize=4, label="pan (cumulative distinct)")
+    ax.plot(acc["n_genomes"], acc["core_mean"], "-o", color="#e34948",
+            markersize=4, label="core (shared by all)")
+    ax.set_xlabel("number of organisms", color=SECONDARY)
+    ax.set_ylabel("number of features", color=SECONDARY)
+    ax.set_title(title, fontsize=15, color=INK)
+    ax.legend(frameon=False, fontsize=9)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_matrix(
     df: pd.DataFrame,
     categories: dict[str, str],

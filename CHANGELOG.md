@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.3.0
+
+- **Completeness states**: `--prevalence-state {any,complete}` +
+  `--complete-threshold` — filter on how often a module is *fully complete*,
+  not merely detectable.
+- **More built-in trait panels**: `respiration` (terminal oxidases) and
+  `carbon_fixation` (Calvin / rTCA / Wood-Ljungdahl / 3-HP), alongside
+  `biogeochemistry`.
+- **Analysis plots**: `compare` now writes a volcano plot; `pan` writes a
+  pan-class prevalence histogram and a pan/core accumulation curve.
+- **Trait figures** are labelled "trait completeness" / "trait category".
+- **`docs/`**: methods, input formats, subcommands, and output schema.
+
 ## 3.2.0
 
 Turns MPPH from a heatmap tool into a functional-profile analysis toolkit. The

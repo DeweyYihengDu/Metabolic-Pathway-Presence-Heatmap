@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "description": "Illustrative autotrophic carbon-fixation pathway markers. Marker KOs only; verify against a curated source before publication.",
+  "traits": {
+    "calvin_cycle_rubisco": {
+      "name": "Calvin cycle (RuBisCO)",
+      "category": "Carbon fixation",
+      "steps": [{"all_of": ["K01601", "K01602"]}]
+    },
+    "reductive_tca_cycle": {
+      "name": "Reductive TCA cycle (ATP-citrate lyase)",
+      "category": "Carbon fixation",
+      "steps": [{"all_of": ["K15230", "K15231"]}]
+    },
+    "wood_ljungdahl": {
+      "name": "Wood-Ljungdahl (reductive acetyl-CoA)",
+      "category": "Carbon fixation",
+      "steps": [{"all_of": ["K00198", "K14138"]}]
+    },
+    "3_hydroxypropionate_bicycle": {
+      "name": "3-Hydroxypropionate bicycle (malonyl-CoA reductase)",
+      "category": "Carbon fixation",
+      "steps": [{"any_of": ["K14468", "K14469"]}]
+    }
+  }
+}

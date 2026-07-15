@@ -34,6 +34,14 @@ def test_builtin_panel_loads_and_scores():
     assert cats["nitrogen_fixation"] == "Nitrogen cycle"
 
 
+def test_additional_builtin_panels_valid():
+    for name in ("respiration", "carbon_fixation"):
+        panel = load_trait_panel(name)
+        assert panel
+        for _tid, defn in panel.items():
+            assert defn.get("steps"), f"{name} trait missing steps"
+
+
 def test_sample_sheet_roundtrip(tmp_path):
     (tmp_path / "m1.txt").write_text("K00001\nK00002\n")
     (tmp_path / "m2.txt").write_text("K00001\n")

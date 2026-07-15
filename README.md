@@ -214,6 +214,12 @@ retrieve; the client code is MIT-licensed.)
   but not for family/phylum. Results depend on the KEGG release (recorded in the
   manifest).
 
+## Documentation
+
+Full docs are in [`docs/`](docs/): [methods](docs/methods.md),
+[input formats](docs/input-formats.md), [subcommands](docs/subcommands.md),
+and the [output schema](docs/outputs.md).
+
 ## Citation
 
 > Y.-H. Du and J.-H. Mu, "Metabolic-Pathway-Presence-Heatmap (MPPH):

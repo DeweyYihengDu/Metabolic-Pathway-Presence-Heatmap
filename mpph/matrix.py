@@ -58,16 +58,24 @@ def filter_matrix(
     max_prevalence: float = 1.0,
     drop_core: bool = False,
     present_threshold: float = 1e-9,
+    prevalence_state: str = "any",
+    complete_threshold: float = 1.0,
 ) -> pd.DataFrame:
     """Drop uninformative feature columns by prevalence across organisms.
 
-    Prevalence = fraction of organisms with value > ``present_threshold`` (so a
-    module counts as "present" when partially complete). ``drop_core`` removes
-    features present in *every* organism, sharpening the distinguishing signal.
+    With ``prevalence_state='any'`` (default) a feature counts as present when
+    its value exceeds ``present_threshold`` (so a partially complete module
+    counts). With ``prevalence_state='complete'`` only values >=
+    ``complete_threshold`` count -- useful to filter on how often a module is
+    *fully* complete rather than merely detectable. ``drop_core`` removes
+    features present in every organism.
     """
     if df.shape[0] == 0 or df.shape[1] == 0:
         return df
-    prevalence = (df > present_threshold).mean(axis=0)
+    if prevalence_state == "complete":
+        prevalence = (df >= complete_threshold).mean(axis=0)
+    else:
+        prevalence = (df > present_threshold).mean(axis=0)
     if drop_core:
         max_prevalence = min(max_prevalence, 1.0 - 1e-9)
     keep = (prevalence >= min_prevalence) & (prevalence <= max_prevalence)

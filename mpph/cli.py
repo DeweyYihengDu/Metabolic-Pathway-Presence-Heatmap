@@ -27,7 +27,13 @@ from .organisms import (
 )
 from .modules import evaluate_module
 from .pathways import OVERVIEW_CATEGORY, fetch_pathway_categories, get_pathways
-from .plot import plot_matrix, plot_ordination
+from .plot import (
+    plot_accumulation,
+    plot_matrix,
+    plot_ordination,
+    plot_prevalence,
+    plot_volcano,
+)
 from .tree import linkage_to_newick
 
 DEFAULT_CACHE_STR = str(DEFAULT_CACHE)
@@ -160,7 +166,9 @@ def run(args: argparse.Namespace) -> int:
                   file=sys.stderr)
             return 3
     df = filter_matrix(df, args.min_prevalence, args.max_prevalence,
-                       args.drop_core, present_threshold=args.present_threshold)
+                       args.drop_core, present_threshold=args.present_threshold,
+                       prevalence_state=args.prevalence_state,
+                       complete_threshold=args.complete_threshold)
     if df.shape[1] == 0:
         print("No features left after filtering. Loosen the filters.",
               file=sys.stderr)
@@ -373,11 +381,17 @@ def cmd_pan(args) -> int:
     classes = pan_classify(matrix, core=args.core, soft_core=args.soft_core,
                            shell=args.shell)
     classes.to_csv(results / f"{slug}_pan_classes.csv", index=False)
-    accumulation_curve(matrix, permutations=args.permutations, seed=args.seed) \
-        .to_csv(results / f"{slug}_accumulation.csv", index=False)
+    acc = accumulation_curve(matrix, permutations=args.permutations,
+                             seed=args.seed)
+    acc.to_csv(results / f"{slug}_accumulation.csv", index=False)
+    plot_prevalence(classes, results / f"{slug}_prevalence.{args.format}",
+                    f"Pan-functional prevalence · {slug}")
+    plot_accumulation(acc, results / f"{slug}_accumulation.{args.format}",
+                      f"Functional accumulation · {slug}")
     counts = classes["pan_class"].value_counts().to_dict()
     print(f"Pan-functional classes: {counts}")
-    print(f"Wrote {slug}_pan_classes.csv and {slug}_accumulation.csv")
+    print(f"Wrote {slug}_pan_classes.csv, _accumulation.csv, "
+          f"_prevalence.{args.format}, _accumulation.{args.format}")
     return 0
 
 
@@ -393,10 +407,13 @@ def cmd_compare(args) -> int:
                   == "completeness") if manifest_path.exists() else False
     out = differential_features(matrix, groups, args.group_a, args.group_b,
                                 continuous=continuous)
-    dest = results / f"{slug}_differential_{args.group_a}_vs_{args.group_b}.csv"
-    out.to_csv(dest, index=False)
+    stem = f"{slug}_differential_{args.group_a}_vs_{args.group_b}"
+    out.to_csv(results / f"{stem}.csv", index=False)
+    plot_volcano(out, results / f"{stem}.{args.format}",
+                 f"{args.group_a} vs {args.group_b} · {slug}")
     n_sig = int((out["q_value"] < 0.05).sum())
-    print(f"{len(out)} features tested, {n_sig} with q<0.05. Wrote {dest.name}")
+    print(f"{len(out)} features tested, {n_sig} with q<0.05. "
+          f"Wrote {stem}.csv and {stem}.{args.format}")
     return 0
 
 
@@ -540,6 +557,13 @@ def _add_run_arguments(p: argparse.ArgumentParser) -> None:
     filt.add_argument("--top-category", default="Metabolism")
     filt.add_argument("--all-categories", action="store_true")
     filt.add_argument("--present-threshold", type=float, default=1e-9)
+    filt.add_argument("--prevalence-state", default="any",
+                      choices=["any", "complete"],
+                      help="Count a feature toward prevalence when it is "
+                           "detectable ('any') or fully complete ('complete').")
+    filt.add_argument("--complete-threshold", type=float, default=1.0,
+                      help="Completeness at/above which a module counts as "
+                           "'complete' for --prevalence-state complete.")
     filt.add_argument("--keep-empty", action="store_true")
     out = p.add_argument_group("output")
     out.add_argument("--outdir", default="output")
@@ -602,6 +626,7 @@ def build_parser() -> argparse.ArgumentParser:
     cmp.add_argument("--group-column", required=True)
     cmp.add_argument("--group-a", required=True)
     cmp.add_argument("--group-b", required=True)
+    cmp.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
 
     pan = sub.add_parser("pan", help="Core/soft-core/shell/cloud classification.")
     pan.add_argument("--results", required=True)
@@ -611,6 +636,7 @@ def build_parser() -> argparse.ArgumentParser:
     pan.add_argument("--shell", type=float, default=0.15)
     pan.add_argument("--permutations", type=int, default=100)
     pan.add_argument("--seed", type=int, default=0)
+    pan.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
 
     ordn = sub.add_parser("ordination", help="PCoA + optional PERMANOVA.")
     ordn.add_argument("--results", required=True)

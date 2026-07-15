@@ -47,3 +47,17 @@ def test_filter_min_prevalence():
     filtered = filter_matrix(df, min_prevalence=0.5)
     assert "00010" in filtered.columns   # 2/3
     assert "00020" not in filtered.columns  # 1/3
+
+
+def test_filter_prevalence_state_complete():
+    import pandas as pd
+    # m1 fully complete in all; m2 only partially complete in most
+    df = pd.DataFrame({"m1": [1.0, 1.0, 1.0], "m2": [0.5, 0.5, 1.0]},
+                      index=list("abc"))
+    # "any": m2 is detectable (>0) in all -> prevalence 1.0, kept
+    assert "m2" in filter_matrix(df, min_prevalence=0.5,
+                                 prevalence_state="any").columns
+    # "complete": m2 fully complete in only 1/3 -> dropped; m1 kept
+    kept = filter_matrix(df, min_prevalence=0.5, prevalence_state="complete")
+    assert "m1" in kept.columns
+    assert "m2" not in kept.columns
