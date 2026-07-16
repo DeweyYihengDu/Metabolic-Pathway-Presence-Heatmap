@@ -19,7 +19,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage  # noqa: E402
 INK = "#0b0b0b"
 SECONDARY = "#52514e"
 MUTED = "#898781"
-DENDRO = "#a6a49d"
+DENDRO = "#4f4e4a"  # dark enough to stay legible when the figure is scaled down
 ABSENT = "#eceef1"
 OTHER_COLOR = "#bcbab2"
 CATEGORY_PALETTE = [
@@ -266,8 +266,9 @@ def plot_matrix(
     show_row_dendro = cluster and row_link is not None
     show_col_dendro = cluster and col_link is not None
     show_xlabels = n_cols <= 50
-    left_w = 0.11 if show_row_dendro else 0.012
-    top_h = 0.15 if show_col_dendro else 0.012
+    # Give the dendrograms enough of the canvas to actually read their shape.
+    left_w = 0.20 if show_row_dendro else 0.012
+    top_h = 0.24 if show_col_dendro else 0.012
 
     fig = plt.figure(figsize=(width, height))
     gs = fig.add_gridspec(
@@ -328,12 +329,12 @@ def plot_matrix(
         dendrogram(col_link, ax=ax_top, orientation="top", no_labels=True,
                    color_threshold=0, above_threshold_color=DENDRO)
         for coll in ax_top.collections:
-            coll.set_linewidth(0.8)
+            coll.set_linewidth(1.5)
     if show_row_dendro:
         dendrogram(row_link, ax=ax_left, orientation="left", no_labels=True,
                    color_threshold=0, above_threshold_color=DENDRO)
         for coll in ax_left.collections:
-            coll.set_linewidth(0.8)
+            coll.set_linewidth(1.5)
     for ax in (ax_top, ax_left):
         ax.set_xticks([])
         ax.set_yticks([])
