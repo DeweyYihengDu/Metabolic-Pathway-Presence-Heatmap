@@ -1,5 +1,49 @@
 # Changelog
 
+## 3.3.1
+
+Correctness and security hotfix. Every item below was reproduced with a failing
+case first and now has a regression test.
+
+### Missing data (NaN means *unknown*, never absent)
+- `benjamini_hochberg`: a single NaN p-value no longer turns **every** q-value
+  into NaN; only finite p-values are corrected and set the rank denominator.
+- `differential_features`: NaN is dropped per feature and per group, so
+  prevalences use a **known-only denominator**; reports
+  `n_*_total/known/unknown` and a `warning`, and skips untestable features
+  (`--min-known-per-group`) instead of silently treating unknown as absent.
+- `pan_classify`: known-only prevalence + `n_present/n_known/n_unknown/
+  known_fraction`; features below `min_known_fraction` are labelled
+  `insufficient-data` rather than mis-classified as core/shell/cloud.
+
+### Statistics
+- `pcoa` now raises a clear error when no positive axis exists (all-zero
+  distances) instead of returning an empty result that crashed `ordination`,
+  and returns diagnostics (positive/negative eigenvalues, negative fraction).
+- `permanova` excludes samples whose group label is missing (NaN was previously
+  counted as its own group) and rejects groups with <2 samples; writes
+  `*_permanova.csv`.
+- `accumulation_curve` is documented as **permutation/rarefaction**, not
+  bootstrap, and now reports SD and a 95% interval (plotted as a band).
+
+### Security
+- HTML report: the payload is embedded in a `<script type="application/json">`
+  block with `<` escaped (no `</script>` breakout), NaN is serialised as null,
+  and all user-controlled text is written via `textContent`/DOM construction
+  instead of `innerHTML`. A CSP is set as defence in depth.
+
+### Tree comparison
+- `robinson_foulds` no longer loses a root-level singleton outgroup from the
+  shared leaf set (identical `(a,(b,(c,d)))` reported 3 of 4 leaves); leaf sets
+  are parsed from the tree and non-overlapping leaves are reported.
+
+### Provenance
+- Manifest records `prevalence_state`, `complete_threshold` and
+  `score_semantics`, and uses the argv actually passed (correct for
+  `main(argv=...)`).
+- Examples regenerated at 3.3.1 with relative paths — the previous manifests
+  leaked an absolute local build path.
+
 ## 3.3.0
 
 - **Completeness states**: `--prevalence-state {any,complete}` +

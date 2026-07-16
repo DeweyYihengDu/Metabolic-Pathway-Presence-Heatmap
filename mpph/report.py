@@ -1,19 +1,24 @@
 """Build a self-contained interactive HTML report from an MPPH output folder.
 
-The report embeds the matrix, feature table, QC table and manifest as JSON and
-renders a colour-coded, searchable heatmap with hover tooltips -- no external
-assets, so it opens offline from a single file.
+Security: organism/feature/metadata strings are user-controlled, so the payload
+is embedded in a ``<script type="application/json">`` block with ``<`` escaped
+(no ``</script>`` breakout) and every cell is written with ``textContent`` via
+DOM construction -- never ``innerHTML`` on user data. A CSP is set as defence in
+depth.
 """
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
 
 _TEMPLATE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; \
+script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MPPH report · {slug}</title>
+<title>MPPH report</title>
 <style>
 :root{{--ink:#0b0b0b;--muted:#898781;--line:#e1e0d9;--surface:#fcfcfb}}
 *{{box-sizing:border-box}}
@@ -41,17 +46,16 @@ font-size:12px;text-align:left}}
 .hidden{{display:none}}
 .legend{{font-size:12px;color:var(--muted);margin-left:auto}}
 </style></head><body>
-<header><h1>MPPH report &middot; {slug}</h1>
-<div class="sub">{subtitle}</div></header>
+<header><h1 id="title"></h1><div class="sub" id="subtitle"></div></header>
 <main>
 <div class="tabs">
 <button data-tab="heatmap" class="active">Heatmap</button>
-<button data-tab="qc">QC ({n_org} organisms)</button>
+<button data-tab="qc">QC</button>
 <button data-tab="manifest">Manifest</button>
 </div>
 <section id="heatmap">
 <div class="controls">
-<input type="search" id="filter" placeholder="Filter features by id or name…">
+<input type="search" id="filter" placeholder="Filter features by id or name...">
 <span class="legend" id="legend"></span>
 </div>
 <div class="scroll"><table id="grid"></table></div>
@@ -59,60 +63,119 @@ font-size:12px;text-align:left}}
 <section id="qc" class="hidden"><div class="scroll"><table class="qc" id="qctab"></table></div></section>
 <section id="manifest" class="hidden"><div class="scroll"><table class="mani" id="manitab"></table></div></section>
 </main>
+<script id="mpph-data" type="application/json">{data_json}</script>
 <script>
-const DATA = {data_json};
+const DATA = JSON.parse(document.getElementById('mpph-data').textContent);
 const mode = DATA.mode;
+function el(tag, text){{
+  const e = document.createElement(tag);
+  if (text !== undefined && text !== null) e.textContent = String(text);
+  return e;
+}}
 function color(v){{
-  if(v<=0) return '#eceef1';
-  if(mode==='completeness'){{
-    const t=Math.min(1,v); const l=Math.round(240-150*t), g=Math.round(238-90*t), b=Math.round(241-70*t);
-    return 'rgb('+Math.round(238-200*t)+','+g+','+Math.round(251-160*t)+')';
+  if (v === null || !(v > 0)) return '#eceef1';
+  if (mode === 'completeness'){{
+    const t = Math.min(1, v);
+    return 'rgb(' + Math.round(238-200*t) + ',' + Math.round(238-90*t) + ','
+      + Math.round(251-160*t) + ')';
   }}
   return '#2a78d6';
 }}
 function buildGrid(){{
-  const t=document.getElementById('grid');
-  const cols=DATA.features, rows=DATA.organisms, M=DATA.matrix;
-  let h='<thead><tr><th class="rowh">organism</th>';
-  cols.forEach((c,j)=>{{h+='<th data-col="'+j+'" title="'+c.id+' '+c.name+'">'+c.id+'</th>';}});
-  h+='</tr></thead><tbody>';
-  rows.forEach((r,i)=>{{
-    h+='<tr><td class="rowh">'+r+'</td>';
-    cols.forEach((c,j)=>{{const v=M[i][j];
-      h+='<td class="cell" data-col="'+j+'" style="background:'+color(v)+'" title="'+r+' × '+c.id+' '+c.name+' = '+v.toFixed(2)+'"></td>';}});
-    h+='</tr>';
+  const table = document.getElementById('grid');
+  const cols = DATA.features, rows = DATA.organisms, M = DATA.matrix;
+  const thead = el('thead'), hr = el('tr');
+  hr.appendChild(Object.assign(el('th','organism'), {{className:'rowh'}}));
+  cols.forEach((c, j) => {{
+    const th = el('th', c.id);
+    th.dataset.col = j; th.title = c.id + ' ' + c.name;
+    hr.appendChild(th);
   }});
-  t.innerHTML=h+'</tbody>';
-  document.getElementById('legend').textContent =
-    mode==='completeness' ? 'cell colour = module completeness (0→1)' : 'blue = present, grey = absent';
+  thead.appendChild(hr); table.appendChild(thead);
+  const tb = el('tbody');
+  rows.forEach((r, i) => {{
+    const tr = el('tr');
+    tr.appendChild(Object.assign(el('td', r), {{className:'rowh'}}));
+    cols.forEach((c, j) => {{
+      const v = M[i][j];
+      const td = el('td');
+      td.className = 'cell'; td.dataset.col = j;
+      td.style.background = color(v);
+      td.title = r + ' x ' + c.id + ' ' + c.name + ' = '
+        + (v === null ? 'unknown' : v.toFixed(2));
+      tr.appendChild(td);
+    }});
+    tb.appendChild(tr);
+  }});
+  table.appendChild(tb);
+  document.getElementById('legend').textContent = mode === 'completeness'
+    ? 'cell colour = module completeness (0 to 1)'
+    : 'blue = present, grey = absent';
 }}
-function buildTable(id,obj){{
-  const rows=Object.entries(obj).map(([k,v])=>'<tr><th>'+k+'</th><td>'+
-    (typeof v==='object'?JSON.stringify(v):v)+'</td></tr>').join('');
-  document.getElementById(id).innerHTML=rows;
+function buildRecords(id, records){{
+  const t = document.getElementById(id);
+  if (!records || !records.length) return;
+  const keys = Object.keys(records[0]);
+  const thead = el('thead'), hr = el('tr');
+  keys.forEach(k => hr.appendChild(el('th', k)));
+  thead.appendChild(hr); t.appendChild(thead);
+  const tb = el('tbody');
+  records.forEach(rec => {{
+    const tr = el('tr');
+    keys.forEach(k => tr.appendChild(el('td', rec[k])));
+    tb.appendChild(tr);
+  }});
+  t.appendChild(tb);
 }}
-function buildQC(){{
-  const q=DATA.qc; if(!q||!q.length){{return;}}
-  const keys=Object.keys(q[0]);
-  let h='<thead><tr>'+keys.map(k=>'<th>'+k+'</th>').join('')+'</tr></thead><tbody>';
-  q.forEach(r=>{{h+='<tr>'+keys.map(k=>'<td>'+r[k]+'</td>').join('')+'</tr>';}});
-  document.getElementById('qctab').innerHTML=h+'</tbody>';
+function buildPairs(id, obj){{
+  const t = document.getElementById(id), tb = el('tbody');
+  Object.entries(obj).forEach(([k, v]) => {{
+    const tr = el('tr');
+    tr.appendChild(el('th', k));
+    tr.appendChild(el('td', typeof v === 'object' ? JSON.stringify(v) : v));
+    tb.appendChild(tr);
+  }});
+  t.appendChild(tb);
 }}
-buildGrid(); buildQC(); buildTable('manitab',DATA.manifest);
-document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{{
-  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+document.getElementById('title').textContent = 'MPPH report - ' + DATA.slug;
+document.getElementById('subtitle').textContent = DATA.subtitle;
+buildGrid(); buildRecords('qctab', DATA.qc); buildPairs('manitab', DATA.manifest);
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {{
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['heatmap','qc','manifest'].forEach(s=>document.getElementById(s).classList.add('hidden'));
+  ['heatmap','qc','manifest'].forEach(s =>
+    document.getElementById(s).classList.add('hidden'));
   document.getElementById(b.dataset.tab).classList.remove('hidden');
 }});
-document.getElementById('filter').oninput=e=>{{
-  const q=e.target.value.toLowerCase();
-  DATA.features.forEach((c,j)=>{{
-    const show=!q||c.id.toLowerCase().includes(q)||c.name.toLowerCase().includes(q);
-    document.querySelectorAll('[data-col="'+j+'"]').forEach(el=>el.style.display=show?'':'none');
+document.getElementById('filter').oninput = e => {{
+  const q = e.target.value.toLowerCase();
+  DATA.features.forEach((c, j) => {{
+    const show = !q || c.id.toLowerCase().includes(q)
+      || c.name.toLowerCase().includes(q);
+    document.querySelectorAll('[data-col="' + j + '"]').forEach(
+      x => x.style.display = show ? '' : 'none');
   }});
 }};
 </script></body></html>"""
+
+
+def _safe_json(payload: dict) -> str:
+    """JSON for a <script type="application/json"> block.
+
+    ``</script>`` (and any other tag) cannot break out because ``<`` is escaped;
+    NaN/Infinity are rejected by allow_nan and converted to null beforehand.
+    """
+    return (json.dumps(payload, ensure_ascii=False, allow_nan=False)
+            .replace("<", "\\u003c")
+            .replace(" ", "\\u2028")
+            .replace(" ", "\\u2029"))
+
+
+def _clean(value):
+    """Convert NaN/Infinity to None so the payload is valid JSON."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
 
 
 def build_report(outdir: str | Path, slug: str) -> Path:
@@ -128,19 +191,22 @@ def build_report(outdir: str | Path, slug: str) -> Path:
     name_by_id = dict(zip(features["feature_id"].astype(str), features["name"]))
     feats = [{"id": str(c), "name": str(name_by_id.get(str(c), c))}
              for c in matrix.columns]
+    values = [[_clean(v) for v in row]
+              for row in matrix.round(4).to_numpy().tolist()]
+    subtitle = (f"{manifest.get('mode', '')} - {matrix.shape[0]} organisms x "
+                f"{matrix.shape[1]} features - MPPH "
+                f"{manifest.get('mpph_version', '')}")
     data = {
+        "slug": slug,
+        "subtitle": subtitle,
         "mode": manifest.get("mode", "presence"),
         "organisms": [str(i) for i in matrix.index],
         "features": feats,
-        "matrix": matrix.round(4).to_numpy().tolist(),
-        "qc": qc,
+        "matrix": values,
+        "qc": [{k: _clean(v) for k, v in rec.items()} for rec in qc],
         "manifest": manifest,
     }
-    subtitle = (f"{manifest.get('mode', '')} &middot; "
-                f"{matrix.shape[0]} organisms &times; {matrix.shape[1]} features "
-                f"&middot; MPPH {manifest.get('mpph_version', '')}")
-    html = _TEMPLATE.format(slug=slug, subtitle=subtitle, n_org=matrix.shape[0],
-                            data_json=json.dumps(data))
+    html = _TEMPLATE.format(data_json=_safe_json(data))
     out = outdir / f"{slug}_report.html"
     out.write_text(html, encoding="utf-8")
     return out

@@ -176,11 +176,17 @@ def plot_prevalence(pan: pd.DataFrame, outfile: Path, title: str) -> None:
 
 
 def plot_accumulation(acc: pd.DataFrame, outfile: Path, title: str) -> None:
-    """Pan / core accumulation curve as organisms are added."""
+    """Pan / core accumulation curve (mean with 95% interval, if present)."""
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(acc["n_genomes"], acc["pan_mean"], "-o", color="#2a78d6",
+    x = acc["n_genomes"]
+    if {"pan_ci_lower", "pan_ci_upper"} <= set(acc.columns):
+        ax.fill_between(x, acc["pan_ci_lower"], acc["pan_ci_upper"],
+                        color="#2a78d6", alpha=0.15, linewidth=0)
+        ax.fill_between(x, acc["core_ci_lower"], acc["core_ci_upper"],
+                        color="#e34948", alpha=0.15, linewidth=0)
+    ax.plot(x, acc["pan_mean"], "-o", color="#2a78d6",
             markersize=4, label="pan (cumulative distinct)")
-    ax.plot(acc["n_genomes"], acc["core_mean"], "-o", color="#e34948",
+    ax.plot(x, acc["core_mean"], "-o", color="#e34948",
             markersize=4, label="core (shared by all)")
     ax.set_xlabel("number of organisms", color=SECONDARY)
     ax.set_ylabel("number of features", color=SECONDARY)

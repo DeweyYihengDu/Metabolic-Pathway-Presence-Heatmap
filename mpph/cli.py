@@ -251,7 +251,8 @@ def run(args: argparse.Namespace) -> int:
     # --- manifest ------------------------------------------------------------
     manifest = {
         "mpph_version": __version__,
-        "command": "mpph " + " ".join(sys.argv[1:]),
+        # the argv actually passed in (sys.argv is wrong for main(argv=...))
+        "command": "mpph " + " ".join(getattr(args, "_raw_argv", sys.argv[1:])),
         "python": sys.version.split()[0],
         "platform": sys.platform,
         "source": ("user:" + str(args.user)) if from_user else label_src,
@@ -279,8 +280,12 @@ def run(args: argparse.Namespace) -> int:
             "max_prevalence": args.max_prevalence,
             "drop_core": args.drop_core,
             "present_threshold": args.present_threshold,
+            "prevalence_state": args.prevalence_state,
+            "complete_threshold": args.complete_threshold,
             "module_types": "all" if args.all_modules else "Pathway",
         },
+        "score_semantics": ("module_step_coverage" if mode == "completeness"
+                            else "pathway_map_association"),
         "outputs": {
             "matrix": matrix_csv.name,
             "features": features_csv.name,
@@ -422,20 +427,26 @@ def cmd_ordination(args) -> int:
     results = Path(args.results)
     slug = _find_slug(results, args.slug)
     matrix = _read_matrix(results, slug)
-    coords, explained = pcoa(matrix, metric=args.metric)
+    coords, explained, diagnostics = pcoa(matrix, metric=args.metric)
     coords.to_csv(results / f"{slug}_pcoa.csv", index_label="organism")
+    (results / f"{slug}_pcoa_diagnostics.json").write_text(
+        json.dumps(diagnostics, indent=2), encoding="utf-8")
     groups = None
     if args.metadata and args.color:
         groups = _read_metadata(Path(args.metadata))[args.color]
     plot_ordination(coords, explained, results / f"{slug}_pcoa.{args.format}",
                     f"PCoA ({args.metric}) · {slug}", groups)
-    print(f"PCoA axis-1/2 variance: {explained[0]:.1%} / "
-          f"{explained[1] if len(explained) > 1 else 0:.1%}")
+    pc2 = explained[1] if len(explained) > 1 else 0.0
+    print(f"PCoA axis-1/2 variance: {explained[0]:.1%} / {pc2:.1%} "
+          f"(negative eigenvalue fraction {diagnostics['negative_fraction']:.1%})")
     if groups is not None:
         res = permanova(matrix, groups, metric=args.metric,
                         permutations=args.permutations, seed=args.seed)
-        print(f"PERMANOVA: pseudo-F={res['pseudo_F']:.3f}, p={res['p_value']:.4f}")
-    print(f"Wrote {slug}_pcoa.csv and {slug}_pcoa.{args.format}")
+        pd.DataFrame([res]).to_csv(results / f"{slug}_permanova.csv", index=False)
+        print(f"PERMANOVA: pseudo-F={res['pseudo_F']:.3f}, p={res['p_value']:.4f}"
+              + (f" ({res['n_excluded_missing_label']} sample(s) excluded for a "
+                 "missing group label)" if res["n_excluded_missing_label"] else ""))
+    print(f"Wrote {slug}_pcoa.csv, _pcoa_diagnostics.json and _pcoa.{args.format}")
     return 0
 
 
@@ -687,6 +698,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.command:
         build_parser().print_help(sys.stderr)
         return 2
+    args._raw_argv = raw  # faithful provenance, even when called as main(argv=...)
 
     handlers = {
         "run": run, "traits": cmd_traits, "explain": cmd_explain,

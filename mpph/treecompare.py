@@ -75,10 +75,21 @@ def clades(newick: str) -> set[frozenset]:
     return result
 
 
+def leaves(newick: str) -> set[str]:
+    """All terminal (leaf) names of a Newick tree.
+
+    Derived from the parsed tree, not from non-trivial clades -- a singleton
+    outgroup at the root belongs to no non-trivial clade and would otherwise be
+    dropped from the shared leaf set.
+    """
+    return _leaves(_parse_newick(newick))
+
+
 def robinson_foulds(newick_a: str, newick_b: str) -> dict:
     """Robinson-Foulds distance on the shared leaf set of two Newick trees."""
+    la, lb = leaves(newick_a), leaves(newick_b)
+    shared = la & lb
     ca, cb = clades(newick_a), clades(newick_b)
-    shared = _leaves_of(ca) & _leaves_of(cb)
 
     def restrict(cset):
         out = set()
@@ -93,14 +104,9 @@ def robinson_foulds(newick_a: str, newick_b: str) -> dict:
     max_rf = len(ra) + len(rb)
     return {"rf_distance": rf, "max_rf": max_rf,
             "normalized_rf": (rf / max_rf) if max_rf else 0.0,
-            "n_shared_leaves": len(shared)}
-
-
-def _leaves_of(clade_set: set[frozenset]) -> set[str]:
-    out: set[str] = set()
-    for c in clade_set:
-        out |= set(c)
-    return out
+            "n_shared_leaves": len(shared),
+            "n_leaves_a": len(la), "n_leaves_b": len(lb),
+            "n_only_in_a": len(la - lb), "n_only_in_b": len(lb - la)}
 
 
 # --------------------------------------------------------------------------- #

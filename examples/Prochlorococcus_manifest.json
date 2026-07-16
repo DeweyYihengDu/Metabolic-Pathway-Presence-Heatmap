@@ -1,6 +1,6 @@
 {
-  "mpph_version": "3.2.0",
-  "command": "mpph run Prochlorococcus --cluster --drop-core --newick --format png pdf --outdir C:/Users/DuYih/AppData/Local/Temp/rg_Prochlorococcus_p",
+  "mpph_version": "3.3.1",
+  "command": "mpph run Prochlorococcus --cluster --drop-core --newick --format png pdf --outdir _regen",
   "python": "3.11.0",
   "platform": "win32",
   "source": "Prochlorococcus",
@@ -8,7 +8,7 @@
   "metric": "jaccard",
   "match": "word",
   "clustered": true,
-  "generated_utc": "2026-07-15T03:20:42+00:00",
+  "generated_utc": "2026-07-16T14:36:19+00:00",
   "kegg_release": "pathway        587  2026/07/14",
   "n_organisms_matched": 15,
   "n_organisms": 15,
@@ -40,8 +40,11 @@
     "max_prevalence": 1.0,
     "drop_core": true,
     "present_threshold": 1e-09,
+    "prevalence_state": "any",
+    "complete_threshold": 1.0,
     "module_types": "Pathway"
   },
+  "score_semantics": "pathway_map_association",
   "outputs": {
     "matrix": "Prochlorococcus_matrix.csv",
     "features": "Prochlorococcus_features.csv",
