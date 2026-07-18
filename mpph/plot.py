@@ -90,6 +90,28 @@ def _leaf_order(matrix, metric):
     return np.asarray(order), link
 
 
+def _cosmetic_linkage(link):
+    """A copy of ``link`` with a minimum *visual* branch height.
+
+    Ties (identical rows/columns, common for small marker panels) merge at
+    height 0, which draws as an invisible flat line flush with the leaves --
+    it looks broken rather than "all equal". This floor only affects the
+    on-screen bracket; leaf order, Newick export and every other consumer keep
+    the real (unmodified) linkage returned by ``plot_matrix``.
+    """
+    disp = link.copy()
+    heights = disp[:, 2]
+    max_h = heights.max()
+    floor = 0.06 * max_h if max_h > 0 else 0.06
+    disp[:, 2] = np.maximum.accumulate(np.maximum(heights, floor))
+    return disp
+
+
+def _truncate_label(label: str, max_len: int = 34) -> str:
+    """Shorten a long feature id/name for an axis tick; full text stays in CSV."""
+    return label if len(label) <= max_len else label[: max_len - 1] + "…"
+
+
 def plot_ordination(
     coords: pd.DataFrame, explained, outfile: Path, title: str,
     groups: pd.Series | None = None,
@@ -266,15 +288,28 @@ def plot_matrix(
     show_row_dendro = cluster and row_link is not None
     show_col_dendro = cluster and col_link is not None
     show_xlabels = n_cols <= 50
+    tick_labels = [_truncate_label(c) for c in cols] if show_xlabels else cols
     # Give the dendrograms enough of the canvas to actually read their shape.
     left_w = 0.20 if show_row_dendro else 0.012
     top_h = 0.24 if show_col_dendro else 0.012
+    # Bottom margin must fit the rotated tick labels (their length varies a lot,
+    # from "M00001" to a full trait name) plus the legend below them, or the
+    # legend title collides with the labels.
+    if show_xlabels:
+        label_fontsize = min(8.0, 420 / max(n_cols, 1))
+        max_chars = max((len(t) for t in tick_labels), default=0)
+        label_frac = (max_chars * label_fontsize * 0.46) / (height * 72.0)
+        # 0.06 is the floor proven to clear short labels (e.g. "M00001"); long
+        # labels (trait names) need more and scale up from there.
+        bottom = min(0.42, 0.16 + max(0.06, label_frac))
+    else:
+        bottom = 0.16
 
     fig = plt.figure(figsize=(width, height))
     gs = fig.add_gridspec(
         3, 2, width_ratios=[left_w, 1.0], height_ratios=[top_h, 0.035, 1.0],
         wspace=0.015, hspace=0.02, left=0.02, right=0.995, top=0.88,
-        bottom=0.22 if show_xlabels else 0.16,
+        bottom=bottom,
     )
     ax_top = fig.add_subplot(gs[0, 1])
     ax_strip = fig.add_subplot(gs[1, 1])
@@ -297,7 +332,7 @@ def plot_matrix(
     # ordered list is always in <name>_features.csv for traceability.
     if show_xlabels:
         ax_heat.set_xticks([10 * j + 5 for j in range(n_cols)])
-        ax_heat.set_xticklabels(cols, rotation=90, color=MUTED,
+        ax_heat.set_xticklabels(tick_labels, rotation=90, color=MUTED,
                                 fontsize=min(8.0, 420 / max(n_cols, 1)))
         ax_heat.xaxis.set_ticks_position("bottom")
     else:
@@ -324,15 +359,19 @@ def plot_matrix(
     for s in ax_strip.spines.values():
         s.set_visible(False)
 
-    # dendrograms (each axis drawn only if its linkage exists)
+    # dendrograms (each axis drawn only if its linkage exists). The plotted
+    # linkage gets a cosmetic minimum branch height (see _cosmetic_linkage);
+    # the *returned* row_link/col_link below stay the real, unmodified linkage.
     if show_col_dendro:
-        dendrogram(col_link, ax=ax_top, orientation="top", no_labels=True,
-                   color_threshold=0, above_threshold_color=DENDRO)
+        dendrogram(_cosmetic_linkage(col_link), ax=ax_top, orientation="top",
+                   no_labels=True, color_threshold=0,
+                   above_threshold_color=DENDRO)
         for coll in ax_top.collections:
             coll.set_linewidth(1.5)
     if show_row_dendro:
-        dendrogram(row_link, ax=ax_left, orientation="left", no_labels=True,
-                   color_threshold=0, above_threshold_color=DENDRO)
+        dendrogram(_cosmetic_linkage(row_link), ax=ax_left, orientation="left",
+                   no_labels=True, color_threshold=0,
+                   above_threshold_color=DENDRO)
         for coll in ax_left.collections:
             coll.set_linewidth(1.5)
     for ax in (ax_top, ax_left):
