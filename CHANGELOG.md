@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.11.0
+
+KEGG response cache: collision-proof filenames and atomic writes. Reproduced
+with a failing case first, now has regression tests. **Upgrading invalidates
+any existing `.mpph_cache/` directory** (filenames changed) -- harmless,
+since the cache is a pure performance optimization; the next run just
+re-fetches from KEGG.
+
+- `_cache_path` collapsed every run of non-alphanumeric characters in an
+  endpoint to a single `_`, so `"a/b"`, `"a//b"` and `"a_b"` (a literal
+  underscore is non-alphanumeric too) all produced the identical cache
+  filename -- a future endpoint construction that happened to collapse the
+  same way would silently serve one query's cached response for a different
+  one. Now a readable slug plus a hash of the untransformed endpoint string,
+  which can't collide regardless of what the slug collapses to.
+- Cache writes went straight to the final filename; a process killed
+  mid-write (or two processes racing the same cache entry) could leave a
+  truncated file that a later read would silently treat as a complete KEGG
+  response. Now written to a per-process temp file first, then moved into
+  place with `os.replace()` (atomic on both POSIX and Windows).
+- The 11 committed offline-test cache fixtures are renamed to match (same
+  content, new filenames); the offline test suite (`test_integration.py`,
+  `test_cli_enrich_offline.py`, `test_cli_gsea_offline.py`) still passes
+  entirely from cache with no live network call.
+
 ## 3.10.1
 
 Heatmap rendering hotfix: `NaN` ("unknown / not assessed") is now visually

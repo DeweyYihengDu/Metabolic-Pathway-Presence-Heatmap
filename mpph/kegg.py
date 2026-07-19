@@ -1,6 +1,8 @@
 """Low-level KEGG REST access: pooled session, retries, disk cache."""
 from __future__ import annotations
 
+import hashlib
+import os
 import re
 import time
 from pathlib import Path
@@ -37,7 +39,18 @@ def make_session() -> requests.Session:
 
 
 def _cache_path(cache_dir: Path, endpoint: str) -> Path:
-    return cache_dir / (re.sub(r"[^0-9A-Za-z]+", "_", endpoint) + ".tsv")
+    """Cache filename for ``endpoint``: a readable slug plus a content hash.
+
+    The slug alone can collide -- collapsing every run of non-alphanumeric
+    characters to a single ``_`` means ``"a/b"``, ``"a//b"`` and ``"a_b"`` (a
+    literal underscore is non-alphanumeric too) all reduce to the identical
+    ``"a_b"``, which would silently serve one endpoint's cached response for
+    another. The hash suffix is derived from the untransformed endpoint
+    string, so it disambiguates regardless of what the slug collapses to.
+    """
+    slug = re.sub(r"[^0-9A-Za-z]+", "_", endpoint).strip("_")
+    digest = hashlib.sha256(endpoint.encode("utf-8")).hexdigest()[:16]
+    return cache_dir / f"{slug}_{digest}.tsv"
 
 
 def kegg_get(
@@ -65,7 +78,13 @@ def kegg_get(
 
     if cache_file is not None:
         cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_file.write_text(text, encoding="utf-8")
+        # Write-then-rename: os.replace() is atomic on both POSIX and Windows
+        # (same filesystem), so a process killed mid-write, or two processes
+        # racing on the same cache entry, can never leave a truncated file
+        # behind for a later read to silently treat as a complete response.
+        tmp = cache_file.with_name(f"{cache_file.name}.tmp{os.getpid()}")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, cache_file)
     return text
 
 
