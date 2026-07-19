@@ -263,29 +263,44 @@ def plot_enrichment(
     plt.close(fig)
 
 
+_GSEA_DIVERGING = mcolors.LinearSegmentedColormap.from_list(
+    "mpph_gsea_diverging", ["#e34948", "#f4d9d8", "#fcfcfb", "#cfe0f6", "#2a78d6"]
+)
+
+
 def plot_gsea_running(
     ranked_scores: np.ndarray, running: np.ndarray, hits: np.ndarray,
     outfile: Path, title: str, subtitle: str = "",
 ) -> None:
-    """The classic GSEA running-enrichment-score plot for one category.
+    """The classic four-panel GSEA running-enrichment-score plot.
 
-    Top panel: the cumulative running-sum trajectory, peak marked. Middle: a
-    rug of tick marks where a category member falls in the ranking. Bottom: the
-    ranking metric itself, so the reader can see whether hits sit where the
-    ranking metric is large.
+    Top to bottom, matching the standard Broad GSEA layout: (1) the running
+    enrichment trajectory, filled to zero, peak marked; (2) a diverging
+    red-blue strip of the ranking metric at every position, so the eye can
+    see at a glance where the ranking crosses zero; (3) a tick-mark rug of
+    where category members fall; (4) the ranking metric itself as a filled
+    "mountain" chart.
     """
     n = len(ranked_scores)
     peak = int(np.argmax(running)) if abs(running.max()) >= abs(running.min()) \
         else int(np.argmin(running))
-    fig, (ax_run, ax_rug, ax_score) = plt.subplots(
-        3, 1, figsize=(8.5, 5.5), sharex=True,
-        gridspec_kw={"height_ratios": [3, 0.5, 1.2], "hspace": 0.08},
+    fig, (ax_run, ax_strip, ax_rug, ax_score) = plt.subplots(
+        4, 1, figsize=(8.5, 6.3), sharex=True,
+        gridspec_kw={"height_ratios": [3, 0.22, 0.42, 1.1], "hspace": 0.06},
     )
     fig.subplots_adjust(top=0.85)
-    ax_run.plot(range(n), running, color=CATEGORY_PALETTE[0], linewidth=1.6)
+
+    ax_run.fill_between(range(n), running, 0, color=CATEGORY_PALETTE[0],
+                        alpha=0.25, linewidth=0)
+    ax_run.plot(range(n), running, color=CATEGORY_PALETTE[0], linewidth=2.2,
+               solid_joinstyle="round")
     ax_run.axhline(0, color=MUTED, linewidth=0.6)
-    ax_run.axvline(peak, color=MUTED, linewidth=0.8, linestyle="--")
+    ax_run.axvline(peak, color=SECONDARY, linewidth=0.9, linestyle="--")
+    ax_run.plot(peak, running[peak], "o", color=CATEGORY_PALETTE[0],
+               markersize=6, markeredgecolor="white", markeredgewidth=1)
     ax_run.set_ylabel("running ES", color=SECONDARY)
+    pad = (running.max() - running.min()) * 0.12 or 0.05
+    ax_run.set_ylim(min(running.min(), 0) - pad, max(running.max(), 0) + pad)
     fig.suptitle(title, x=0.5, y=0.98, fontsize=15, fontweight="semibold",
                 color=INK, ha="center")
     if subtitle:
@@ -293,17 +308,29 @@ def plot_gsea_running(
     for s in ("top", "right"):
         ax_run.spines[s].set_visible(False)
 
+    # Diverging colour strip: the ranking metric's sign/magnitude at every
+    # position -- the signature "heatmap" band of a canonical GSEA plot.
+    vmax = np.abs(ranked_scores).max() or 1.0
+    ax_strip.imshow(ranked_scores[np.newaxis, :], aspect="auto", cmap=_GSEA_DIVERGING,
+                    vmin=-vmax, vmax=vmax, extent=[0, n, 0, 1], interpolation="nearest")
+    ax_strip.set_yticks([])
+    ax_strip.set_xticks([])
+    for s in ax_strip.spines.values():
+        s.set_visible(False)
+
     hit_pos = np.nonzero(hits)[0]
-    ax_rug.vlines(hit_pos, 0, 1, color=INK, linewidth=0.7)
+    ax_rug.vlines(hit_pos, 0, 1, color=INK, linewidth=0.8)
     ax_rug.set_ylim(0, 1)
     ax_rug.set_yticks([])
     for s in ax_rug.spines.values():
         s.set_visible(False)
 
-    colors = np.where(ranked_scores >= 0, "#2a78d6", "#e34948")
-    ax_score.bar(range(n), ranked_scores, color=colors, width=1.0)
+    pos = np.clip(ranked_scores, 0, None)
+    neg = np.clip(ranked_scores, None, 0)
+    ax_score.fill_between(range(n), pos, 0, color="#2a78d6", linewidth=0)
+    ax_score.fill_between(range(n), neg, 0, color="#e34948", linewidth=0)
     ax_score.set_xlabel("rank in ordered list", color=SECONDARY)
-    ax_score.set_ylabel("ranking metric", color=SECONDARY, fontsize=9)
+    ax_score.set_ylabel("ranking\nmetric", color=SECONDARY, fontsize=9)
     ax_score.axhline(0, color=MUTED, linewidth=0.6)
     for s in ("top", "right"):
         ax_score.spines[s].set_visible(False)
