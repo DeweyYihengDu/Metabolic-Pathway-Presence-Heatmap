@@ -1,5 +1,46 @@
 # Changelog
 
+## 3.9.0
+
+Newick label safety and richer tree comparison. Reproduced with a failing
+case first, now has regression tests.
+
+### Newick export could silently collide two different labels
+- `linkage_to_newick`'s label sanitizer deleted/replaced characters
+  (`(),:;[]'` stripped, space -> `_`) instead of using Newick's own quoting
+  rule -- so two genuinely different labels could produce the identical
+  output name. A real, not just hypothetical, case: the microbiology
+  convention `"[Eubacterium] rectale"` (bracketed provisional genus) and a
+  plain `"Eubacterium rectale"` both became `"Eubacterium_rectale"`. Also,
+  every organism label this tool itself produces (`"Name (code)"`) contains
+  parens, so this affected the tool's own default output, not just edge
+  cases.
+- Fixed to follow the Newick spec: a label needing special handling is
+  wrapped in single quotes (internal `'` doubled) and left verbatim,
+  preserving it losslessly; a plain space with nothing else special still
+  uses the conventional (unquoted) underscore substitution for the common
+  case. `linkage_to_newick` now also raises `ValueError` naming the two
+  labels if a collision survives even this (the one case quoting alone
+  can't disambiguate: a literal underscore vs. a space-turned-underscore) --
+  refusing to silently merge two samples' identities in the exported tree.
+- `treecompare`'s Newick parser is now quote-aware (handles a quoted token,
+  including the doubled-quote escape), so it correctly reads trees this
+  package itself exports as well as reference trees from other tools that
+  use standard Newick quoting.
+- Both example organism trees (`Prochlorococcus_organism_tree.nwk`,
+  `Synechococcus_organism_tree.nwk`) are regenerated with the new quoting
+  (same topology and branch lengths, only the label formatting changed) --
+  one of the regenerated labels, `Synechococcus sp. JA-2-3B'a(2-13) (cyb)`,
+  already contains a literal apostrophe, which the old code silently
+  dropped rather than escaping.
+
+### Richer, more explicit `robinson_foulds` output
+- Added `only_in_a`/`only_in_b` (the actual leaf-name lists, alongside the
+  existing `n_only_in_a`/`n_only_in_b` counts) and `rooted: true`, making
+  explicit that clades are compared as rooted descendant-sets (appropriate
+  for a UPGMA dendrogram and a typically-rooted reference tree) rather than
+  unrooted bipartitions-up-to-complement.
+
 ## 3.8.0
 
 Trait panel versioning and provenance. `mpph traits` had no manifest at all

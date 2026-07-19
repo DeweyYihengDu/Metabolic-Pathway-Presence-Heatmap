@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from mpph.report import build_report
-from mpph.treecompare import bootstrap_support, clades, robinson_foulds
+from mpph.treecompare import bootstrap_support, clades, leaves, robinson_foulds
 
 
 def test_clades_extraction():
@@ -35,6 +35,20 @@ def test_rf_reports_non_overlapping_leaves():
     res = robinson_foulds("(a,(b,(c,d)));", "(a,(b,(c,e)));")
     assert res["n_shared_leaves"] == 3
     assert res["n_only_in_a"] == 1 and res["n_only_in_b"] == 1
+    assert res["only_in_a"] == ["d"]
+    assert res["only_in_b"] == ["e"]
+    assert res["rooted"] is True
+
+
+def test_parse_newick_handles_quoted_labels_with_special_characters():
+    # mpph.tree.linkage_to_newick quotes a label containing Newick-structural
+    # characters (brackets, spaces are fine unquoted) instead of stripping
+    # them -- the parser here must round-trip that, including the doubled
+    # single-quote escape for a literal quote inside the label.
+    nwk = "(('[Eubacterium] rectale':0.5,'O''Brien strain':0.5):1.0,plain_c:1.5);"
+    ls = leaves(nwk)
+    assert ls == {"[Eubacterium] rectale", "O'Brien strain", "plain_c"}
+    assert frozenset({"[Eubacterium] rectale", "O'Brien strain"}) in clades(nwk)
 
 
 def test_bootstrap_support_high_for_real_clade():

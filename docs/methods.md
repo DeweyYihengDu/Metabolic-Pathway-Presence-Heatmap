@@ -64,6 +64,17 @@ coverage and genome completeness all affect it. Use `mpph`'s Newick export with
 `treecompare` (Robinson–Foulds, bootstrap clade support) to compare against a
 reference tree before making evolutionary claims.
 
+**Newick labels needing special characters are quoted, not stripped**: a
+label containing `(),:;[]'` is wrapped in single quotes (Newick's own quoting
+rule) rather than having those characters deleted, so two different labels
+(e.g. the microbiology convention `[Eubacterium] rectale` vs. a plain
+`Eubacterium rectale`) can't collide into the same exported name. `treecompare`
+reads quoted labels correctly, including a reference tree from another tool
+that also uses standard Newick quoting. `robinson_foulds` compares clades as
+**rooted** descendant-sets (matching a UPGMA dendrogram and a typically
+outgroup-rooted reference tree) and reports the exact leaves unique to each
+tree (`only_in_a`/`only_in_b`), not just their counts.
+
 ## Enrichment (over-representation analysis)
 
 `mpph enrich` tests whether a *study set* of genes/KOs contains more members of

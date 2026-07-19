@@ -16,9 +16,18 @@ from scipy.cluster.hierarchy import fcluster, linkage
 # --------------------------------------------------------------------------- #
 # Minimal Newick -> clades
 # --------------------------------------------------------------------------- #
+# A quoted label ('...' with '' as an escaped internal quote), optionally
+# followed by a :branch_length, is one token -- mpph.tree.linkage_to_newick
+# quotes a label rather than stripping characters from it (to avoid silently
+# colliding two different labels), so this parser must round-trip that.
+_QUOTED_TOKEN = re.compile(r"'(?:[^']|'')*'(?::[^(),;]*)?")
+_QUOTED_NAME = re.compile(r"^'((?:[^']|'')*)'")
+
+
 def _parse_newick(newick: str):
     """Parse a Newick string into nested lists of leaf-name strings."""
-    tokens = re.findall(r"[(),]|[^(),;]+", newick.strip().rstrip(";"))
+    tokens = re.findall(
+        _QUOTED_TOKEN.pattern + r"|[(),]|[^(),;]+", newick.strip().rstrip(";"))
     pos = 0
 
     def parse():
@@ -38,7 +47,9 @@ def _parse_newick(newick: str):
             elif tok == ",":
                 pos += 1
             else:
-                name = tok.split(":")[0].strip()
+                quoted = _QUOTED_NAME.match(tok)
+                name = (quoted.group(1).replace("''", "'") if quoted
+                        else tok.split(":")[0].strip())
                 if name:
                     node.append(name)
                 pos += 1
@@ -86,7 +97,14 @@ def leaves(newick: str) -> set[str]:
 
 
 def robinson_foulds(newick_a: str, newick_b: str) -> dict:
-    """Robinson-Foulds distance on the shared leaf set of two Newick trees."""
+    """Robinson-Foulds distance on the shared leaf set of two Newick trees.
+
+    Clades are collected as descendant-leaf sets under each internal node
+    (**rooted** comparison) -- appropriate here since both a UPGMA dendrogram
+    from ``mpph`` and a typical reference tree (e.g. outgroup-rooted) have an
+    explicit root; this does not identify a bipartition with its complement
+    the way an unrooted comparison would.
+    """
     la, lb = leaves(newick_a), leaves(newick_b)
     shared = la & lb
     ca, cb = clades(newick_a), clades(newick_b)
@@ -104,9 +122,11 @@ def robinson_foulds(newick_a: str, newick_b: str) -> dict:
     max_rf = len(ra) + len(rb)
     return {"rf_distance": rf, "max_rf": max_rf,
             "normalized_rf": (rf / max_rf) if max_rf else 0.0,
+            "rooted": True,
             "n_shared_leaves": len(shared),
             "n_leaves_a": len(la), "n_leaves_b": len(lb),
-            "n_only_in_a": len(la - lb), "n_only_in_b": len(lb - la)}
+            "n_only_in_a": len(la - lb), "n_only_in_b": len(lb - la),
+            "only_in_a": sorted(la - lb), "only_in_b": sorted(lb - la)}
 
 
 # --------------------------------------------------------------------------- #
