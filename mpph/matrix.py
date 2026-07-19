@@ -69,13 +69,23 @@ def filter_matrix(
     ``complete_threshold`` count -- useful to filter on how often a module is
     *fully* complete rather than merely detectable. ``drop_core`` removes
     features present in every organism.
+
+    A NaN cell (module completeness undetermined -- see
+    ``mpph.modules.module_completeness``) is excluded from both the numerator
+    and the denominator, so prevalence is computed among *known* organisms
+    only rather than silently treating "unknown" as "absent". A feature
+    unknown in every organism has no computable prevalence and is dropped.
     """
     if df.shape[0] == 0 or df.shape[1] == 0:
         return df
+    known = df.notna()
     if prevalence_state == "complete":
-        prevalence = (df >= complete_threshold).mean(axis=0)
+        present = df >= complete_threshold
     else:
-        prevalence = (df > present_threshold).mean(axis=0)
+        present = df > present_threshold
+    known_n = known.sum(axis=0)
+    with np.errstate(invalid="ignore"):
+        prevalence = (present & known).sum(axis=0) / known_n
     if drop_core:
         max_prevalence = min(max_prevalence, 1.0 - 1e-9)
     keep = (prevalence >= min_prevalence) & (prevalence <= max_prevalence)

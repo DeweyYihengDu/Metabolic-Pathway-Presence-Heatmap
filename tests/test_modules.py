@@ -1,4 +1,6 @@
 """Unit tests for the KEGG module-completeness evaluator."""
+import math
+
 from mpph.modules import (
     classify_state,
     evaluate_module,
@@ -70,15 +72,46 @@ def test_nested_module_reference_resolves():
     defn = "(M00161,M00163) M00165"
     assert module_completeness(defn, {"K00001", "K00003"}, module_defs) == 1.0
     assert module_completeness(defn, {"K00003"}, module_defs) == 0.5
-    # Without module_defs the references cannot resolve -> counted absent.
-    assert module_completeness(defn, {"K00001", "K00003"}) == 0.0
+    # Without module_defs the references can't be resolved either way -> every
+    # step is undetermined, not "confirmed absent" (NaN, never a fabricated 0.0).
+    assert math.isnan(module_completeness(defn, {"K00001", "K00003"}))
 
 
-def test_nested_module_cycle_is_safe():
+def test_nested_module_cycle_is_unknown_not_absent():
     module_defs = {"M00001": ("M00002", "c", "Pathway"),
                    "M00002": ("M00001", "c", "Pathway")}
-    # Must terminate rather than recurse forever.
-    assert module_completeness("M00001", {"K00001"}, module_defs) == 0.0
+    # Must terminate rather than recurse forever, and a pure cycle carries no
+    # real evidence either way -> NaN ("unknown"), not a fabricated 0.0.
+    assert math.isnan(module_completeness("M00001", {"K00001"}, module_defs))
+
+
+def test_step_or_with_known_hit_ignores_unresolved_reference():
+    # The OR is already satisfied by a present KO -- the unresolved module
+    # reference can't change that outcome, so this must be determined True,
+    # not "unknown", even though module_defs doesn't cover M00161.
+    assert step_complete("K00001,M00161", {"K00001"}) is True
+
+
+def test_step_and_with_known_miss_ignores_unresolved_reference():
+    # The AND is already false (the KO is missing) regardless of the
+    # unresolved reference -- false dominates AND, so this is determined
+    # False, not "unknown".
+    assert step_complete("K00001+M00161", {"K99999"}) is False
+
+
+def test_step_genuinely_depends_on_unresolved_reference_is_unknown():
+    # Whether this step is satisfied genuinely hinges on M00161, which we
+    # have no definition for -- must be unknown (None), never coerced False.
+    assert step_complete("K00001+M00161", {"K00001"}) is None
+    assert step_complete("K00001,M00161", {"K99999"}) is None
+
+
+def test_module_completeness_excludes_unknown_steps_from_ratio():
+    # 2 determinable steps (1 satisfied), 1 genuinely-unknown step (an
+    # unresolved reference this OR can't route around) -- the ratio must be
+    # computed over the 2 determinable steps only (1/2), not 1/3.
+    defn = "K00001 K99999 K00002,M00161"
+    assert module_completeness(defn, {"K00001"}) == 0.5
 
 
 def test_classify_state():
@@ -104,3 +137,25 @@ def test_evaluate_module_unresolved_reference():
     ev = evaluate_module("M99999", "M00161 K00001", {"K00001"})
     assert "M00161" in ev.unresolved_references
     assert ev.parser_status == "unresolved_references"
+    # The AND step genuinely depends on the unresolved M00161 -> unknown.
+    assert ev.steps[0].satisfied is None
+
+
+def test_evaluate_module_state_unknown_when_wholly_undetermined():
+    # Every step is a bare, unresolved module reference -- nothing is
+    # determinable, so the module's state must be "unknown", never a
+    # fabricated "absent" derived from treating unresolved as failed.
+    ev = evaluate_module("M99999", "M00161 M00162", {"K00001"})
+    assert math.isnan(ev.score)
+    assert ev.state == "unknown"
+    assert ev.n_steps == 0
+    assert ev.n_satisfied == 0
+
+
+def test_evaluate_module_unresolved_reference_not_reported_when_outcome_determined():
+    # The OR is already satisfied by a present KO, so M00161 never actually
+    # influenced the outcome -- it should not be reported as "unresolved".
+    ev = evaluate_module("M99999", "K00001,M00161", {"K00001"})
+    assert ev.steps[0].satisfied is True
+    assert ev.unresolved_references == set()
+    assert ev.parser_status == "valid"

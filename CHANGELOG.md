@@ -1,5 +1,41 @@
 # Changelog
 
+## 3.6.0
+
+Module-completeness scoring now distinguishes "confirmed absent" from
+"can't tell" -- a behavior change (affected modules now score `NaN` where
+they previously scored a plausible-looking but fabricated number), so this
+is a minor bump rather than another patch. Reproduced with a failing case
+first, now has regression tests.
+
+### Module completeness: unresolved references are unknown, not absent
+- A step whose truth value depends on a nested `M#####` reference with no
+  definition available -- not fetched, filtered out by the `Pathway`-only
+  default (`--all-modules` off), or a cyclic reference -- silently counted
+  as "not satisfied" (0), pulling completeness down as if the step were
+  confirmed missing. Same for a step this parser's expression evaluator
+  can't handle. Both are now correctly treated as **unknown**, excluded from
+  both the numerator and denominator (the same treatment `--` placeholder
+  steps already got), using two-valued (Kleene) evaluation: an undetermined
+  token is substituted with both 0 and 1, and only a genuine disagreement
+  (the step's truth value actually depends on it, e.g. an AND with no other
+  determined factor) is reported as unknown -- an OR already satisfied by a
+  known KO, or an AND already falsified by a known-missing KO, is still
+  correctly determined regardless of the unresolved reference.
+- `module_completeness` now returns `NaN` (never `0.0`) when every real step
+  in a module turns out undetermined -- previously a purely circular or
+  entirely-unresolvable definition silently scored 0.0, indistinguishable
+  from genuine absence.
+- `evaluate_module`'s `state` is now `"unknown"` (not derived from a score
+  that already baked in "unresolved = failed") when nothing is determinable;
+  `StepResult.satisfied` is `bool | None`, and `mpph explain` marks an
+  unknown step `??` instead of showing it as `--` (confirmed missing).
+- `filter_matrix` (the `--min-prevalence`/`--max-prevalence`/`--drop-core`
+  machinery) now computes prevalence among *known* organisms only, so a
+  module that is undetermined for some organisms isn't silently counted as
+  absent in them; a module undetermined for *every* organism has no
+  computable prevalence and is dropped rather than crashing.
+
 ## 3.5.3
 
 Correctness hotfix for user-input loading. Reproduced with a failing case

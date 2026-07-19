@@ -61,3 +61,24 @@ def test_filter_prevalence_state_complete():
     kept = filter_matrix(df, min_prevalence=0.5, prevalence_state="complete")
     assert "m1" in kept.columns
     assert "m2" not in kept.columns
+
+
+def test_filter_prevalence_excludes_nan_from_denominator():
+    import numpy as np
+    import pandas as pd
+    # m1: present in both known organisms (c is unknown/undetermined) ->
+    # known-only prevalence 2/2 = 1.0, must be kept at min_prevalence=0.9.
+    # A denominator that (wrongly) counted the NaN row would give 2/3 = 0.67.
+    df = pd.DataFrame({"m1": [1.0, 1.0, np.nan]}, index=list("abc"))
+    kept = filter_matrix(df, min_prevalence=0.9)
+    assert "m1" in kept.columns
+
+
+def test_filter_prevalence_drops_wholly_unknown_column_without_crashing():
+    import numpy as np
+    import pandas as pd
+    df = pd.DataFrame({"m1": [1.0, 1.0], "m2": [np.nan, np.nan]},
+                      index=list("ab"))
+    kept = filter_matrix(df, min_prevalence=0.0)
+    assert "m1" in kept.columns
+    assert "m2" not in kept.columns

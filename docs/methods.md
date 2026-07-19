@@ -22,10 +22,29 @@ A KEGG module `DEFINITION` is a boolean expression over KO ids:
 | `--` | placeholder step, no assigned KO (excluded from num & denom) |
 | `M#####` | nested module reference (resolved recursively, cycle-guarded) |
 
-Completeness = satisfied top-level steps ÷ total real steps (0–1). Only
-`Pathway`-type modules are scored by default (`--all-modules` includes
-signature/reaction modules). `mpph explain` shows, per step, which KOs matched
-and which are missing.
+Completeness = satisfied top-level steps ÷ total *determinable* real steps
+(0–1). Only `Pathway`-type modules are scored by default (`--all-modules`
+includes signature/reaction modules) -- a `Pathway` module's definition can
+reference a nested `M#####` that is itself signature/reaction-typed and so
+isn't in the default scoring set. `mpph explain` shows, per step, which KOs
+matched and which are missing.
+
+**A step whose truth value can't be determined** -- a nested module reference
+with no definition available (not fetched, filtered out by the
+`Pathway`-only default, or a cyclic reference) or syntax this parser doesn't
+handle -- is **unknown, not "confirmed absent"**: it is excluded from both the
+numerator and denominator, the same treatment as a `--` placeholder step.
+This uses two-valued (Kleene) evaluation: an undetermined token is
+substituted with both 0 and 1; if the step's truth value doesn't change
+either way (e.g. an OR already satisfied by a KO you have), it genuinely
+doesn't depend on the undetermined part and the determined result is used
+instead of discarding the step. If *every* real step in a module turns out
+undetermined, `module_completeness` returns `NaN` rather than a fabricated
+`0.0` -- NaN means unknown throughout this tool, never "confirmed absent".
+`mpph explain` marks such steps `??` (not `--`) and lists them under
+"unresolved module refs". A prevalence filter (`--min-prevalence` etc.)
+computes prevalence among *known* organisms only, so a module that is
+undetermined for some organisms isn't silently treated as absent in them.
 
 **States.** `--prevalence-state complete` counts a module toward prevalence only
 when its completeness ≥ `--complete-threshold` (default 1.0), rather than merely

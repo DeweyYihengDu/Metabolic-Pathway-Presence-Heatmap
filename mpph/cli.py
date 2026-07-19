@@ -498,11 +498,12 @@ def cmd_explain(args) -> int:
     print(f"State: {ev.state}   coverage: {ev.n_satisfied}/{ev.n_steps} "
           f"= {ev.score:.3f}   parser: {ev.parser_status}")
     for i, step in enumerate(ev.steps, 1):
-        mark = "OK " if step.satisfied else "-- "
+        mark = ("OK " if step.satisfied is True else
+                "?? " if step.satisfied is None else "-- ")
         print(f"  {mark}step {i}: {step.expression}")
         if step.matched_kos:
             print(f"       matched: {', '.join(step.matched_kos)}")
-        if not step.satisfied and step.missing_kos:
+        if step.satisfied is False and step.missing_kos:
             print(f"       missing: {', '.join(step.missing_kos)}")
     if ev.unresolved_references:
         print(f"  unresolved module refs: {', '.join(ev.unresolved_references)}")

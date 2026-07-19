@@ -179,35 +179,57 @@ def step_complete(
     step: str, ko_set: set[str],
     module_defs: dict[str, tuple[str, str, str]] | None = None,
     _stack: frozenset[str] = frozenset(),
-) -> bool:
+) -> bool | None:
     """Evaluate whether a single module step is satisfied by ``ko_set``.
 
     A nested module reference (``M#####``) is resolved recursively: it counts as
     satisfied only if that referenced module is itself fully complete for
     ``ko_set``. ``_stack`` guards against cyclic definitions.
+
+    Returns ``None`` ("unknown") rather than ``False`` when the step's truth
+    value genuinely can't be determined -- a nested reference we don't have a
+    definition for, a cyclic reference, or syntax this parser doesn't handle --
+    instead of silently conflating "can't tell" with "confirmed absent", which
+    would understate completeness. This is decided by Kleene/three-valued
+    evaluation: every undetermined token is substituted with both 0 and 1: if
+    the step's truth value doesn't change either way, it doesn't actually
+    depend on that token (e.g. an OR already satisfied by a known KO), so the
+    determined result is returned; only a genuine disagreement is "unknown".
     """
     step = _strip_optional(step).strip()
     if not step or _is_gap(step):
         return True
 
-    def _resolve_module(match) -> str:
+    def _module_value(match) -> str:
         mid = match.group(0)
         if module_defs and mid in module_defs and mid not in _stack:
             sub = module_completeness(module_defs[mid][0], ko_set, module_defs,
                                       _stack | {mid})
-            return "1" if sub >= 1.0 else "0"
-        return "0"  # module we didn't fetch, or a cycle: treat as absent
+            if sub == sub:  # not NaN: the nested module IS determined
+                return "1" if sub >= 1.0 else "0"
+        return "?"  # not fetched, a cycle, or itself undetermined
 
     # space (AND) and '+' (complex, AND) -> '&';  ',' (OR) -> '|'
     expr = step.replace(" ", "&").replace("+", "&").replace(",", "|")
     expr = _KO.sub(lambda m: "1" if m.group(0) in ko_set else "0", expr)
-    expr = re.sub(r"M\d{5}", _resolve_module, expr)
-    if not _SAFE.match(expr) or not expr:
-        return False
+    expr = re.sub(r"M\d{5}", _module_value, expr)
+
+    if "?" not in expr:
+        if not _SAFE.match(expr) or not expr:
+            return None  # syntax this parser doesn't handle: unknown, not absent
+        try:
+            return bool(eval(expr))  # noqa: S307 - expr validated to [01()&|]
+        except SyntaxError:
+            return None
+
+    pessimistic, optimistic = expr.replace("?", "0"), expr.replace("?", "1")
+    if not _SAFE.match(pessimistic) or not pessimistic:
+        return None
     try:
-        return bool(eval(expr))  # noqa: S307 - expr is validated to [01()&|]
+        lo, hi = bool(eval(pessimistic)), bool(eval(optimistic))  # noqa: S307
     except SyntaxError:
-        return False
+        return None
+    return lo if lo == hi else None
 
 
 def module_completeness(
@@ -218,14 +240,21 @@ def module_completeness(
     """Fraction of a module's real top-level steps satisfied by ``ko_set`` (0..1).
 
     ``--`` placeholder steps (reactions with no assigned KO) are excluded from
-    both numerator and denominator. Pass ``module_defs`` so nested module
-    references resolve; omit it and they count as absent.
+    both numerator and denominator, as are steps whose truth value can't be
+    determined (see ``step_complete``) -- consistent with this codebase's NaN
+    convention elsewhere, "unknown" is never silently folded into "absent".
+    Returns NaN if every real step turns out to be undetermined. Pass
+    ``module_defs`` so nested module references resolve; omit it and every
+    reference is unknown rather than absent.
     """
     steps = [s for s in split_steps(definition) if not _is_gap(s)]
     if not steps:
         return 0.0
-    done = sum(1 for s in steps if step_complete(s, ko_set, module_defs, _stack))
-    return done / len(steps)
+    determined = [step_complete(s, ko_set, module_defs, _stack) for s in steps]
+    determined = [r for r in determined if r is not None]
+    if not determined:
+        return float("nan")
+    return sum(determined) / len(determined)
 
 
 # --------------------------------------------------------------------------- #
@@ -233,9 +262,15 @@ def module_completeness(
 # --------------------------------------------------------------------------- #
 @dataclass
 class StepResult:
-    """One module step and whether ``ko_set`` satisfies it."""
+    """One module step and whether ``ko_set`` satisfies it.
+
+    ``satisfied`` is ``None`` when the step's truth value is undetermined
+    (unresolved nested module reference, cycle, or unsupported syntax) --
+    never coerced to ``False``, since that would silently read as "confirmed
+    absent" to any caller that doesn't check for ``None`` explicitly.
+    """
     expression: str
-    satisfied: bool
+    satisfied: bool | None
     matched_kos: list[str]
     missing_kos: list[str]
 
@@ -283,22 +318,30 @@ def evaluate_module(
     for step in steps_raw:
         stripped = _strip_optional(step)
         kos = set(_KO.findall(stripped))
-        for ref in re.findall(r"M\d{5}", stripped):
-            if not (module_defs and ref in module_defs):
-                unresolved.add(ref)
         matched = sorted(kos & ko_set)
         missing = sorted(kos - ko_set)
         satisfied = step_complete(step, ko_set, module_defs, _stack)
         results.append(StepResult(step, satisfied, matched, missing))
         matched_all.update(matched)
-        if not satisfied:
+        if satisfied is None:
+            # Only the refs this step's own outcome actually hinged on --
+            # step_complete may have determined the step regardless (e.g. an
+            # OR already satisfied by a known KO), in which case nothing here
+            # was truly "unresolved" even though the step mentions a module id.
+            for ref in re.findall(r"M\d{5}", stripped):
+                if not (module_defs and ref in module_defs and ref not in _stack):
+                    unresolved.add(ref)
+        elif not satisfied:
             missing_all.update(missing)
 
-    n_sat = sum(1 for r in results if r.satisfied)
-    score = n_sat / len(results)
+    determined = [r.satisfied for r in results if r.satisfied is not None]
+    n_sat = sum(1 for v in determined if v)
+    score = (n_sat / len(determined)) if determined else float("nan")
     status = "valid" if not unresolved else "unresolved_references"
+    state = ("unknown" if score != score
+             else classify_state(score, complete_threshold))
     return ModuleEvaluation(
-        module_id, score, classify_state(score, complete_threshold),
-        len(results), n_sat, results, matched_all, missing_all,
+        module_id, score, state,
+        len(determined), n_sat, results, matched_all, missing_all,
         unresolved, status,
     )
