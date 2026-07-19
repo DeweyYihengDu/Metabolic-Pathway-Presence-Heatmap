@@ -79,16 +79,24 @@ The analysis subcommands turn a run into comparative figures. Below, the
   <code>pcb</code> chlorophyll-binding antennae) to harvest scarce light.</em>
 </p>
 <p align="center">
-  <img src="examples/Synechococcus_gsea_top.png" width="70%"
-       alt="GSEA running-enrichment plot for Sulfate-sulfur assimilation"><br>
-  <em><code>mpph gsea</code> — every KO in the 25-genome <em>Synechococcus</em> set
-  ranked by (marine prevalence − freshwater prevalence), no cutoff chosen by
-  hand, tested against KEGG modules. The top hit, <em>Sulfate-sulfur
-  assimilation</em>, is depleted toward the marine end (raw p≈0.001) — sensible
-  ecology, since marine water is sulfate-rich and freshwater is not — but at
-  q≈0.13 it does not clear q&lt;0.05 across the 131 modules tested. Shown
-  deliberately as an honest example: a strong, biologically coherent top hit
-  that still shouldn't be over-interpreted past what FDR correction allows.</em>
+  <img src="examples/Ecoli_gsea_top.png" width="75%"
+       alt="GSEA running-enrichment plot for the TCA cycle, E. coli aerobic vs microaerobic"><br>
+  <em><code>mpph gsea</code> validated against real RNA-seq: 15 samples of
+  <em>E. coli</em> under aerobic vs. microaerobic growth
+  (<a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE189154">GEO
+  GSE189154</a>, Liou lab), genes mapped Entrez→KEGG gene→KO via KEGG's own
+  <code>conv</code>/<code>link</code> endpoints, ranked automatically by
+  <code>mpph gsea --expression ... --rank-metric signal2noise</code> (no DE
+  tool involved). Top hit: the <b>TCA cycle</b> (15/22 leading-edge genes,
+  q=0.011) enriched toward aerobic growth — textbook respiratory physiology.
+  All 20 modules shown are significant at q&lt;0.05, and the two "anaerobic"
+  hits are exactly the genes microbiology would predict: <i>fumarate
+  reductase</i> (the anaerobic counterpart of succinate dehydrogenase) and
+  <i>cytochrome bd oxidase</i> (E. coli's low-oxygen terminal oxidase) — both
+  recovered with no prior hint given to the tool. A second, harder validation
+  — ranking by comparative genomics (KO prevalence, marine vs. freshwater
+  <em>Synechococcus</em>) rather than real expression — is in
+  <a href="examples/">examples/</a> as an honest "did not clear FDR" case.</em>
 </p>
 
 ## Features
