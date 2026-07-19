@@ -94,7 +94,21 @@ non-organism-specific `link/pathway/ko` and `link/module/ko` endpoints, so the
 same category set applies regardless of which organism the study/background
 came from. **GO enrichment needs a gene-to-GO mapping you supply** (a long
 table, or an eggNOG-mapper `.annotations` file) — KEGG itself carries no GO
-annotations.
+annotations. **This is flat GO term over-representation**: a gene annotated to
+a specific child term counts only toward that term, not its ancestors, unless
+your own mapping file already lists the ancestor terms explicitly. Tools that
+do GO-DAG ancestor propagation (topGO, clusterProfiler with an
+organism `.db`) will attribute more genes to a general parent term (e.g. "DNA
+metabolic process") than this will from the same raw child-term annotations —
+that is a difference in method, not a bug in either.
+
+**Effect size**: `odds_ratio` (with a 95% CI, Haldane-Anscombe corrected for a
+zero cell) is the standard 2x2-table effect size for this test and is more
+comparable across categories of very different size than `fold_enrichment`
+(a ratio of rates, which can look arbitrarily large for a tiny category with
+a single lucky hit). A KO id with a KEGG `ko:` namespace prefix in your study
+or background list (e.g. copied from `link/ko/<org>` or an eggNOG-mapper
+`KEGG_ko` column) is normalized to the bare id automatically.
 
 ## Rank-based enrichment (GSEA)
 

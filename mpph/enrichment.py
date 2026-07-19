@@ -10,10 +10,14 @@ KEGG pathway/module membership comes from the KEGG REST API (public, global
 KO<->pathway and KO<->module links -- not organism-specific). GO enrichment
 needs a user-supplied gene-to-GO-term mapping: **KEGG does not provide GO
 annotations**, so this is bring-your-own-mapping (a GAF-style long table, or
-the `GO_terms` column of an eggNOG-mapper ``.annotations`` file).
+the `GO_terms` column of an eggNOG-mapper ``.annotations`` file). This is
+**flat** GO term over-representation -- a gene counts only toward the terms
+your mapping lists for it, not their GO-DAG ancestors, unless the mapping
+already includes those ancestors explicitly.
 """
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 
@@ -26,6 +30,41 @@ from .analysis import benjamini_hochberg
 from .kegg import kegg_get
 
 _GO_ID = re.compile(r"GO:\d{7}")
+_KO_PREFIXED = re.compile(r"^ko:(K\d{5})$")
+
+
+def _normalize_ko_ids(ids: set[str]) -> set[str]:
+    """Strip a KEGG ``ko:`` namespace prefix (``ko:K00001`` -> ``K00001``).
+
+    KEGG's own KO-membership endpoints here (and this module's fetchers)
+    use bare ``K#####`` ids, but a study/background list copied straight
+    from ``link/ko/<org>`` or an eggNOG-mapper ``KEGG_ko`` column keeps the
+    ``ko:`` prefix -- which would otherwise silently fail to match any
+    category (a plain set difference, not an error) rather than raising.
+    Only exact ``ko:K#####`` tokens are touched, so GO-mode gene ids (an
+    arbitrary user-supplied namespace) are never affected.
+    """
+    normalized = set()
+    for item in ids:
+        match = _KO_PREFIXED.match(item)
+        normalized.add(match.group(1) if match else item)
+    return normalized
+
+
+def _odds_ratio_ci(a: int, b: int, c: int, d: int) -> tuple[float, float, float]:
+    """2x2 odds ratio + 95% CI (log-scale normal approximation).
+
+    Haldane-Anscombe correction (add 0.5 to every cell) when any cell is
+    zero -- standard practice to avoid an undefined or infinite ratio for a
+    small/sparse table, at the cost of a slightly conservative estimate.
+    """
+    if min(a, b, c, d) == 0:
+        a, b, c, d = a + 0.5, b + 0.5, c + 0.5, d + 0.5
+    odds_ratio = (a * d) / (b * c)
+    log_or = math.log(odds_ratio)
+    se_log_or = math.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+    return odds_ratio, math.exp(log_or - 1.96 * se_log_or), math.exp(
+        log_or + 1.96 * se_log_or)
 
 
 # --------------------------------------------------------------------------- #
@@ -202,8 +241,12 @@ def hypergeometric_enrichment(
 
     A study gene not present in ``background`` is *also* dropped (a valid
     background must contain the study set) and counted in
-    ``n_study_not_in_background``.
+    ``n_study_not_in_background``. A ``ko:`` namespace prefix on either input
+    is normalized away (see ``_normalize_ko_ids``) before any of this, so it
+    never causes a silent all-unannotated result.
     """
+    study = _normalize_ko_ids(study)
+    background = _normalize_ko_ids(background)
     category_names = category_names or {}
     all_annotated_genes = (set().union(*category_to_items.values())
                           if category_to_items else set())
@@ -237,6 +280,13 @@ def hypergeometric_enrichment(
                     if n_study > 0 and k_bg > 0 else np.nan)
             # P(X >= k_study) with X ~ Hypergeom(N=n_bg, K=k_bg, n=n_study)
             p = hypergeom.sf(k_study - 1, n_bg, k_bg, n_study) if n_study > 0 else 1.0
+            # The same 2x2 table as the hypergeometric test itself, with
+            # background_used as the universe (study is a subset of it):
+            # a=k_study (study & category), b=study \ category,
+            # c=(background \ study) & category, d=(background \ study) \ category.
+            a, b = k_study, n_study - k_study
+            c, d = k_bg - k_study, (n_bg - k_bg) - b
+            odds_ratio, or_lo, or_hi = _odds_ratio_ci(a, b, c, d)
             rows.append({
                 "category_id": cat_id,
                 "category_name": category_names.get(cat_id, cat_id),
@@ -247,6 +297,9 @@ def hypergeometric_enrichment(
                 "gene_ratio": f"{k_study}/{n_study}" if n_study else "0/0",
                 "bg_ratio": f"{k_bg}/{n_bg}",
                 "fold_enrichment": fold,
+                "odds_ratio": odds_ratio,
+                "odds_ratio_ci_low": or_lo,
+                "odds_ratio_ci_high": or_hi,
                 "p_value": float(p),
                 "study_items": ",".join(sorted(study_hits)),
             })
@@ -255,7 +308,8 @@ def hypergeometric_enrichment(
     out = pd.DataFrame(rows, columns=[
         "category_id", "category_name", "k_study_hits", "n_study_total",
         "K_background_hits", "N_background_total", "gene_ratio", "bg_ratio",
-        "fold_enrichment", "p_value", "study_items",
+        "fold_enrichment", "odds_ratio", "odds_ratio_ci_low",
+        "odds_ratio_ci_high", "p_value", "study_items",
     ])
     if len(out):
         out["q_value"] = benjamini_hochberg(out["p_value"].to_numpy())

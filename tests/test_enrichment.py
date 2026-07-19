@@ -79,6 +79,34 @@ def test_study_genes_outside_background_are_dropped_and_reported():
     assert stats["n_study_used"] == 2
 
 
+def test_ko_prefixed_study_and_background_are_normalized():
+    # KEGG's own KO ids in category_to_items are bare (K00001), but a
+    # study/background list copied straight from `link/ko/<org>` or an
+    # eggNOG-mapper KEGG_ko column keeps the "ko:" prefix -- this must not
+    # silently fail to match (a plain set difference, not an error).
+    category_to_items = {"cat1": {f"K{i:05d}" for i in range(10)},
+                         "catX": {f"K{i:05d}" for i in range(10, 100)}}
+    background = {f"ko:K{i:05d}" for i in range(100)}
+    study = {f"ko:K{i:05d}" for i in range(8)}
+
+    results, stats = hypergeometric_enrichment(study, background, category_to_items)
+    assert stats["n_study_used"] == 8
+    assert stats["n_background_used"] == 100
+    row = results.set_index("category_id").loc["cat1"]
+    assert row["k_study_hits"] == 8
+
+
+def test_odds_ratio_columns_present_and_sane():
+    category_to_items = _synthetic_universe()
+    background = {f"bg{i}" for i in range(100)}
+    study = {f"bg{i}" for i in range(8)} | {f"bg{i}" for i in range(50, 62)}
+
+    results, _ = hypergeometric_enrichment(study, background, category_to_items)
+    row = results.set_index("category_id").loc["cat1"]
+    assert row["odds_ratio"] > 1  # cat1 is over-represented in this study set
+    assert row["odds_ratio_ci_low"] < row["odds_ratio"] < row["odds_ratio_ci_high"]
+
+
 def test_category_names_applied_when_provided():
     category_to_items = {"map00010": {"bg0", "bg1", "bg2"}}
     background = {f"bg{i}" for i in range(10)}
@@ -97,5 +125,6 @@ def test_empty_results_when_nothing_meets_min_size():
     assert list(results.columns) == [
         "category_id", "category_name", "k_study_hits", "n_study_total",
         "K_background_hits", "N_background_total", "gene_ratio", "bg_ratio",
-        "fold_enrichment", "p_value", "study_items", "q_value",
+        "fold_enrichment", "odds_ratio", "odds_ratio_ci_low",
+        "odds_ratio_ci_high", "p_value", "study_items", "q_value",
     ]

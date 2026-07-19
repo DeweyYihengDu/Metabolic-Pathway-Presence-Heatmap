@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.7.0
+
+ORA (`mpph enrich`) correctness fix and richer output. Reproduced with a
+failing case first, now has regression tests.
+
+### `ko:` namespace prefix silently caused zero matches
+- A study/background list copied straight from KEGG's own `link/ko/<org>`
+  endpoint, or an eggNOG-mapper `KEGG_ko` column, keeps the `ko:` prefix
+  (`ko:K00001`) -- but this module's own category-membership fetchers key on
+  the bare id (`K00001`). The mismatch wasn't an error, just a silent
+  all-unannotated result (0 categories tested) for anyone whose input
+  happened to use that natural, KEGG-native format. Both `study` and
+  `background` are now normalized (`ko:K#####` -> `K#####`) before matching;
+  GO-mode gene ids are untouched (only that exact pattern is stripped).
+
+### New: `odds_ratio` / `odds_ratio_ci_low` / `odds_ratio_ci_high`
+- The standard 2x2-table effect size (Haldane-Anscombe corrected for a zero
+  cell), more comparable across categories of very different size than
+  `fold_enrichment` alone (a ratio of rates, which can look arbitrarily large
+  for a tiny category with a single lucky hit). Added to
+  `examples/Prochlorococcus_MIT9313_unique_enrichment.csv`, computed directly
+  from that file's own already-published counts (no re-run needed, so every
+  other value is unchanged).
+
+### Documentation
+- Both the module docstring and `docs/methods.md` now state plainly that GO
+  enrichment here is **flat** (no GO-DAG ancestor propagation) -- a gene
+  counts only toward the terms your mapping lists for it, not their
+  ancestors, unless the mapping already includes them. This is a difference
+  in method from tools like topGO/clusterProfiler-with-`.db`, not a bug.
+
 ## 3.6.1
 
 GSEA correctness and memory. Reproduced with a failing case first, now has
