@@ -202,3 +202,13 @@ just a caveat in this text, but something `run --qc-metadata` acts on:
 uniformly at random as assembly quality drops, so a linear correction would
 fabricate precision the data doesn't support. Filtering or flagging is the
 honest option; silently "fixing" the number is not.
+
+**`NaN` (unknown / not assessed) always gets its own colour on the heatmap,
+distinct from both "confirmed absent" and any real value** — it is never
+folded into the same visual as absent, and a legend entry ("unknown / not
+assessed") appears whenever the plotted matrix actually contains one. This
+applies to both `mode='presence'` (a `NaN` cell used to compare equal to
+"absent" via `NaN > 0 == False`) and `mode='completeness'` (an undetermined
+`module_completeness` result used to render as opaque black, since the
+colormap's transparent "bad" colour lost its alpha channel when only RGB was
+kept) — both are display bugs the value itself never had.

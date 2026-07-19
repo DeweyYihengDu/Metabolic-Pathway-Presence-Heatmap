@@ -21,6 +21,7 @@ SECONDARY = "#52514e"
 MUTED = "#898781"
 DENDRO = "#4f4e4a"  # dark enough to stay legible when the figure is scaled down
 ABSENT = "#eceef1"
+UNKNOWN = "#d8d3e0"  # distinct lavender-gray -- never "absent" (blue-gray) or "Other" (taupe)
 OTHER_COLOR = "#bcbab2"
 CATEGORY_PALETTE = [
     "#2a78d6", "#1baf7a", "#eda100", "#008300",
@@ -443,15 +444,22 @@ def plot_matrix(
         return mcolors.to_rgb(color_of.get(cat, OTHER_COLOR))
 
     # --- RGB image -----------------------------------------------------------
-    rgb = np.empty((n_rows, n_cols, 3))
+    # NaN means "unknown / not assessed" (e.g. an undetermined module score,
+    # see mpph.modules), never "confirmed absent" or "0.0" -- it gets its own
+    # colour, distinct from both, in either mode.
+    known = ~np.isnan(values)
+    any_unknown = bool((~known).any())
+    unknown_rgb = mcolors.to_rgb(UNKNOWN)
+    rgb = np.tile(unknown_rgb, (n_rows, n_cols, 1))
     if continuous:
-        rgb = COMPLETENESS_CMAP(values)[:, :, :3]
+        rgb[known] = COMPLETENESS_CMAP(values[known])[:, :3]
     else:
         absent_rgb = mcolors.to_rgb(ABSENT)
         for j, cat in enumerate(col_cats):
-            present = values[:, j] > 0
+            present = known[:, j] & (values[:, j] > 0)
+            confirmed_absent = known[:, j] & ~(values[:, j] > 0)
             rgb[present, j] = cat_rgb(cat)
-            rgb[~present, j] = absent_rgb
+            rgb[confirmed_absent, j] = absent_rgb
     strip = np.array([[cat_rgb(c) for c in col_cats]])
 
     # --- geometry ------------------------------------------------------------
@@ -577,6 +585,9 @@ def plot_matrix(
                      "  ·  light grey = absent")
         handles.append(Patch(facecolor=ABSENT, edgecolor=MUTED, linewidth=0.5,
                              label="absent"))
+    if any_unknown:
+        handles.append(Patch(facecolor=UNKNOWN, edgecolor=MUTED, linewidth=0.5,
+                             label="unknown / not assessed"))
     leg = fig.legend(
         handles=handles, title=leg_title, loc="lower center",
         bbox_to_anchor=(0.5, 0.005), ncol=min(len(handles), 5), frameon=False,

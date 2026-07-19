@@ -3,6 +3,8 @@ import re
 
 import pandas as pd
 
+import numpy as np
+
 from mpph.plot import (
     plot_accumulation,
     plot_enrichment,
@@ -44,6 +46,38 @@ def test_default_presence_label(tmp_path):
                 out, "Presence", "sub", mode="presence")
     svg = out.read_text(encoding="utf-8")
     assert "KEGG functional category" in svg
+
+
+def test_completeness_heatmap_no_nan_has_no_unknown_legend(tmp_path):
+    out = tmp_path / "no_nan.svg"
+    plot_matrix(_matrix(), {}, out, "t", "s", mode="completeness")
+    svg = out.read_text(encoding="utf-8")
+    assert "unknown" not in svg.lower()
+
+
+def test_completeness_heatmap_nan_is_not_rendered_black(tmp_path):
+    # An undetermined module score (mpph.modules.module_completeness can
+    # return NaN) must not silently render as black -- NaN maps to a fully
+    # transparent RGBA via the colormap's default "bad" color, so naively
+    # dropping the alpha channel (rgba[:, :, :3]) leaves opaque black.
+    df = pd.DataFrame({"M1": [1.0, 0.5, np.nan], "M2": [0.2, 1.0, 0.8]},
+                      index=["a", "b", "c"])
+    out = tmp_path / "nan.svg"
+    plot_matrix(df, {}, out, "t", "s", mode="completeness")
+    svg = out.read_text(encoding="utf-8")
+    assert "unknown / not assessed" in svg
+    assert not re.search(r"#000000|rgb\(0%?,\s*0%?,\s*0%?\)", svg, re.IGNORECASE)
+
+
+def test_presence_heatmap_nan_differs_from_absent(tmp_path):
+    df = pd.DataFrame({"00010": [1.0, 0.0, np.nan], "00020": [1.0, 1.0, 0.0]},
+                      index=["a", "b", "c"])
+    out = tmp_path / "pres_nan.svg"
+    plot_matrix(df, {"00010": "Carbohydrate metabolism",
+                     "00020": "Energy metabolism"},
+                out, "t", "s", mode="presence")
+    svg = out.read_text(encoding="utf-8")
+    assert "unknown / not assessed" in svg
 
 
 def test_analysis_plots_produce_files(tmp_path):

@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.10.1
+
+Heatmap rendering hotfix: `NaN` ("unknown / not assessed") is now visually
+distinct from both "confirmed absent" and every real value, in both modes.
+Reproduced with a failing case first, now has regression tests.
+
+- `mode='presence'`: a `NaN` cell was indistinguishable from a confirmed-
+  absent one (`NaN > 0` evaluates to `False`, the same as `0 > 0`), so an
+  unknown pathway silently looked exactly like a confirmed-absent one.
+- `mode='completeness'`: an undetermined module score (the 3.6.0 tri-state
+  scoring fix means `module_completeness` can now genuinely return `NaN`)
+  rendered as **solid black** -- the colormap correctly marks `NaN` with a
+  fully transparent "bad" colour, but the code discarded the alpha channel
+  before drawing, leaving opaque black behind. This was worse than looking
+  "absent": a stark, attention-grabbing artifact with no legend explanation.
+- Both now render in a new, distinct colour (`UNKNOWN`, a muted lavender-gray
+  that doesn't collide with any category hue or with `ABSENT`), with a
+  legend entry ("unknown / not assessed") that appears only when the plotted
+  matrix actually contains a `NaN`.
+- No shipped example needed regenerating: none of the committed example
+  matrices contain `NaN` today (`build_presence_matrix` never produces it,
+  and none of the completeness-mode examples currently hit an unresolved
+  module reference) -- this closes a real gap for any matrix that does,
+  including a user's own data passed to the public `plot_matrix` API.
+
 ## 3.10.0
 
 MAG genome-quality metadata wired into the `run` pipeline. `mpph.samplesheet`
