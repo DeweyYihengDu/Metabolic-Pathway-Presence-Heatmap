@@ -221,6 +221,48 @@ def plot_accumulation(acc: pd.DataFrame, outfile: Path, title: str) -> None:
     plt.close(fig)
 
 
+def plot_enrichment(
+    results: pd.DataFrame, outfile: Path, title: str,
+    *, top_n: int = 20, alpha: float = 0.05,
+) -> None:
+    """Horizontal bar chart of the top enriched categories by q-value.
+
+    Bar length is -log10(q-value); a dashed line marks the significance
+    threshold. Each bar is annotated with its gene ratio (study hits / study
+    total) so the plot carries both significance and effect size.
+    """
+    if results.empty:
+        raise ValueError("Nothing to plot: no category met --min-category-size.")
+    df = results.sort_values("q_value").head(top_n).iloc[::-1]
+    q = df["q_value"].to_numpy(dtype=float)
+    qmin = q[q > 0].min() if (q > 0).any() else 1e-300
+    y = -np.log10(np.clip(q, qmin, 1.0))
+    sig = q < alpha
+
+    height = max(3.5, 0.32 * len(df) + 1.2)
+    fig, ax = plt.subplots(figsize=(9.5, height))
+    colors = [CATEGORY_PALETTE[0] if s else OTHER_COLOR for s in sig]
+    labels = [f"{cid}  {name}"[:60] for cid, name in
+              zip(df["category_id"], df["category_name"])]
+    bars = ax.barh(range(len(df)), y, color=colors, height=0.65)
+    ax.set_yticks(range(len(df)))
+    ax.set_yticklabels(labels, fontsize=9, color=SECONDARY)
+    ax.axvline(-np.log10(alpha), color=MUTED, linewidth=0.8, linestyle="--")
+    ax.set_xlabel("−log10(q-value)", color=SECONDARY)
+    ax.set_title(title, fontsize=15, color=INK)
+    for bar, ratio in zip(bars, df["gene_ratio"]):
+        ax.text(bar.get_width() + max(y) * 0.015, bar.get_y() + bar.get_height() / 2,
+                ratio, va="center", fontsize=8, color=MUTED)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    handles = [Patch(facecolor=CATEGORY_PALETTE[0], label=f"q < {alpha}"),
+               Patch(facecolor=OTHER_COLOR, label=f"q ≥ {alpha}")]
+    ax.legend(handles=handles, frameon=False, fontsize=9, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_matrix(
     df: pd.DataFrame,
     categories: dict[str, str],

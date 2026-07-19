@@ -29,6 +29,7 @@ from .modules import evaluate_module
 from .pathways import OVERVIEW_CATEGORY, fetch_pathway_categories, get_pathways
 from .plot import (
     plot_accumulation,
+    plot_enrichment,
     plot_matrix,
     plot_ordination,
     plot_prevalence,
@@ -38,7 +39,7 @@ from .tree import linkage_to_newick
 
 DEFAULT_CACHE_STR = str(DEFAULT_CACHE)
 SUBCOMMANDS = ("run", "traits", "explain", "compare", "pan", "ordination",
-               "community", "report", "validate")
+               "community", "report", "validate", "enrich")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -526,6 +527,90 @@ def cmd_traits(args) -> int:
     return 0
 
 
+def cmd_enrich(args) -> int:
+    from .enrichment import (
+        fetch_ko_module_membership,
+        fetch_ko_pathway_membership,
+        fetch_pathway_names,
+        hypergeometric_enrichment,
+        invert_membership,
+        load_gene_go_map,
+        load_go_names,
+        read_id_list,
+    )
+
+    if args.ontology == "go" and not args.gene_go_map:
+        print("Error: --ontology go requires --gene-go-map FILE (KEGG has no "
+              "GO annotations; supply your own gene-to-GO mapping).",
+              file=sys.stderr)
+        return 2
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    study = read_id_list(args.study)
+
+    if args.ontology == "go":
+        if args.background_organism:
+            print("Warning: --background-organism has no meaning for "
+                  "--ontology go (GO mapping is not organism-specific); "
+                  "use --background instead.", file=sys.stderr)
+        item_to_cats = load_gene_go_map(args.gene_go_map, args.go_map_format)
+        category_names = load_go_names(args.go_names) if args.go_names else {}
+        if not args.background:
+            print("Error: --ontology go requires --background FILE.",
+                  file=sys.stderr)
+            return 2
+        background = read_id_list(args.background)
+    else:
+        cache_dir = None if args.no_cache else Path(args.cache_dir)
+        session = make_session()
+        if args.ontology == "kegg-pathway":
+            item_to_cats = fetch_ko_pathway_membership(session, cache_dir,
+                                                       refresh=args.refresh)
+            category_names = fetch_pathway_names(session, cache_dir,
+                                                 refresh=args.refresh)
+        else:  # kegg-module
+            item_to_cats = fetch_ko_module_membership(session, cache_dir,
+                                                       refresh=args.refresh)
+            category_names = list_modules(session, cache_dir, refresh=args.refresh)
+        if args.background_organism:
+            background = organism_kos(session, args.background_organism,
+                                      cache_dir, refresh=args.refresh)
+        elif args.background:
+            background = read_id_list(args.background)
+        else:
+            print("Error: provide --background FILE or --background-organism CODE.",
+                  file=sys.stderr)
+            return 2
+
+    category_to_items = invert_membership(item_to_cats)
+    results, stats = hypergeometric_enrichment(
+        study, background, category_to_items, category_names,
+        min_category_size=args.min_category_size)
+
+    dest_csv = outdir / f"{args.label}_enrichment.csv"
+    results.to_csv(dest_csv, index=False)
+    print(f"Study: {stats['n_study_used']}/{stats['n_study_input']} gene(s) "
+          f"annotated & in background ({stats['n_study_not_in_background']} not "
+          f"in background). Background: {stats['n_background_used']}/"
+          f"{stats['n_background_input']} annotated. Tested "
+          f"{stats['n_categories_tested']} categories (>= "
+          f"{args.min_category_size} background members).")
+    n_sig = int((results["q_value"] < args.alpha).sum()) if len(results) else 0
+    print(f"{n_sig} categories significant at q<{args.alpha}. Wrote {dest_csv.name}")
+
+    if len(results):
+        dest_fig = outdir / f"{args.label}_enrichment.{args.format}"
+        plot_enrichment(results, dest_fig,
+                        f"Enrichment ({args.ontology}) · {args.label}",
+                        top_n=args.top_n, alpha=args.alpha)
+        print(f"Wrote {dest_fig.name}")
+    else:
+        print("No category met --min-category-size; skipping the plot.",
+              file=sys.stderr)
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # Argument parser (subcommands; `mpph <taxon> ...` is a shortcut for `run`)
 # --------------------------------------------------------------------------- #
@@ -673,6 +758,39 @@ def build_parser() -> argparse.ArgumentParser:
 
     val = sub.add_parser("validate", help="Validate a sample sheet.")
     val.add_argument("--samples", required=True)
+
+    enr = sub.add_parser(
+        "enrich", help="KEGG pathway/module or GO over-representation (ORA).")
+    enr.add_argument("--study", required=True, metavar="FILE",
+                     help="Study-set gene/KO ids, one per line.")
+    enr.add_argument("--background", metavar="FILE",
+                     help="Background/universe gene or KO ids, one per line "
+                          "(required for --ontology go).")
+    enr.add_argument("--background-organism", metavar="CODE",
+                     help="KEGG organism code; use its full KO complement as "
+                          "the background (kegg-pathway/kegg-module only).")
+    enr.add_argument("--ontology", required=True,
+                     choices=["kegg-pathway", "kegg-module", "go"],
+                     help="Category source to test the study set against.")
+    enr.add_argument("--gene-go-map", metavar="FILE",
+                     help="Required for --ontology go: a gene-to-GO mapping "
+                          "(long table, or an eggNOG-mapper .annotations file "
+                          "-- KEGG itself has no GO annotations).")
+    enr.add_argument("--go-map-format", default="auto",
+                     choices=["auto", "eggnog"])
+    enr.add_argument("--go-names", metavar="FILE",
+                     help="Optional GO id -> name table for readable labels.")
+    enr.add_argument("--min-category-size", type=int, default=2,
+                     help="Skip categories with fewer background members.")
+    enr.add_argument("--top-n", type=int, default=20,
+                     help="Categories shown in the plot.")
+    enr.add_argument("--alpha", type=float, default=0.05,
+                     help="Significance threshold drawn on the plot.")
+    enr.add_argument("--label", default="enrichment",
+                     help="Prefix for output file names.")
+    enr.add_argument("--outdir", default="output")
+    enr.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
+    _add_cache_args(enr)
     return p
 
 
@@ -704,6 +822,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": run, "traits": cmd_traits, "explain": cmd_explain,
         "compare": cmd_compare, "pan": cmd_pan, "ordination": cmd_ordination,
         "community": cmd_community, "report": cmd_report, "validate": cmd_validate,
+        "enrich": cmd_enrich,
     }
     if args.command in ("run", "traits", "explain", "community"):
         err = _validate_source(args)

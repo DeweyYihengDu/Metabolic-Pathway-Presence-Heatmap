@@ -68,10 +68,23 @@ The analysis subcommands turn a run into comparative figures. Below, the
   JA isolates); 21 modules at q&lt;0.05 (red). Exploratory — not corrected for
   phylogenetic non-independence.</em>
 </p>
+<p align="center">
+  <img src="examples/Prochlorococcus_MIT9313_unique_enrichment.png" width="75%"
+       alt="KEGG pathway enrichment of genes unique to Prochlorococcus MIT 9313"><br>
+  <em><code>mpph enrich</code> — KEGG pathway enrichment of the 190 genes in the
+  low-light-adapted <em>Prochlorococcus</em> MIT 9313 genome absent from the
+  streamlined high-light strain AS9601, tested against MIT 9313's own genome
+  as background. The top hit recovers a well-known, published result: low-light
+  ecotypes carry extra <em>Photosynthesis – antenna proteins</em> genes (the
+  <code>pcb</code> chlorophyll-binding antennae) to harvest scarce light.</em>
+</p>
 
 ## Features
 
-- **Two analyses** — pathway presence/absence *or* KEGG module completeness.
+- **Two profiling analyses** — pathway presence/absence *or* KEGG module completeness.
+- **Enrichment** (`mpph enrich`) — hypergeometric over-representation of a gene/KO
+  study set against KEGG pathways, KEGG modules, or (with your own gene-to-GO
+  mapping) GO terms.
 - **Three input sources** — a taxon name, a file of organism codes, or your own
   KO annotations (KofamScan / eggNOG / any `K#####` list).
 - **Category-aware figures** — a functional-category colour strip + legend,
@@ -132,6 +145,15 @@ mpph report     --results results/                       # interactive report.ht
 # Metabolic complementarity across organisms (union completes a module)
 mpph community  --codes genomes.txt --max-combination-size 2
 
+# KEGG pathway/module enrichment (ORA) for a study set of genes/KOs
+mpph enrich --study unique_genes.txt --background-organism pmt \
+            --ontology kegg-pathway
+
+# GO enrichment needs your own gene->GO mapping (KEGG has no GO annotations);
+# an eggNOG-mapper .annotations file works directly via --go-map-format eggnog
+mpph enrich --study degs.txt --background all_genes.txt --ontology go \
+            --gene-go-map sample.emapper.annotations --go-map-format eggnog
+
 # Validate a sample sheet before a user-data run
 mpph validate   --samples samples.tsv
 ```
@@ -178,6 +200,10 @@ For a run on `<name>`, MPPH writes to the output directory:
 | `<name>_organism_tree.nwk`, `<name>_feature_tree.nwk` | Newick trees (with `--newick`). |
 | `<name>_manifest.json` | Full command, KEGG release, filters, excluded organisms, output list. |
 
+`mpph enrich` writes `<label>_enrichment.csv` (one row per tested category:
+gene/background ratios, fold enrichment, p-value, BH q-value, matching study
+items) and `<label>_enrichment.<fmt>` (a bar chart of the top hits).
+
 ## How it works
 
 1. Resolve organisms from a taxon (`list/genome`), a code file, or user KO files.
@@ -190,6 +216,11 @@ For a run on `<name>`, MPPH writes to the output directory:
    genomes, prevalence).
 4. Render the heatmap, clustering when `--cluster` is set, coloured by KEGG
    functional category (`br08901` / module `CLASS`).
+5. **Enrichment:** category membership comes from the global (non-organism)
+   `link/pathway/ko` or `link/module/ko`; both study and background sets are
+   first restricted to genes annotated in that category system, then each
+   category is tested with a one-sided hypergeometric test (over-representation
+   only) and BH-FDR corrected across all tested categories.
 
 ## Public Python API (KEGG interface)
 
@@ -218,9 +249,11 @@ score   = mpph.module_completeness("K00844 K12407 K00845", kos)
 `mpph.KEGG_API_BASE`, `make_session`, `kegg_get`, `kegg_release`,
 `list_genomes`, `select_by_taxon`, `select_by_codes`, `get_pathways`,
 `fetch_pathway_categories`, `list_modules`, `fetch_module_definitions`,
-`organism_kos`, and the matrix/plot helpers are all exported from the top-level
-`mpph` package. (Note the [KEGG terms](DATA_SOURCES.md) apply to the *data* you
-retrieve; the client code is MIT-licensed.)
+`organism_kos`, `fetch_ko_pathway_membership`, `fetch_ko_module_membership`,
+`fetch_pathway_names`, `hypergeometric_enrichment`, `load_gene_go_map`, and the
+matrix/plot helpers are all exported from the top-level `mpph` package. (Note
+the [KEGG terms](DATA_SOURCES.md) apply to the *data* you retrieve; the client
+code is MIT-licensed.)
 
 ## Limitations
 
@@ -236,6 +269,11 @@ retrieve; the client code is MIT-licensed.)
 - **Taxon matching is by organism name**, so it is reliable for genus/species
   but not for family/phylum. Results depend on the KEGG release (recorded in the
   manifest).
+- **Enrichment is over-representation only** (one-sided; a study set with zero
+  hits is reported as non-significant, never as "significantly depleted"), does
+  not correct for gene length or study-set composition biases, and **GO
+  enrichment needs a gene-to-GO mapping you supply** — KEGG itself has no GO
+  annotations.
 
 ## Documentation
 

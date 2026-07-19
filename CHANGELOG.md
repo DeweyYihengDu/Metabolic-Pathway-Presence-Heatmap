@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.4.0
+
+New feature: **`mpph enrich`** — hypergeometric over-representation (ORA) of a
+gene/KO study set against KEGG pathways, KEGG modules, or GO terms.
+
+- `--ontology kegg-pathway` / `kegg-module`: category membership from the
+  global (non-organism-specific) `link/pathway/ko` / `link/module/ko` KEGG
+  endpoints, so results don't depend on which organism the study set came from.
+  `--background-organism CODE` is a shortcut for "this organism's full KO
+  complement" (built on the existing `organism_kos()`).
+- `--ontology go`: GO enrichment via a **user-supplied** gene-to-GO mapping (a
+  long table, or an eggNOG-mapper `.annotations` file's `GO_terms` column) --
+  KEGG itself has no GO annotations, so this is bring-your-own-mapping, not a
+  new external data source.
+- One-sided hypergeometric test (over-representation only) with BH-FDR
+  correction (reusing the existing `benjamini_hochberg`); both study and
+  background are restricted to the annotated universe before testing, and
+  dropped/used counts are reported.
+- A ranked bar chart (`plot_enrichment`) of the top hits, coloured by
+  significance.
+- New public API: `fetch_ko_pathway_membership`, `fetch_ko_module_membership`,
+  `fetch_pathway_names`, `hypergeometric_enrichment`, `invert_membership`,
+  `load_gene_go_map`.
+- 21 new tests: pure hypergeometric math (cross-checked directly against
+  `scipy.stats.hypergeom`), GO/id-list file parsing, and an offline CLI
+  end-to-end test served from committed KEGG cache fixtures. Also validated
+  live against the real KEGG API (see the new example below).
+- New example: KEGG pathway enrichment of the 190 genes unique to
+  *Prochlorococcus* MIT 9313 (low-light ecotype) versus AS9601 (high-light,
+  streamlined) — recovers "Photosynthesis - antenna proteins" as a top hit,
+  the published low-light antenna-gene expansion in this genus.
+
 ## 3.3.1
 
 Correctness and security hotfix. Every item below was reproduced with a failing

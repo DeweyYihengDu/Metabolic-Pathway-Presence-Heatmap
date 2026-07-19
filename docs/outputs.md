@@ -19,10 +19,11 @@
 |---|---|
 | `pan` | `<slug>_pan_classes.csv`, `<slug>_accumulation.csv`, `<slug>_prevalence.<fmt>`, `<slug>_accumulation.<fmt>` |
 | `compare` | `<slug>_differential_<A>_vs_<B>.csv` + volcano `<fmt>` |
-| `ordination` | `<slug>_pcoa.csv`, `<slug>_pcoa.<fmt>` |
+| `ordination` | `<slug>_pcoa.csv`, `<slug>_pcoa_diagnostics.json`, `<slug>_pcoa.<fmt>`, `<slug>_permanova.csv` (with `--metadata`/`--color`) |
 | `community` | `community_complementarity.csv` |
 | `report` | `<slug>_report.html` (self-contained) |
 | `traits` | `<slug>_matrix.csv`, `<slug>_heatmap.<fmt>` |
+| `enrich` | `<label>_enrichment.csv`, `<label>_enrichment.<fmt>` |
 
 ## Manifest fields
 

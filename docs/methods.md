@@ -45,6 +45,38 @@ coverage and genome completeness all affect it. Use `mpph`'s Newick export with
 `treecompare` (Robinson–Foulds, bootstrap clade support) to compare against a
 reference tree before making evolutionary claims.
 
+## Enrichment (over-representation analysis)
+
+`mpph enrich` tests whether a *study set* of genes/KOs contains more members of
+a category (KEGG pathway, KEGG module, or a GO term) than expected by chance
+given the *background* it was drawn from — the classic hypergeometric ORA test
+(equivalent to a one-sided Fisher's exact test), the same design used by
+clusterProfiler / DAVID / topGO.
+
+For each category with at least `--min-category-size` background members:
+
+```
+p = P(X >= k)   where X ~ Hypergeom(N, K, n)
+N = |background genes annotated in this category system|
+K = |background genes in this category|
+n = |study genes annotated in this category system|
+k = |study genes in this category|
+```
+
+This is **one-sided** (over-representation only): a study set with zero hits in
+a category is reported as non-significant (p→1), never as "significantly
+depleted". P-values are BH-FDR corrected (`q_value`) across every category
+actually tested. Both study and background are restricted to genes annotated in
+the category system being tested first — an unannotated input gene can neither
+support nor refute enrichment.
+
+**Category membership**: KEGG pathway/module membership comes from the global,
+non-organism-specific `link/pathway/ko` and `link/module/ko` endpoints, so the
+same category set applies regardless of which organism the study/background
+came from. **GO enrichment needs a gene-to-GO mapping you supply** (a long
+table, or an eggNOG-mapper `.annotations` file) — KEGG itself carries no GO
+annotations.
+
 ## Quality control
 
 Organisms with zero retained features are dropped (`--keep-empty` to keep) and

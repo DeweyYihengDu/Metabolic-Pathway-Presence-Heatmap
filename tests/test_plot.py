@@ -3,6 +3,7 @@ import pandas as pd
 
 from mpph.plot import (
     plot_accumulation,
+    plot_enrichment,
     plot_matrix,
     plot_prevalence,
     plot_volcano,
@@ -56,3 +57,21 @@ def test_analysis_plots_produce_files(tmp_path):
                         "core_mean": [3, 2, 1]})
     plot_accumulation(acc, tmp_path / "a.png", "acc")
     assert (tmp_path / "a.png").exists()
+
+
+def test_plot_enrichment_produces_file(tmp_path):
+    results = pd.DataFrame({
+        "category_id": ["map00010", "map00020"],
+        "category_name": ["Glycolysis", "TCA cycle"],
+        "gene_ratio": ["8/20", "1/20"],
+        "q_value": [0.001, 0.8],
+    })
+    out = tmp_path / "e.png"
+    plot_enrichment(results, out, "Enrichment test")
+    assert out.exists()
+
+
+def test_plot_enrichment_empty_raises(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="Nothing to plot"):
+        plot_enrichment(pd.DataFrame(), tmp_path / "e.png", "empty")
