@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "panel_version": "1.0.0",
   "description": "Illustrative biogeochemical-cycle marker traits. Marker KOs only; verify against a curated source before publication.",
   "traits": {
     "nitrogen_fixation": {

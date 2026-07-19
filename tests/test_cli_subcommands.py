@@ -76,6 +76,22 @@ def test_validate_subcommand_reports_empty_annotation_file(tmp_path, capsys):
     assert "empty annotation_file" in capsys.readouterr().err
 
 
+def test_traits_subcommand_writes_manifest_with_panel_provenance(tmp_path):
+    users = tmp_path / "genomes"
+    users.mkdir()
+    (users / "mag1.txt").write_text("K02586\tK02588\tK02591\n")  # nitrogen_fixation
+    outdir = tmp_path / "out"
+    rc = cli.main(["traits", "--user", str(users), "--panel", "biogeochemistry",
+                   "--outdir", str(outdir)])
+    assert rc == 0
+    manifest = json.loads((outdir / "biogeochemistry_manifest.json").read_text())
+    assert manifest["kegg_release"] == "n/a (user data)"
+    assert manifest["n_organisms"] == 1
+    assert manifest["panel"]["panel_version"] == "1.0.0"
+    assert len(manifest["panel"]["panel_sha256"]) == 64  # sha256 hex digest
+    assert manifest["panel"]["panel_path"].endswith("biogeochemistry.json")
+
+
 def test_backward_compatible_shortcut_routes_to_run(tmp_path, monkeypatch):
     # `mpph <taxon>` must still reach run(); stub run to avoid network.
     called = {}

@@ -8,7 +8,7 @@ from mpph.samplesheet import (
     read_sample_sheet,
     sheet_metadata,
 )
-from mpph.traits import load_trait_panel, score_trait, score_traits
+from mpph.traits import load_trait_panel, panel_provenance, score_trait, score_traits
 
 
 def test_score_trait_all_and_any():
@@ -40,6 +40,29 @@ def test_additional_builtin_panels_valid():
         assert panel
         for _tid, defn in panel.items():
             assert defn.get("steps"), f"{name} trait missing steps"
+
+
+def test_builtin_panels_have_version_and_provenance():
+    for name in ("biogeochemistry", "respiration", "carbon_fixation"):
+        prov = panel_provenance(name)
+        assert prov["panel_version"] == "1.0.0"
+        assert len(prov["panel_sha256"]) == 64
+        assert prov["panel_path"].endswith(f"{name}.json")
+        # panel_provenance must resolve built-in names the same way
+        # load_trait_panel does, without disturbing that function's contract.
+        assert load_trait_panel(name)
+
+
+def test_panel_provenance_detects_content_change(tmp_path):
+    panel_file = tmp_path / "custom.json"
+    panel_file.write_text('{"panel_version": "1.0.0", "traits": '
+                          '{"t1": {"steps": [{"all_of": ["K00001"]}]}}}')
+    first = panel_provenance(panel_file)
+    panel_file.write_text('{"panel_version": "1.0.1", "traits": '
+                          '{"t1": {"steps": [{"all_of": ["K00002"]}]}}}')
+    second = panel_provenance(panel_file)
+    assert first["panel_sha256"] != second["panel_sha256"]
+    assert second["panel_version"] == "1.0.1"
 
 
 def test_sample_sheet_roundtrip(tmp_path):

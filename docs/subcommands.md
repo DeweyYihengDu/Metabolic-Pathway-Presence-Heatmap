@@ -34,7 +34,12 @@ mpph gsea       --ranked-list ranked.tsv --ontology kegg-module
 
 Built-in trait panels: `biogeochemistry`, `respiration`, `carbon_fixation`.
 Supply your own with `--panel path/to/panel.json` (or `.yaml`); see the
-`all_of` / `any_of` / `optional` step schema in `mpph/data/traits/`.
+`all_of` / `any_of` / `optional` step schema in `mpph/data/traits/`. A panel
+file can declare `panel_version` (a version for *its own content*, not this
+package) alongside the required `traits` map; `mpph traits` records the
+panel's resolved path, content SHA-256 and any such metadata in
+`<slug>_manifest.json`, so a later run can detect that a panel changed
+underneath a previously-recorded analysis.
 
 ## `mpph enrich`
 

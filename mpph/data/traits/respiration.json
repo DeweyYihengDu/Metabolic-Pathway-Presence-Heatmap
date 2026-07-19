@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "panel_version": "1.0.0",
   "description": "Illustrative terminal-oxidase / respiration marker traits. Marker KOs only; verify against a curated source before publication.",
   "traits": {
     "cytochrome_c_oxidase_aa3": {

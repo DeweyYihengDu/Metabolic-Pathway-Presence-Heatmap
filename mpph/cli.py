@@ -528,7 +528,7 @@ def cmd_community(args) -> int:
 
 
 def cmd_traits(args) -> int:
-    from .traits import load_trait_panel, score_traits
+    from .traits import load_trait_panel, panel_provenance, score_traits
     cache_dir = None if args.no_cache else Path(args.cache_dir)
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -545,6 +545,28 @@ def cmd_traits(args) -> int:
                     title, subtitle, cluster=args.cluster, mode="completeness",
                     metric="euclidean", value_label="trait completeness",
                     strip_label="trait category")
+
+    manifest = {
+        "mpph_version": __version__,
+        "command": "mpph " + " ".join(getattr(args, "_raw_argv", sys.argv[1:])),
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "source": ("user:" + str(args.user)) if args.user else
+                  (args.codes or args.taxon),
+        "kegg_release": ("n/a (user data)" if args.user
+                         else kegg_release(session, cache_dir)),
+        "n_organisms": int(matrix.shape[0]),
+        "n_traits": int(matrix.shape[1]),
+        "panel": panel_provenance(args.panel),
+        "outputs": {
+            "matrix": f"{slug}_matrix.csv",
+            "figures": [f"{slug}_heatmap.{fmt}" for fmt in args.format],
+        },
+    }
+    (outdir / f"{slug}_manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8")
+
     print(f"Scored {matrix.shape[1]} traits for {matrix.shape[0]} organisms. "
           f"Wrote to {outdir}/")
     return 0

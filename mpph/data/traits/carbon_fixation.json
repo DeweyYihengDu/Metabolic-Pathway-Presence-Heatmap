@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "panel_version": "1.0.0",
   "description": "Illustrative autotrophic carbon-fixation pathway markers. Marker KOs only; verify against a curated source before publication.",
   "traits": {
     "calvin_cycle_rubisco": {

@@ -1,5 +1,32 @@
 # Changelog
 
+## 3.8.0
+
+Trait panel versioning and provenance. `mpph traits` had no manifest at all
+(unlike `run`, `enrich` and `gsea`), so a trait-scoring run left no record of
+which panel file, version, or KEGG release produced it.
+
+- Built-in panels (`biogeochemistry`, `respiration`, `carbon_fixation`) now
+  declare `panel_version` (starting at `1.0.0`) alongside the existing
+  `schema_version` and the "illustrative, verify before publication"
+  disclaimer.
+- New `panel_provenance()` returns the resolved panel path, its SHA-256
+  content hash, and whatever top-level metadata fields the panel file
+  declares -- a hash lets a later run detect that a panel's content changed
+  underneath a previously-recorded analysis. `load_trait_panel`'s existing
+  signature and behavior are unchanged (refactored to share path/file
+  resolution, not rewritten).
+- `mpph traits` now writes `<slug>_manifest.json` (command, KEGG release or
+  `n/a (user data)`, organism/trait counts, panel provenance, outputs),
+  matching the manifest already written by `run`/`enrich`/`gsea`.
+
+This does **not** implement the fuller per-marker provenance schema some
+reviews suggest (curator names, literature DOIs per marker, taxonomic scope,
+paralog caveats) -- that content doesn't exist anywhere in this repository
+today, and fabricating placeholder citations would be worse than not having
+them. Filling that in for the 3 built-in panels is future curatorial work,
+not something to synthesize.
+
 ## 3.7.0
 
 ORA (`mpph enrich`) correctness fix and richer output. Reproduced with a

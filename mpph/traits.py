@@ -12,6 +12,7 @@ Trait score = satisfied required steps / total required steps.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -20,15 +21,17 @@ import pandas as pd
 BUILTIN_DIR = Path(__file__).parent / "data" / "traits"
 
 
-def load_trait_panel(path: str | Path) -> dict[str, dict]:
-    """Load a trait panel from a JSON or YAML file. Returns ``{trait_id: {...}}``."""
+def _resolve_panel_path(path: str | Path) -> Path:
     p = Path(path)
     if not p.exists():
         builtin = BUILTIN_DIR / f"{p.name}.json"
         if builtin.exists():
-            p = builtin
-        else:
-            raise FileNotFoundError(f"trait panel not found: {path}")
+            return builtin
+        raise FileNotFoundError(f"trait panel not found: {path}")
+    return p
+
+
+def _read_panel_data(p: Path) -> dict:
     text = p.read_text(encoding="utf-8")
     if p.suffix in (".yaml", ".yml"):
         try:
@@ -36,13 +39,37 @@ def load_trait_panel(path: str | Path) -> dict[str, dict]:
         except ImportError as exc:  # pragma: no cover
             raise ImportError("YAML trait panels need PyYAML "
                               "(`pip install pyyaml`); or use JSON.") from exc
-        data = yaml.safe_load(text)
-    else:
-        data = json.loads(text)
+        return yaml.safe_load(text)
+    return json.loads(text)
+
+
+def load_trait_panel(path: str | Path) -> dict[str, dict]:
+    """Load a trait panel from a JSON or YAML file. Returns ``{trait_id: {...}}``."""
+    p = _resolve_panel_path(path)
+    data = _read_panel_data(p)
     traits = data.get("traits", data)
     if not isinstance(traits, dict):
         raise ValueError("trait panel must map trait ids to definitions")
     return traits
+
+
+def panel_provenance(path: str | Path) -> dict:
+    """Panel-level metadata for a manifest: resolved path, content hash, and
+    whatever top-level fields the panel file itself declares (``panel_version``,
+    ``schema_version``, ``description``, or any custom field a curator adds).
+
+    The hash lets a later run detect that a panel file changed underneath a
+    previously-recorded analysis -- built-in panels are versioned data, not
+    frozen constants, and can be revised as marker sets are corrected.
+    """
+    p = _resolve_panel_path(path)
+    data = _read_panel_data(p)
+    meta = {k: v for k, v in data.items() if k != "traits"} if isinstance(data, dict) else {}
+    return {
+        "panel_path": str(p),
+        "panel_sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+        **meta,
+    }
 
 
 def _step_satisfied(step: dict, ko_set: set[str]) -> bool:
