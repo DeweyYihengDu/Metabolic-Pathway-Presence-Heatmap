@@ -41,6 +41,12 @@ panel's resolved path, content SHA-256 and any such metadata in
 `<slug>_manifest.json`, so a later run can detect that a panel changed
 underneath a previously-recorded analysis.
 
+`mpph report --max-cells N` (default 50,000): above this many
+organisms x features, the interactive grid is replaced with a summary --
+a browser table that large (each cell its own styled DOM node) can hang the
+page. The QC/manifest tabs and the underlying CSV/figure outputs are
+unaffected either way.
+
 ## `mpph enrich`
 
 Hypergeometric over-representation (ORA): does a *study set* of genes/KOs

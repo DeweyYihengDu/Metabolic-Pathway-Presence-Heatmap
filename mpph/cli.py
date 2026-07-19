@@ -436,7 +436,7 @@ def cmd_report(args) -> int:
     from .report import build_report
     results = Path(args.results)
     slug = _find_slug(results, args.slug)
-    out = build_report(results, slug)
+    out = build_report(results, slug, max_cells=args.max_cells)
     print(f"Wrote {out}")
     return 0
 
@@ -972,6 +972,12 @@ def build_parser() -> argparse.ArgumentParser:
     rep = sub.add_parser("report", help="Build a self-contained HTML report.")
     rep.add_argument("--results", required=True)
     rep.add_argument("--slug")
+    rep.add_argument("--max-cells", type=int, default=50_000,
+                     help="Skip the interactive grid (organisms x features "
+                          "over this many cells) in favour of a summary -- "
+                          "a browser table that large can hang the page. "
+                          "The QC/manifest tabs and full CSV/figure outputs "
+                          "are unaffected.")
 
     val = sub.add_parser("validate", help="Validate a sample sheet.")
     val.add_argument("--samples", required=True)

@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.12.0
+
+HTML report: large-matrix protection. The interactive grid embedded the
+full `organisms x features` matrix as JSON and built one styled DOM node per
+cell with no size limit at all -- for a large analysis (thousands of
+organisms and/or features), that's hundreds of thousands to millions of DOM
+nodes, easily enough to hang or crash the browser tab.
+
+- New `build_report(..., max_cells=50_000)` / `mpph report --max-cells N`:
+  above this many cells, the matrix is not embedded in the JSON payload at
+  all (keeping the HTML file itself small) and the grid section shows a
+  plain-text summary (dimensions, cell count, pointers to the CSV/figure
+  outputs) instead of attempting the table.
+- The QC and manifest tabs are unaffected either way -- they're small
+  regardless of matrix size -- and the full data is always in
+  `<slug>_matrix.csv` / `_ordered_matrix.csv` and the heatmap figure(s).
+- Every existing shipped example is well under the default threshold, so
+  nothing needed regenerating; this closes a real gap for any larger
+  analysis, including a user's own `build_report()` call.
+
 ## 3.11.0
 
 KEGG response cache: collision-proof filenames and atomic writes. Reproduced

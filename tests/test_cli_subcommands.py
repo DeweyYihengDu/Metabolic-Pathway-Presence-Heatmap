@@ -1,5 +1,6 @@
 """Offline tests for the post-processing subcommands (no network)."""
 import json
+from pathlib import Path
 
 import pandas as pd
 
@@ -36,6 +37,20 @@ def test_report_subcommand(tmp_path):
     _make_results(tmp_path)
     assert cli.main(["report", "--results", str(tmp_path)]) == 0
     assert (tmp_path / "Demo_report.html").exists()
+
+
+def test_report_subcommand_max_cells_flag_reaches_build_report(tmp_path, monkeypatch):
+    _make_results(tmp_path)
+    seen = {}
+
+    def _stub(outdir, slug, *, max_cells):
+        seen["max_cells"] = max_cells
+        return Path(outdir) / f"{slug}_report.html"
+
+    import mpph.report as report_mod
+    monkeypatch.setattr(report_mod, "build_report", _stub)
+    cli.main(["report", "--results", str(tmp_path), "--max-cells", "123"])
+    assert seen["max_cells"] == 123
 
 
 def test_compare_subcommand(tmp_path):

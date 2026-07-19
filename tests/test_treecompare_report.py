@@ -85,6 +85,49 @@ def test_build_report(tmp_path):
     assert "<script>" in html  # self-contained interactive report
 
 
+def test_build_report_omits_grid_for_a_large_matrix(tmp_path):
+    # organisms x features over max_cells: a full interactive table that
+    # size (each cell its own styled DOM node) can hang the browser.
+    slug = "Big"
+    n_org, n_feat = 10, 10
+    matrix = pd.DataFrame(1.0, index=[f"org{i}" for i in range(n_org)],
+                         columns=[f"f{j}" for j in range(n_feat)])
+    matrix.to_csv(tmp_path / f"{slug}_matrix.csv", index_label="organism")
+    pd.DataFrame({"feature_id": matrix.columns, "name": matrix.columns,
+                 "category": ["x"] * n_feat}).to_csv(
+        tmp_path / f"{slug}_features.csv", index=False)
+    (tmp_path / f"{slug}_manifest.json").write_text(
+        json.dumps({"mode": "presence", "mpph_version": "test"}))
+
+    out = build_report(tmp_path, slug, max_cells=50)  # 100 cells > 50
+    html = out.read_text(encoding="utf-8")
+    payload = html.split(
+        '<script id="mpph-data" type="application/json">')[1].split("</script>")[0]
+    data = json.loads(payload.replace("\\u003c", "<"))
+    assert data["grid_omitted"] is True
+    assert data["matrix"] == []  # not embedded -- keeps the file small
+    assert "org0" in data["organisms"]  # summary info still present
+
+
+def test_build_report_keeps_grid_under_the_cell_limit(tmp_path):
+    slug = "Small"
+    matrix = pd.DataFrame({"f1": [1.0, 0.0], "f2": [0.0, 1.0]}, index=["a", "b"])
+    matrix.to_csv(tmp_path / f"{slug}_matrix.csv", index_label="organism")
+    pd.DataFrame({"feature_id": ["f1", "f2"], "name": ["f1", "f2"],
+                 "category": ["x", "x"]}).to_csv(
+        tmp_path / f"{slug}_features.csv", index=False)
+    (tmp_path / f"{slug}_manifest.json").write_text(
+        json.dumps({"mode": "presence", "mpph_version": "test"}))
+
+    out = build_report(tmp_path, slug)  # default max_cells, well above 4
+    html = out.read_text(encoding="utf-8")
+    payload = html.split(
+        '<script id="mpph-data" type="application/json">')[1].split("</script>")[0]
+    data = json.loads(payload.replace("\\u003c", "<"))
+    assert data["grid_omitted"] is False
+    assert data["matrix"] == [[1.0, 0.0], [0.0, 1.0]]
+
+
 def _report_with_names(tmp_path, organism, feature_name, value=1):
     slug = "Evil"
     pd.DataFrame({"00010": [value]}, index=[organism]).to_csv(

@@ -83,6 +83,17 @@ function color(v){{
 }}
 function buildGrid(){{
   const table = document.getElementById('grid');
+  if (DATA.grid_omitted){{
+    document.getElementById('filter').style.display = 'none';
+    document.getElementById('legend').textContent =
+      DATA.organisms.length + ' organisms x ' + DATA.features.length +
+      ' features (' + (DATA.organisms.length * DATA.features.length).toLocaleString() +
+      ' cells) is too large for this interactive view (over ' +
+      DATA.max_cells.toLocaleString() + ' cells) -- a browser table that size ' +
+      'can hang the page. Full data: ' + DATA.slug + '_matrix.csv / ' +
+      DATA.slug + '_ordered_matrix.csv, and the heatmap figure(s).';
+    return;
+  }}
   const cols = DATA.features, rows = DATA.organisms, M = DATA.matrix;
   const thead = el('thead'), hr = el('tr');
   hr.appendChild(Object.assign(el('th','organism'), {{className:'rowh'}}));
@@ -178,8 +189,16 @@ def _clean(value):
     return value
 
 
-def build_report(outdir: str | Path, slug: str) -> Path:
-    """Read the ``<slug>_*`` outputs in ``outdir`` and write ``<slug>_report.html``."""
+def build_report(outdir: str | Path, slug: str, *, max_cells: int = 50_000) -> Path:
+    """Read the ``<slug>_*`` outputs in ``outdir`` and write ``<slug>_report.html``.
+
+    A matrix with more than ``max_cells`` organisms x features is not embedded
+    as an interactive table -- an ``organisms x features`` browser table that
+    large (each cell its own styled DOM node) can hang the page. The QC and
+    manifest tabs, and a summary in place of the grid, are still built; the
+    full data is always in ``<slug>_matrix.csv`` / ``_ordered_matrix.csv`` and
+    the heatmap figure(s) regardless.
+    """
     outdir = Path(outdir)
     matrix = pd.read_csv(outdir / f"{slug}_matrix.csv", index_col=0)
     matrix.columns = matrix.columns.astype(str)
@@ -191,8 +210,10 @@ def build_report(outdir: str | Path, slug: str) -> Path:
     name_by_id = dict(zip(features["feature_id"].astype(str), features["name"]))
     feats = [{"id": str(c), "name": str(name_by_id.get(str(c), c))}
              for c in matrix.columns]
-    values = [[_clean(v) for v in row]
-              for row in matrix.round(4).to_numpy().tolist()]
+    n_cells = matrix.shape[0] * matrix.shape[1]
+    grid_omitted = n_cells > max_cells
+    values = [] if grid_omitted else [
+        [_clean(v) for v in row] for row in matrix.round(4).to_numpy().tolist()]
     subtitle = (f"{manifest.get('mode', '')} - {matrix.shape[0]} organisms x "
                 f"{matrix.shape[1]} features - MPPH "
                 f"{manifest.get('mpph_version', '')}")
@@ -200,6 +221,8 @@ def build_report(outdir: str | Path, slug: str) -> Path:
         "slug": slug,
         "subtitle": subtitle,
         "mode": manifest.get("mode", "presence"),
+        "grid_omitted": grid_omitted,
+        "max_cells": max_cells,
         "organisms": [str(i) for i in matrix.index],
         "features": feats,
         "matrix": values,
