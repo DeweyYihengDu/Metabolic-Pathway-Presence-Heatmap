@@ -386,13 +386,19 @@ def plot_matrix(
     value_label: str = "module completeness",
     strip_label: str = "KEGG functional category",
 ) -> dict:
-    """Render the matrix; return ``{row_link, col_link, row_labels, col_labels}``.
+    """Render the matrix; return ``{row_link, col_link, row_labels, col_labels,
+    row_link_labels, col_link_labels}``.
 
     ``mode='presence'`` colours present cells by functional category;
     ``mode='completeness'`` colours cells by a sequential completeness ramp with
     a colorbar. Rows are organisms, columns are pathways or modules.
     ``value_label`` / ``strip_label`` name the colorbar and category strip (so a
     trait heatmap reads "trait completeness" / "trait category").
+
+    ``row_labels``/``col_labels`` are in dendrogram (display) order, matching
+    the returned/plotted matrix. ``row_link``/``col_link`` index leaves in the
+    *pre*-reorder input order instead, so Newick export must pair them with
+    ``row_link_labels``/``col_link_labels``, not ``row_labels``/``col_labels``.
     """
     if df.shape[1] == 0:
         raise ValueError("Nothing to plot: the matrix has no columns after "
@@ -413,6 +419,12 @@ def plot_matrix(
         row_order = np.argsort([n.lower() for n in names])
         raw = [categories.get(c, "Other") for c in cols]
         col_order = np.array(sorted(range(n_cols), key=lambda j: (raw[j], cols[j])))
+
+    # row_link/col_link index leaves in this pre-reorder sequence (the order
+    # linkage() was called on) -- keep it for Newick export, which must look
+    # up labels by that same indexing, not by the post-dendrogram display order.
+    link_row_labels = list(names)
+    link_col_labels = list(cols)
 
     values = values[np.ix_(row_order, col_order)]
     names = [names[i] for i in row_order]
@@ -573,4 +585,5 @@ def plot_matrix(
     return {
         "row_link": row_link, "col_link": col_link,
         "row_labels": names, "col_labels": cols,
+        "row_link_labels": link_row_labels, "col_link_labels": link_col_labels,
     }

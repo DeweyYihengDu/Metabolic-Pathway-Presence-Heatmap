@@ -241,12 +241,12 @@ def run(args: argparse.Namespace) -> int:
         if layout.get("row_link") is not None:
             f = outdir / f"{slug}_organism_tree.nwk"
             f.write_text(linkage_to_newick(layout["row_link"],
-                                           layout["row_labels"]), encoding="utf-8")
+                                           layout["row_link_labels"]), encoding="utf-8")
             tree_files["organism_tree"] = f.name
         if layout.get("col_link") is not None:
             f = outdir / f"{slug}_feature_tree.nwk"
             f.write_text(linkage_to_newick(layout["col_link"],
-                                           layout["col_labels"]), encoding="utf-8")
+                                           layout["col_link_labels"]), encoding="utf-8")
             tree_files["feature_tree"] = f.name
         if not tree_files:
             print("      (Newick needs --cluster and >=2 objects; skipped)",

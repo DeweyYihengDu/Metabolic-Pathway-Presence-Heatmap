@@ -1,4 +1,6 @@
 """Tests for figure labelling (rendered to SVG so text is inspectable)."""
+import re
+
 import pandas as pd
 
 from mpph.plot import (
@@ -10,6 +12,7 @@ from mpph.plot import (
     plot_prevalence,
     plot_volcano,
 )
+from mpph.tree import linkage_to_newick
 
 
 def _matrix():
@@ -105,3 +108,22 @@ def test_plot_gsea_summary_empty_raises(tmp_path):
     import pytest
     with pytest.raises(ValueError, match="Nothing to plot"):
         plot_gsea_summary(pd.DataFrame(), tmp_path / "e.png", "empty")
+
+
+def test_row_link_labels_match_linkage_leaf_order(tmp_path):
+    # C and A sit almost on top of each other; B is a distant outlier.
+    # Fed in as C, A, B so a linkage-index/display-order mix-up would
+    # visibly attach the wrong name to the wrong branch.
+    df = pd.DataFrame({"f1": [0.0, 0.05, 10.0], "f2": [0.0, 0.05, 10.0]},
+                      index=["C", "A", "B"])
+    layout = plot_matrix(df, {"f1": "cat", "f2": "cat"}, tmp_path / "t.svg",
+                        "title", "sub", cluster=True, mode="completeness",
+                        metric="euclidean")
+    assert layout["row_link_labels"] == ["C", "A", "B"]
+
+    nwk = linkage_to_newick(layout["row_link"], layout["row_link_labels"])
+    # The innermost clade (no nested parens) must be exactly the two truly
+    # close leaves {A, C}; the distant outlier B must sit outside it.
+    inner = re.search(r"\(([^()]+)\)", nwk).group(1)
+    inner_leaves = set(re.findall(r"[A-Z](?=:)", inner))
+    assert inner_leaves == {"A", "C"}

@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.5.1
+
+Correctness hotfix for Newick tree export. Reproduced with a failing case
+first, now has a regression test.
+
+### Tree export
+- `plot_matrix`'s returned linkage (`row_link`/`col_link`) indexes leaves in
+  the *pre*-clustering row/column order, but the CLI's Newick export was
+  passing it together with `row_labels`/`col_labels` -- the *post*-dendrogram,
+  reordered display labels. The topology was correct but names could attach to
+  the wrong leaves (e.g. two genuinely distant organisms shown as each
+  other's closest relative, and vice versa). `plot_matrix` now also returns
+  `row_link_labels`/`col_link_labels` (labels in the same order the linkage
+  was computed on), and `organism_tree.nwk`/`feature_tree.nwk` export uses
+  those instead.
+
 ## 3.5.0
 
 New subcommand: **`mpph gsea`** — rank-based enrichment ("GSEAPreranked" style,
