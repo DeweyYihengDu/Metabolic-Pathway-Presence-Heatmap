@@ -80,22 +80,26 @@ The analysis subcommands turn a run into comparative figures. Below, the
 </p>
 <p align="center">
   <img src="examples/Ecoli_gsea_top.png" width="75%"
-       alt="GSEA running-enrichment plot for the TCA cycle, E. coli aerobic vs microaerobic"><br>
+       alt="GSEA running-enrichment plot for the Ribosome pathway, E. coli aerobic vs microaerobic"><br>
   <em><code>mpph gsea</code> validated against real RNA-seq: 15 samples of
   <em>E. coli</em> under aerobic vs. microaerobic growth
   (<a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE189154">GEO
   GSE189154</a>, Liou lab), genes mapped Entrez→KEGG gene→KO via KEGG's own
-  <code>conv</code>/<code>link</code> endpoints, ranked automatically by
-  <code>mpph gsea --expression ... --rank-metric signal2noise</code> (no DE
-  tool involved). Top hit: the <b>TCA cycle</b> (15/22 leading-edge genes,
-  q=0.011) enriched toward aerobic growth — textbook respiratory physiology.
-  All 20 modules shown are significant at q&lt;0.05, and the two "anaerobic"
-  hits are exactly the genes microbiology would predict: <i>fumarate
-  reductase</i> (the anaerobic counterpart of succinate dehydrogenase) and
-  <i>cytochrome bd oxidase</i> (E. coli's low-oxygen terminal oxidase) — both
-  recovered with no prior hint given to the tool. A second, harder validation
-  — ranking by comparative genomics (KO prevalence, marine vs. freshwater
-  <em>Synechococcus</em>) rather than real expression — is in
+  <code>conv</code>/<code>link</code> endpoints, ranked automatically from
+  CPM-normalized counts by <code>mpph gsea --expression ...
+  --rank-metric signal2noise</code> (no DE tool involved; KEGG pathway level,
+  20,000 permutations to properly resolve near-tied top hits — see
+  <a href="docs/methods.md">methods</a>). Top hit: <b>Ribosome</b>
+  (51/57 leading-edge genes, NES=2.32, q=0.003) enriched toward aerobic
+  growth — bacterial ribosome content scales with growth rate, and aerobic
+  respiration supports faster growth than fermentation. The same top-two
+  (Ribosome, amino-acid biosynthesis) are recovered independently from the
+  study's own published fold-change statistic via <code>--ranked-list</code>.
+  <b>Glycolysis, fructose/mannose and pentose-phosphate metabolism</b> go the
+  other way, enriched toward microaerobic growth — fermentative sugar
+  catabolism stepping in exactly where oxidative respiration can't. A second,
+  harder validation — ranking by comparative genomics (KO prevalence, marine
+  vs. freshwater <em>Synechococcus</em>) rather than real expression — is in
   <a href="examples/">examples/</a> as an honest "did not clear FDR" case.</em>
 </p>
 

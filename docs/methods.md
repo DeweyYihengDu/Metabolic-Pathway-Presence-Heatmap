@@ -101,6 +101,14 @@ fraction of same-signed null draws at least as extreme, BH-FDR corrected
 approach — weaker than *phenotype* permutation (which re-derives the ranking
 from the raw samples on every permutation), which is not implemented here.
 
+**Permutation depth caps p-value resolution**: with `--permutations N`, the
+smallest achievable p-value is `1/(N+1)`, so with the default 1000 permutations
+several genuinely different top categories can be tied at the same floor
+p-value (and therefore the same `q_value`) — the reported "#1 hit" may just be
+whichever tied category happened first. If several categories cluster at the
+permutation floor, raise `--permutations` (10000–20000) to actually resolve
+their order rather than trusting the tie-break.
+
 **Unlike `enrich`, no background is chosen and no gene is dropped**: every
 gene in the ranking — annotated or not — contributes to the running sum as a
 potential "miss". Restricting to an annotated-only universe (as ORA does)
@@ -112,6 +120,16 @@ paper's statistic) or `log2fc` per gene. These are simple and dependency-free,
 **not a replacement for a proper differential-expression tool** — for a
 rigorous analysis, rank by DESeq2/edgeR/limma's own statistic and pass it via
 `--ranked-list`.
+
+**`--expression` must already be normalized for library size** (CPM/TPM/FPKM,
+or DESeq2/edgeR size-factor-normalized counts) — MPPH does not normalize for
+you. Raw read counts differ between samples simply because they were
+sequenced to different depths, and computing `signal2noise`/`log2fc` directly
+on raw counts confounds that depth difference with real biology. This is a
+real mistake made (and caught) while preparing this project's own example: a
+first pass ranked E. coli genes from *raw* per-sample counts that varied 1.75x
+in library size between samples; switching to the same dataset's CPM values
+shifted which pathway came out on top.
 
 ## Quality control
 

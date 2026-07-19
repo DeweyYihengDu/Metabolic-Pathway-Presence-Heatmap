@@ -892,7 +892,11 @@ def build_parser() -> argparse.ArgumentParser:
                                "DESeq2/edgeR/limma statistic).")
     rank_src.add_argument("--expression", metavar="FILE",
                           help="gene<TAB>sample... expression matrix; ranks "
-                               "genes automatically with --metadata/--group-*.")
+                               "genes automatically with --metadata/--group-*. "
+                               "Must already be normalized for library size "
+                               "(CPM/TPM/FPKM or DESeq2/edgeR size factors) -- "
+                               "raw read counts are not comparable across "
+                               "samples sequenced to different depths.")
     gse.add_argument("--metadata", metavar="FILE",
                      help="Sample metadata (needs sample_id + --group-column); "
                           "required with --expression.")

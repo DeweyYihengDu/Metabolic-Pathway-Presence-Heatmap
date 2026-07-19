@@ -29,7 +29,7 @@ annotations you provide.
 
 ## Third-party data bundled as examples
 
-`examples/Ecoli_*` (expression counts, metadata, ranked list, GSEA output and
+`examples/Ecoli_*` (CPM-normalized expression, metadata, ranked list, GSEA output and
 figures) is derived from a public, published dataset, included here under fair
 academic use to demonstrate and validate `mpph gsea` against real data with a
 known biological ground truth:
