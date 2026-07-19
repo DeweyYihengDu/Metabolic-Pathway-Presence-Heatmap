@@ -9,6 +9,7 @@ from mpph.plot import (
     plot_gsea_running,
     plot_gsea_summary,
     plot_matrix,
+    plot_ordination,
     plot_prevalence,
     plot_volcano,
 )
@@ -127,3 +128,12 @@ def test_row_link_labels_match_linkage_leaf_order(tmp_path):
     inner = re.search(r"\(([^()]+)\)", nwk).group(1)
     inner_leaves = set(re.findall(r"[A-Z](?=:)", inner))
     assert inner_leaves == {"A", "C"}
+
+
+def test_plot_ordination_rank_one_solution_does_not_crash(tmp_path):
+    # Exactly 2 samples (or other degenerate distance structure) yields a
+    # PCoA result with only one positive axis -- a 1-column coords frame.
+    coords = pd.DataFrame({"PCo1": [-0.5, 0.5]}, index=["s1", "s2"])
+    out = tmp_path / "ord.png"
+    plot_ordination(coords, [1.0], out, "rank-one test")
+    assert out.exists()

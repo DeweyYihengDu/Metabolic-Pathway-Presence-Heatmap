@@ -118,7 +118,11 @@ def plot_ordination(
 ) -> None:
     """Scatter of the first two PCoA axes, optionally coloured by group."""
     fig, ax = plt.subplots(figsize=(7.5, 6.5))
-    x, y = coords.iloc[:, 0], coords.iloc[:, 1]
+    # A rank-one solution (e.g. exactly 2 samples, or other degenerate distance
+    # structure) has only one positive eigenvalue -- there is no real PCo2.
+    rank_one = coords.shape[1] < 2
+    x = coords.iloc[:, 0]
+    y = pd.Series(0.0, index=coords.index) if rank_one else coords.iloc[:, 1]
     if groups is not None:
         labels = [groups.get(i, "n/a") for i in coords.index]
         uniq = list(dict.fromkeys(labels))
@@ -134,7 +138,11 @@ def plot_ordination(
                    edgecolor="white", linewidth=0.6)
     ev = list(explained) + [0, 0]
     ax.set_xlabel(f"PCo1 ({ev[0] * 100:.1f}%)", color=SECONDARY)
-    ax.set_ylabel(f"PCo2 ({ev[1] * 100:.1f}%)", color=SECONDARY)
+    if rank_one:
+        ax.set_ylabel("PCo2 unavailable (rank-one solution)", color=SECONDARY)
+        ax.set_yticks([])
+    else:
+        ax.set_ylabel(f"PCo2 ({ev[1] * 100:.1f}%)", color=SECONDARY)
     ax.set_title(title, fontsize=15, color=INK)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)

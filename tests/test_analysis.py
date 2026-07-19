@@ -137,6 +137,39 @@ def test_permanova_rejects_singleton_group():
         permanova(matrix, groups, metric="euclidean", permutations=9, seed=1)
 
 
+def test_pcoa_zero_distance_pairs_counts_only_true_ties():
+    # np.triu(d, 1) zeroes the diagonal AND the whole lower triangle too, so
+    # counting "== 0" on that directly overcounts by construction, not by
+    # measuring real ties. 3 pairwise-distinct samples must report 0 ties.
+    distinct = pd.DataFrame({"f1": [1.0, 0.0, 0.5], "f2": [0.0, 1.0, 0.5],
+                             "f3": [0.3, 0.7, 0.9]}, index=["s1", "s2", "s3"])
+    _, _, diag = pcoa(distinct, metric="euclidean")
+    assert diag["zero_distance_pairs"] == 0
+
+    # s1 and s2 are identical; s3 differs -- exactly one true zero-distance pair.
+    one_tie = pd.DataFrame({"f1": [1.0, 1.0, 0.5], "f2": [0.0, 0.0, 0.5]},
+                           index=["s1", "s2", "s3"])
+    _, _, diag2 = pcoa(one_tie, metric="euclidean")
+    assert diag2["zero_distance_pairs"] == 1
+
+
+def test_permanova_rejects_all_zero_distances():
+    identical = pd.DataFrame({"f1": [1.0] * 4, "f2": [0.0] * 4},
+                             index=["s1", "s2", "s3", "s4"])
+    groups = pd.Series(["A", "A", "B", "B"], index=identical.index)
+    with pytest.raises(ValueError, match="every pairwise distance is zero"):
+        permanova(identical, groups, metric="euclidean", permutations=99)
+
+
+@pytest.mark.parametrize("permutations", [0, -5])
+def test_permanova_rejects_invalid_permutation_count(permutations):
+    matrix = pd.DataFrame({"f1": [1.0, 0.0, 0.5, 0.2], "f2": [0.0, 1.0, 0.5, 0.8]},
+                          index=["s1", "s2", "s3", "s4"])
+    groups = pd.Series(["A", "A", "B", "B"], index=matrix.index)
+    with pytest.raises(ValueError, match="permutations"):
+        permanova(matrix, groups, metric="euclidean", permutations=permutations)
+
+
 def test_pairwise_complementarity_finds_completion():
     # Neither org completes M1 alone; their union does.
     org_kos = {"A": {"K00001"}, "B": {"K00002"}}

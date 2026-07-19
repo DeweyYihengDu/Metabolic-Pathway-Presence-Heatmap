@@ -1,5 +1,35 @@
 # Changelog
 
+## 3.5.2
+
+Correctness hotfix for ordination/PERMANOVA on degenerate data. Reproduced
+with a failing case first, now has a regression test.
+
+### Ordination
+- `pcoa`'s `zero_distance_pairs` diagnostic counted `np.triu(d, 1) == 0`,
+  which zeroes the diagonal *and* the whole lower triangle before comparing
+  -- those artificial zeros were counted too, so 3 pairwise-*distinct*
+  samples could report 6 "zero-distance pairs" that don't exist. Now counts
+  ties only within the true strict upper triangle.
+- `plot_ordination` crashed (`IndexError`) on a rank-one PCoA solution (e.g.
+  exactly 2 samples, or other degenerate distance structures give only one
+  positive eigenvalue). It now plots PCo1 with y fixed at 0 and labels the
+  y-axis "PCo2 unavailable (rank-one solution)" instead of fabricating a
+  second axis.
+
+### PERMANOVA
+- All-identical samples (every pairwise distance zero) produced `pseudo_F:
+  nan` and a numerically meaningless but plausible-looking p-value (plus a
+  wall of `RuntimeWarning: invalid value encountered in scalar divide`).
+  Now raises `ValueError` before permuting, matching the precedent already
+  set by `pcoa`'s own all-zero-distance guard.
+- `permutations <= 0` silently returned a degenerate result (`permutations=0`
+  gave p=1.0 with no test ever run; negative values gave a **negative**
+  p-value). Now rejected with a clear `ValueError`.
+- Non-finite distances (NaN/Inf, e.g. from a metric misapplied to the input)
+  are now rejected before the permutation loop instead of propagating into
+  the pseudo-F statistic silently.
+
 ## 3.5.1
 
 Correctness hotfix for Newick tree export. Reproduced with a failing case

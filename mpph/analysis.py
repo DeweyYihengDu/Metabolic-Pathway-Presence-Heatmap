@@ -264,7 +264,8 @@ def pcoa(matrix: pd.DataFrame, metric: str = "braycurtis", n_axes: int = 2):
         "negative_fraction": (float(-vals[neg].sum() /
                                     (vals[pos].sum() - vals[neg].sum()))
                               if neg.any() else 0.0),
-        "zero_distance_pairs": int((np.triu(d, 1) == 0).sum()),
+        "zero_distance_pairs": int(np.isclose(
+            d[np.triu_indices(n, k=1)], 0.0, atol=1e-9, rtol=0.0).sum()),
         "metric": metric,
     }
     k = min(n_axes, coords.shape[1])
@@ -282,12 +283,16 @@ def permanova(
     Samples whose group label is missing (None/NaN/empty) are excluded -- a
     missing label is not a group. Requires >=2 groups, each with >=2 samples.
     """
+    if permutations < 1:
+        raise ValueError("PERMANOVA needs permutations >= 1")
     raw = pd.Series([groups.get(o) for o in matrix.index], index=matrix.index)
     valid = raw.notna() & (raw.astype(str).str.strip() != "")
     if not valid.all():
         matrix = matrix.loc[valid.to_numpy()]
     labels = raw[valid].to_numpy()
     d = distance_matrix(matrix, metric)
+    if not np.isfinite(d).all():
+        raise ValueError("PERMANOVA requires finite distances (found NaN/Inf)")
     n = len(labels)
     uniq = list(pd.unique(labels))
     k = len(uniq)
@@ -297,6 +302,10 @@ def permanova(
     if too_small:
         raise ValueError(f"PERMANOVA needs >=2 samples per group; too small: "
                          f"{too_small}")
+    if np.allclose(d, 0.0, atol=1e-9):
+        raise ValueError(
+            "PERMANOVA is undefined: every pairwise distance is zero (all "
+            "samples are identical under this metric)")
 
     def pseudo_f(lab: np.ndarray) -> float:
         ss_total = (d ** 2).sum() / (2 * n)
