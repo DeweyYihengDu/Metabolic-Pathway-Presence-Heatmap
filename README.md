@@ -78,6 +78,18 @@ The analysis subcommands turn a run into comparative figures. Below, the
   ecotypes carry extra <em>Photosynthesis – antenna proteins</em> genes (the
   <code>pcb</code> chlorophyll-binding antennae) to harvest scarce light.</em>
 </p>
+<p align="center">
+  <img src="examples/Synechococcus_gsea_top.png" width="70%"
+       alt="GSEA running-enrichment plot for Sulfate-sulfur assimilation"><br>
+  <em><code>mpph gsea</code> — every KO in the 25-genome <em>Synechococcus</em> set
+  ranked by (marine prevalence − freshwater prevalence), no cutoff chosen by
+  hand, tested against KEGG modules. The top hit, <em>Sulfate-sulfur
+  assimilation</em>, is depleted toward the marine end (raw p≈0.001) — sensible
+  ecology, since marine water is sulfate-rich and freshwater is not — but at
+  q≈0.13 it does not clear q&lt;0.05 across the 131 modules tested. Shown
+  deliberately as an honest example: a strong, biologically coherent top hit
+  that still shouldn't be over-interpreted past what FDR correction allows.</em>
+</p>
 
 ## Features
 
@@ -85,6 +97,10 @@ The analysis subcommands turn a run into comparative figures. Below, the
 - **Enrichment** (`mpph enrich`) — hypergeometric over-representation of a gene/KO
   study set against KEGG pathways, KEGG modules, or (with your own gene-to-GO
   mapping) GO terms.
+- **Rank-based enrichment / GSEA** (`mpph gsea`) — score *every* gene by an
+  expression statistic (or bring your own pre-ranked list) and test whether
+  KEGG/GO categories skew toward either end, no significance cutoff needed to
+  define a study set first.
 - **Three input sources** — a taxon name, a file of organism codes, or your own
   KO annotations (KofamScan / eggNOG / any `K#####` list).
 - **Category-aware figures** — a functional-category colour strip + legend,
@@ -154,6 +170,13 @@ mpph enrich --study unique_genes.txt --background-organism pmt \
 mpph enrich --study degs.txt --background all_genes.txt --ontology go \
             --gene-go-map sample.emapper.annotations --go-map-format eggnog
 
+# Rank-based (GSEA-style) enrichment from your own DE statistic...
+mpph gsea --ranked-list deseq2_stat.tsv --ontology kegg-pathway
+
+# ...or let mpph rank genes from a raw expression matrix + two groups
+mpph gsea --expression counts.tsv --metadata meta.tsv --group-column condition \
+          --group-a treated --group-b control --ontology kegg-module
+
 # Validate a sample sheet before a user-data run
 mpph validate   --samples samples.tsv
 ```
@@ -204,6 +227,12 @@ For a run on `<name>`, MPPH writes to the output directory:
 gene/background ratios, fold enrichment, p-value, BH q-value, matching study
 items) and `<label>_enrichment.<fmt>` (a bar chart of the top hits).
 
+`mpph gsea` writes `<label>_gsea.csv` (ES, NES, p/q-value, leading-edge genes
+per category), `<label>_gsea_summary.<fmt>` (top hits by q-value), and
+`<label>_gsea_top.<fmt>` (the classic running-enrichment plot for the #1 hit).
+With `--expression`, the computed ranking is also saved as
+`<label>_ranked_list.tsv`.
+
 ## How it works
 
 1. Resolve organisms from a taxon (`list/genome`), a code file, or user KO files.
@@ -221,6 +250,11 @@ items) and `<label>_enrichment.<fmt>` (a bar chart of the top hits).
    first restricted to genes annotated in that category system, then each
    category is tested with a one-sided hypergeometric test (over-representation
    only) and BH-FDR corrected across all tested categories.
+6. **GSEA:** every gene in the ranking is scored (unannotated genes are kept as
+   "misses" — unlike enrichment, nothing is dropped to a smaller universe), a
+   weighted running-sum statistic is computed per category, and significance
+   comes from permuting which genes fall in a category of the same size,
+   holding the ranking itself fixed.
 
 ## Public Python API (KEGG interface)
 
@@ -250,7 +284,8 @@ score   = mpph.module_completeness("K00844 K12407 K00845", kos)
 `list_genomes`, `select_by_taxon`, `select_by_codes`, `get_pathways`,
 `fetch_pathway_categories`, `list_modules`, `fetch_module_definitions`,
 `organism_kos`, `fetch_ko_pathway_membership`, `fetch_ko_module_membership`,
-`fetch_pathway_names`, `hypergeometric_enrichment`, `load_gene_go_map`, and the
+`fetch_pathway_names`, `hypergeometric_enrichment`, `load_gene_go_map`,
+`gsea_analysis`, `enrichment_score`, `rank_from_expression`, and the
 matrix/plot helpers are all exported from the top-level `mpph` package. (Note
 the [KEGG terms](DATA_SOURCES.md) apply to the *data* you retrieve; the client
 code is MIT-licensed.)
@@ -274,6 +309,13 @@ code is MIT-licensed.)
   not correct for gene length or study-set composition biases, and **GO
   enrichment needs a gene-to-GO mapping you supply** — KEGG itself has no GO
   annotations.
+- **`signal2noise`/`log2fc` in `mpph gsea --expression` are simple, transparent
+  ranking statistics, not a substitute for a dedicated differential-expression
+  tool** (DESeq2/edgeR/limma model count noise properly). Rank by your own
+  tool's statistic via `--ranked-list` for a rigorous analysis. GSEA
+  significance is by gene-set permutation (holding the ranking fixed), a good
+  default but weaker than phenotype permutation (re-deriving the ranking per
+  permutation), which this does not implement.
 
 ## Documentation
 

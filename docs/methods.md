@@ -77,6 +77,42 @@ came from. **GO enrichment needs a gene-to-GO mapping you supply** (a long
 table, or an eggNOG-mapper `.annotations` file) — KEGG itself carries no GO
 annotations.
 
+## Rank-based enrichment (GSEA)
+
+`mpph gsea` scores *every* gene in a ranking (typically by a differential
+expression statistic) rather than thresholding a discrete study set first —
+the "GSEAPreranked" design from Subramanian et al. 2005 (PNAS).
+
+For a ranking of `n` genes and a category with `k` members present in it, the
+weighted running-sum statistic walks the ranking from top to bottom, stepping
+up by `|score|^weight / (sum of |score|^weight over hits)` at each category
+member and down by `1/(n-k)` at each non-member. The enrichment score (ES) is
+the maximum deviation from zero (signed) of that walk. `weight=1` (default)
+matches standard GSEA weighting; `weight=0` gives the unweighted
+Kolmogorov-Smirnov statistic.
+
+**Significance** comes from gene-set permutation: since ES under the null
+depends only on a random gene set's *size* (not its identity) for a fixed
+ranking, many random gene sets of each tested size are drawn once and reused
+across every category of that size. The normalized ES (NES) divides the
+observed ES by the mean absolute null ES of the same sign; the p-value is the
+fraction of same-signed null draws at least as extreme, BH-FDR corrected
+(`q_value`) across every category tested. This is the standard "preranked"
+approach — weaker than *phenotype* permutation (which re-derives the ranking
+from the raw samples on every permutation), which is not implemented here.
+
+**Unlike `enrich`, no background is chosen and no gene is dropped**: every
+gene in the ranking — annotated or not — contributes to the running sum as a
+potential "miss". Restricting to an annotated-only universe (as ORA does)
+would inflate the statistic by removing genuine background noise.
+
+**Ranking from expression**: `--expression` + two groups computes
+`signal2noise` (`(mean_a - mean_b) / (std_a + std_b)`, the original GSEA
+paper's statistic) or `log2fc` per gene. These are simple and dependency-free,
+**not a replacement for a proper differential-expression tool** — for a
+rigorous analysis, rank by DESeq2/edgeR/limma's own statistic and pass it via
+`--ranked-list`.
+
 ## Quality control
 
 Organisms with zero retained features are dropped (`--keep-empty` to keep) and

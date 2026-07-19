@@ -263,6 +263,89 @@ def plot_enrichment(
     plt.close(fig)
 
 
+def plot_gsea_running(
+    ranked_scores: np.ndarray, running: np.ndarray, hits: np.ndarray,
+    outfile: Path, title: str, subtitle: str = "",
+) -> None:
+    """The classic GSEA running-enrichment-score plot for one category.
+
+    Top panel: the cumulative running-sum trajectory, peak marked. Middle: a
+    rug of tick marks where a category member falls in the ranking. Bottom: the
+    ranking metric itself, so the reader can see whether hits sit where the
+    ranking metric is large.
+    """
+    n = len(ranked_scores)
+    peak = int(np.argmax(running)) if abs(running.max()) >= abs(running.min()) \
+        else int(np.argmin(running))
+    fig, (ax_run, ax_rug, ax_score) = plt.subplots(
+        3, 1, figsize=(8.5, 5.5), sharex=True,
+        gridspec_kw={"height_ratios": [3, 0.5, 1.2], "hspace": 0.08},
+    )
+    fig.subplots_adjust(top=0.85)
+    ax_run.plot(range(n), running, color=CATEGORY_PALETTE[0], linewidth=1.6)
+    ax_run.axhline(0, color=MUTED, linewidth=0.6)
+    ax_run.axvline(peak, color=MUTED, linewidth=0.8, linestyle="--")
+    ax_run.set_ylabel("running ES", color=SECONDARY)
+    fig.suptitle(title, x=0.5, y=0.98, fontsize=15, fontweight="semibold",
+                color=INK, ha="center")
+    if subtitle:
+        fig.text(0.5, 0.905, subtitle, ha="center", fontsize=9.5, color=MUTED)
+    for s in ("top", "right"):
+        ax_run.spines[s].set_visible(False)
+
+    hit_pos = np.nonzero(hits)[0]
+    ax_rug.vlines(hit_pos, 0, 1, color=INK, linewidth=0.7)
+    ax_rug.set_ylim(0, 1)
+    ax_rug.set_yticks([])
+    for s in ax_rug.spines.values():
+        s.set_visible(False)
+
+    colors = np.where(ranked_scores >= 0, "#2a78d6", "#e34948")
+    ax_score.bar(range(n), ranked_scores, color=colors, width=1.0)
+    ax_score.set_xlabel("rank in ordered list", color=SECONDARY)
+    ax_score.set_ylabel("ranking metric", color=SECONDARY, fontsize=9)
+    ax_score.axhline(0, color=MUTED, linewidth=0.6)
+    for s in ("top", "right"):
+        ax_score.spines[s].set_visible(False)
+
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_gsea_summary(
+    results: pd.DataFrame, outfile: Path, title: str,
+    *, top_n: int = 20, alpha: float = 0.05,
+) -> None:
+    """Bar chart of the top GSEA hits by q-value, split by enrichment direction."""
+    if results.empty:
+        raise ValueError("Nothing to plot: no category met the size filters.")
+    df = results.sort_values("q_value").head(top_n).iloc[::-1]
+    sig = df["q_value"].to_numpy(dtype=float) < alpha
+    pos = df["NES"].to_numpy(dtype=float) >= 0
+    colors = [CATEGORY_PALETTE[0] if p else "#e34948" for p in pos]
+    colors = [c if s else OTHER_COLOR for c, s in zip(colors, sig)]
+    labels = [f"{cid}  {name}"[:60] for cid, name in
+              zip(df["category_id"], df["category_name"])]
+
+    height = max(3.5, 0.32 * len(df) + 1.2)
+    fig, ax = plt.subplots(figsize=(9.5, height))
+    ax.barh(range(len(df)), df["NES"], color=colors, height=0.65)
+    ax.axvline(0, color=MUTED, linewidth=0.8)
+    ax.set_yticks(range(len(df)))
+    ax.set_yticklabels(labels, fontsize=9, color=SECONDARY)
+    ax.set_xlabel("normalized enrichment score (NES)", color=SECONDARY)
+    ax.set_title(title, fontsize=15, color=INK)
+    handles = [Patch(facecolor=CATEGORY_PALETTE[0], label=f"enriched (q < {alpha})"),
+               Patch(facecolor="#e34948", label=f"depleted (q < {alpha})"),
+               Patch(facecolor=OTHER_COLOR, label=f"q ≥ {alpha}")]
+    ax.legend(handles=handles, frameon=False, fontsize=9, loc="lower right")
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_matrix(
     df: pd.DataFrame,
     categories: dict[str, str],

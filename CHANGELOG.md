@@ -1,5 +1,46 @@
 # Changelog
 
+## 3.5.0
+
+New subcommand: **`mpph gsea`** — rank-based enrichment ("GSEAPreranked" style,
+Subramanian et al. 2005), complementing `mpph enrich`'s hypergeometric ORA.
+Every gene is scored and ranked (no threshold chosen to define a study set
+first), and categories are tested for skewing toward either end of the ranking.
+
+- `--ranked-list FILE`: bring your own `gene<TAB>score` ranking (e.g. a
+  DESeq2/edgeR/limma statistic) -- the recommended, rigorous path.
+- `--expression FILE --metadata FILE --group-column X --group-a A --group-b B`:
+  rank genes automatically with `signal2noise` (the original GSEA paper's
+  statistic) or `log2fc`. Explicitly documented as simple/transparent, **not a
+  substitute for a dedicated DE tool**.
+- `--ontology kegg-pathway` / `kegg-module` / `go`, same category-membership
+  machinery as `enrich` (GO again needs a user-supplied gene-to-GO mapping).
+- Weighted running-sum statistic (`--weight`, default 1.0 = standard GSEA
+  weighting), significance by gene-set permutation batched per distinct
+  category size (`--permutations`), NES, BH-FDR q-values, and leading-edge
+  genes per category.
+- Unlike `enrich`, **no background is required and no gene is dropped** --
+  every ranked gene counts as a "miss" in the running sum (documented as a
+  deliberate, important difference from ORA's annotated-universe restriction).
+- Two new plots: `plot_gsea_running` (the classic running-enrichment-score
+  plot with a hit rug and ranking-metric bars) and `plot_gsea_summary` (top
+  hits by NES, coloured by enrichment direction and significance).
+- New public API: `load_ranked_list`, `load_expression_matrix`,
+  `rank_from_expression`, `enrichment_score`, `gsea_analysis`.
+- 21 new tests: the running-sum statistic cross-checked on synthetic rankings
+  with known top/bottom/scattered gene sets, leading-edge extraction, the
+  expression-ranking statistics, and an offline CLI end-to-end test (KEGG
+  pathway, KEGG module, GO, and expression-based ranking) served from
+  committed cache fixtures.
+- New example, computed live against real KEGG data: every KO across 25
+  *Synechococcus* genomes ranked by (marine prevalence − freshwater
+  prevalence), tested against KEGG modules. Top hit is "Sulfate-sulfur
+  assimilation" (raw p≈0.001, correct ecological direction — marine water is
+  sulfate-rich, freshwater is not) -- shown deliberately even though it does
+  not clear q<0.05 across all 131 modules tested, as an honest example of
+  reading GSEA output past a single threshold.
+- docs/methods.md, docs/subcommands.md, docs/outputs.md, README updated.
+
 ## 3.4.0
 
 New feature: **`mpph enrich`** — hypergeometric over-representation (ORA) of a

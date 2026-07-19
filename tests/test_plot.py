@@ -4,6 +4,8 @@ import pandas as pd
 from mpph.plot import (
     plot_accumulation,
     plot_enrichment,
+    plot_gsea_running,
+    plot_gsea_summary,
     plot_matrix,
     plot_prevalence,
     plot_volcano,
@@ -75,3 +77,31 @@ def test_plot_enrichment_empty_raises(tmp_path):
     import pytest
     with pytest.raises(ValueError, match="Nothing to plot"):
         plot_enrichment(pd.DataFrame(), tmp_path / "e.png", "empty")
+
+
+def test_plot_gsea_running_produces_file(tmp_path):
+    import numpy as np
+    n = 30
+    running = np.concatenate([np.linspace(0, 1, 10), np.linspace(1, 0, 20)])
+    hits = np.zeros(n, dtype=bool)
+    hits[:10] = True
+    scores = np.linspace(2, -2, n)
+    out = tmp_path / "gsea_run.png"
+    plot_gsea_running(scores, running, hits, out, "GSEA test", "subtitle")
+    assert out.exists()
+
+
+def test_plot_gsea_summary_produces_file(tmp_path):
+    results = pd.DataFrame({
+        "category_id": ["A", "B"], "category_name": ["catA", "catB"],
+        "NES": [2.0, -1.5], "q_value": [0.01, 0.2],
+    })
+    out = tmp_path / "gsea_summary.png"
+    plot_gsea_summary(results, out, "GSEA summary test")
+    assert out.exists()
+
+
+def test_plot_gsea_summary_empty_raises(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="Nothing to plot"):
+        plot_gsea_summary(pd.DataFrame(), tmp_path / "e.png", "empty")

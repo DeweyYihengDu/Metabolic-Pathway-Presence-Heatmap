@@ -24,6 +24,7 @@
 | `report` | `<slug>_report.html` (self-contained) |
 | `traits` | `<slug>_matrix.csv`, `<slug>_heatmap.<fmt>` |
 | `enrich` | `<label>_enrichment.csv`, `<label>_enrichment.<fmt>` |
+| `gsea` | `<label>_gsea.csv`, `<label>_gsea_summary.<fmt>`, `<label>_gsea_top.<fmt>` (+ `<label>_ranked_list.tsv` with `--expression`) |
 
 ## Manifest fields
 

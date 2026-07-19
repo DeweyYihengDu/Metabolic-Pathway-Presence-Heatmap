@@ -15,7 +15,7 @@ doi:10.1101/2023.06.27.546232
 """
 from __future__ import annotations
 
-__version__ = "3.4.0"
+__version__ = "3.5.0"
 
 # --- Public KEGG connection interface (open; talks to rest.kegg.jp) ---------
 from .kegg import KEGG_API_BASE, kegg_get, kegg_release, make_session
@@ -40,9 +40,18 @@ from .enrichment import (
     load_gene_go_map,
 )
 
+# --- GSEA (rank-based enrichment from expression or a pre-ranked list) ------
+from .gsea import (
+    enrichment_score,
+    gsea_analysis,
+    load_expression_matrix,
+    load_ranked_list,
+    rank_from_expression,
+)
+
 # --- Matrix + figure helpers ------------------------------------------------
 from .matrix import build_completeness_matrix, build_presence_matrix, filter_matrix
-from .plot import plot_enrichment, plot_matrix
+from .plot import plot_enrichment, plot_gsea_running, plot_gsea_summary, plot_matrix
 
 __all__ = [
     "__version__",
@@ -67,6 +76,12 @@ __all__ = [
     "invert_membership",
     "hypergeometric_enrichment",
     "load_gene_go_map",
+    # gsea
+    "load_ranked_list",
+    "load_expression_matrix",
+    "rank_from_expression",
+    "enrichment_score",
+    "gsea_analysis",
     # analysis + plotting
     "build_presence_matrix",
     "build_completeness_matrix",
@@ -74,4 +89,6 @@ __all__ = [
     "module_completeness",
     "plot_matrix",
     "plot_enrichment",
+    "plot_gsea_running",
+    "plot_gsea_summary",
 ]

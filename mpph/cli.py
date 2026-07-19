@@ -8,6 +8,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -30,6 +31,8 @@ from .pathways import OVERVIEW_CATEGORY, fetch_pathway_categories, get_pathways
 from .plot import (
     plot_accumulation,
     plot_enrichment,
+    plot_gsea_running,
+    plot_gsea_summary,
     plot_matrix,
     plot_ordination,
     plot_prevalence,
@@ -39,7 +42,7 @@ from .tree import linkage_to_newick
 
 DEFAULT_CACHE_STR = str(DEFAULT_CACHE)
 SUBCOMMANDS = ("run", "traits", "explain", "compare", "pan", "ordination",
-               "community", "report", "validate", "enrich")
+               "community", "report", "validate", "enrich", "gsea")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -611,6 +614,94 @@ def cmd_enrich(args) -> int:
     return 0
 
 
+def cmd_gsea(args) -> int:
+    from .enrichment import (
+        fetch_ko_module_membership,
+        fetch_ko_pathway_membership,
+        fetch_pathway_names,
+        invert_membership,
+        load_gene_go_map,
+        load_go_names,
+    )
+    from .gsea import (
+        gsea_analysis,
+        load_expression_matrix,
+        load_ranked_list,
+        rank_from_expression,
+    )
+
+    if args.ontology == "go" and not args.gene_go_map:
+        print("Error: --ontology go requires --gene-go-map FILE (KEGG has no "
+              "GO annotations; supply your own gene-to-GO mapping).",
+              file=sys.stderr)
+        return 2
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    if args.ranked_list:
+        ranked = load_ranked_list(args.ranked_list)
+    else:
+        expr = load_expression_matrix(args.expression)
+        groups = _read_metadata(Path(args.metadata))[args.group_column]
+        ranked = rank_from_expression(expr, groups, args.group_a, args.group_b,
+                                      metric=args.rank_metric)
+        ranked.to_csv(outdir / f"{args.label}_ranked_list.tsv", sep="\t",
+                     header=False)
+
+    if args.ontology == "go":
+        item_to_cats = load_gene_go_map(args.gene_go_map, args.go_map_format)
+        category_names = load_go_names(args.go_names) if args.go_names else {}
+    else:
+        cache_dir = None if args.no_cache else Path(args.cache_dir)
+        session = make_session()
+        if args.ontology == "kegg-pathway":
+            item_to_cats = fetch_ko_pathway_membership(session, cache_dir,
+                                                       refresh=args.refresh)
+            category_names = fetch_pathway_names(session, cache_dir,
+                                                 refresh=args.refresh)
+        else:  # kegg-module
+            item_to_cats = fetch_ko_module_membership(session, cache_dir,
+                                                       refresh=args.refresh)
+            category_names = list_modules(session, cache_dir, refresh=args.refresh)
+
+    category_to_items = invert_membership(item_to_cats)
+    results, running_sums, ranked_genes = gsea_analysis(
+        ranked, category_to_items, category_names,
+        weight=args.weight, min_size=args.min_size, max_size=args.max_size,
+        permutations=args.permutations, seed=args.seed)
+
+    dest_csv = outdir / f"{args.label}_gsea.csv"
+    results.to_csv(dest_csv, index=False)
+    n_sig = int((results["q_value"] < args.alpha).sum()) if len(results) else 0
+    print(f"Ranked {len(ranked)} genes. Tested {len(results)} categories "
+          f"(size {args.min_size}-{args.max_size} genes). "
+          f"{n_sig} significant at q<{args.alpha}. Wrote {dest_csv.name}")
+
+    if len(results):
+        dest_summary = outdir / f"{args.label}_gsea_summary.{args.format}"
+        plot_gsea_summary(results, dest_summary,
+                          f"GSEA ({args.ontology}) · {args.label}",
+                          top_n=args.top_n, alpha=args.alpha)
+        print(f"Wrote {dest_summary.name}")
+
+        top = results.iloc[0]
+        top_members = category_to_items.get(top["category_id"], set())
+        hits = np.fromiter((g in top_members for g in ranked_genes), dtype=bool,
+                          count=len(ranked_genes))
+        dest_run = outdir / f"{args.label}_gsea_top.{args.format}"
+        plot_gsea_running(
+            ranked.to_numpy(dtype=float), running_sums[top["category_id"]], hits,
+            dest_run, f"{top['category_id']}  {top['category_name']}",
+            f"NES={top['NES']:.2f}  q={top['q_value']:.3g}  "
+            f"({top['leading_edge_size']}/{top['size']} leading-edge genes)")
+        print(f"Wrote {dest_run.name}")
+    else:
+        print("No category met the size filters; skipping plots.",
+              file=sys.stderr)
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # Argument parser (subcommands; `mpph <taxon> ...` is a shortcut for `run`)
 # --------------------------------------------------------------------------- #
@@ -791,6 +882,52 @@ def build_parser() -> argparse.ArgumentParser:
     enr.add_argument("--outdir", default="output")
     enr.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
     _add_cache_args(enr)
+
+    gse = sub.add_parser(
+        "gsea", help="Rank-based (GSEA-style) enrichment from expression or a "
+                     "pre-ranked gene list.")
+    rank_src = gse.add_mutually_exclusive_group(required=True)
+    rank_src.add_argument("--ranked-list", metavar="FILE",
+                          help="Pre-ranked gene<TAB>score file (e.g. your own "
+                               "DESeq2/edgeR/limma statistic).")
+    rank_src.add_argument("--expression", metavar="FILE",
+                          help="gene<TAB>sample... expression matrix; ranks "
+                               "genes automatically with --metadata/--group-*.")
+    gse.add_argument("--metadata", metavar="FILE",
+                     help="Sample metadata (needs sample_id + --group-column); "
+                          "required with --expression.")
+    gse.add_argument("--group-column", help="Metadata column with group labels.")
+    gse.add_argument("--group-a", help="First group (ranked toward the top).")
+    gse.add_argument("--group-b", help="Second group (ranked toward the bottom).")
+    gse.add_argument("--rank-metric", default="signal2noise",
+                     choices=["signal2noise", "log2fc"],
+                     help="Ranking statistic when using --expression.")
+    gse.add_argument("--ontology", required=True,
+                     choices=["kegg-pathway", "kegg-module", "go"],
+                     help="Category source to test the ranking against.")
+    gse.add_argument("--gene-go-map", metavar="FILE",
+                     help="Required for --ontology go (see `enrich --help`).")
+    gse.add_argument("--go-map-format", default="auto",
+                     choices=["auto", "eggnog"])
+    gse.add_argument("--go-names", metavar="FILE",
+                     help="Optional GO id -> name table for readable labels.")
+    gse.add_argument("--min-size", type=int, default=15,
+                     help="Skip categories with fewer members in the ranking.")
+    gse.add_argument("--max-size", type=int, default=500,
+                     help="Skip categories with more members in the ranking.")
+    gse.add_argument("--weight", type=float, default=1.0,
+                     help="Score exponent in the running-sum statistic (0 = "
+                          "unweighted KS; 1 = standard GSEA weighting).")
+    gse.add_argument("--permutations", type=int, default=1000,
+                     help="Gene-set permutations per distinct category size.")
+    gse.add_argument("--seed", type=int, default=0)
+    gse.add_argument("--top-n", type=int, default=20,
+                     help="Categories shown in the summary plot.")
+    gse.add_argument("--alpha", type=float, default=0.05)
+    gse.add_argument("--label", default="gsea", help="Prefix for output files.")
+    gse.add_argument("--outdir", default="output")
+    gse.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
+    _add_cache_args(gse)
     return p
 
 
@@ -822,7 +959,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": run, "traits": cmd_traits, "explain": cmd_explain,
         "compare": cmd_compare, "pan": cmd_pan, "ordination": cmd_ordination,
         "community": cmd_community, "report": cmd_report, "validate": cmd_validate,
-        "enrich": cmd_enrich,
+        "enrich": cmd_enrich, "gsea": cmd_gsea,
     }
     if args.command in ("run", "traits", "explain", "community"):
         err = _validate_source(args)
@@ -832,6 +969,11 @@ def main(argv: list[str] | None = None) -> int:
             0.0 <= args.min_prevalence <= args.max_prevalence <= 1.0):
         print("Error: require 0 <= --min-prevalence <= --max-prevalence <= 1.",
               file=sys.stderr)
+        return 2
+    if args.command == "gsea" and args.expression and not (
+            args.metadata and args.group_column and args.group_a and args.group_b):
+        print("Error: --expression needs --metadata, --group-column, "
+              "--group-a and --group-b to rank genes.", file=sys.stderr)
         return 2
     try:
         return handlers[args.command](args)
