@@ -4,10 +4,14 @@ Unlike `mpph.enrichment` (hypergeometric ORA on a discrete study set), this
 scores a **ranked list of every gene** -- typically ranked by a differential
 expression statistic -- and tests whether a category's members cluster toward
 either end of the ranking, using the weighted running-sum statistic from
-Subramanian et al. 2005 (PNAS). Significance is estimated by gene-set
-permutation: for each distinct gene-set size, many random gene sets of that
-size are drawn from the *same fixed ranking* to build a null distribution of
-enrichment scores.
+Subramanian et al. 2005 (PNAS). More precisely, this is **gene-set permutation
+on a fixed ("preranked") ranking**: for each distinct gene-set size, many
+random gene sets of that size are drawn from the *same* ranking to build a
+null distribution, giving a nominal p-value per category (BH-FDR corrected
+across categories tested). This is weaker than the original GSEA's default
+*phenotype* permutation (which re-derives the ranking from the raw samples on
+every permutation and so also captures gene-gene correlation structure) --
+phenotype permutation is not implemented here.
 
 Note the deliberate difference from `mpph.enrichment`: ORA restricts study and
 background to genes annotated in the category system before testing. GSEA does
@@ -56,6 +60,17 @@ def load_ranked_list(path: str | Path) -> pd.Series:
                 dups.append(gene)
             seen.add(gene)
         raise ValueError(f"duplicate gene ids in ranked list: {sorted(set(dups))[:5]}")
+    # float() accepts "nan"/"inf"/"-inf" without raising, so these would
+    # otherwise sort to one end of the ranking and dominate the running-sum
+    # statistic. A common source is a DE tool (e.g. DESeq2) reporting Inf/-Inf
+    # log-fold-change or NA for genes with zero counts in one group.
+    non_finite = sorted(gene for gene, score in rows if not np.isfinite(score))
+    if non_finite:
+        raise ValueError(
+            f"ranked list has non-finite score(s) (NaN/Inf) for: "
+            f"{non_finite[:5]}{' ...' if len(non_finite) > 5 else ''}. Drop or "
+            "re-score those genes (e.g. genes with zero counts in one group) "
+            "before ranking.")
     series = pd.Series(dict(rows), name="score")
     return series.sort_values(ascending=False)
 
@@ -96,7 +111,16 @@ def rank_from_expression(
         score = (mean_a - mean_b) / (std_a + std_b)
     else:
         raise ValueError(f"unknown rank metric: {metric}")
-    return score.dropna().sort_values(ascending=False)
+    ranked = score.dropna().sort_values(ascending=False)
+    # dropna() doesn't catch +-Inf (e.g. from Inf/-Inf already present in the
+    # input expression matrix, surviving the epsilon padding above).
+    non_finite = sorted(ranked.index[~np.isfinite(ranked.to_numpy())])
+    if non_finite:
+        raise ValueError(
+            f"non-finite score(s) (Inf) computed for: {non_finite[:5]}"
+            f"{' ...' if len(non_finite) > 5 else ''} -- check for Inf/-Inf "
+            "values in the input expression matrix.")
+    return ranked
 
 
 # --------------------------------------------------------------------------- #
@@ -244,28 +268,48 @@ def gsea_analysis(
     return out, running_sums, ranked_genes
 
 
+_NULL_BATCH_SIZE = 200
+
+
 def _null_es_batch(
     abs_scores: np.ndarray, n: int, size: int, weight: float,
     permutations: int, rng: np.random.Generator,
+    *, batch_size: int = _NULL_BATCH_SIZE,
 ) -> np.ndarray:
-    """Vectorised null ES for `permutations` random gene sets of `size`."""
-    # One random subset of `size` positions per row.
-    rand_keys = rng.random((permutations, n))
-    order = np.argsort(rand_keys, axis=1)
-    hit_idx = order[:, :size]  # (permutations, size) -- indices chosen as "hits"
-    hits = np.zeros((permutations, n), dtype=bool)
-    np.put_along_axis(hits, hit_idx, True, axis=1)
+    """Vectorised null ES for `permutations` random gene sets of `size`.
 
+    Processed in batches of `batch_size` permutations rather than allocating
+    one (permutations, n) array up front: for a large gene universe (tens of
+    thousands of genes) and thousands of permutations, the handful of
+    same-shaped temporaries this needs (random keys, sort order, hit mask,
+    running sum, ...) can reach multiple GB at once. Batching bounds peak
+    memory to O(batch_size * n) regardless of the total permutation count,
+    with identical results (the same random draws, just requested from the
+    generator in smaller chunks -- numpy's `Generator` is stream-based, so
+    this doesn't change what's drawn).
+    """
+    results = np.empty(permutations, dtype=float)
     n_miss = n - size
-    miss_step = np.where(hits, 0.0, 1.0 / n_miss)
-    if weight == 0:
-        hit_step = np.where(hits, 1.0 / size, 0.0)
-    else:
-        w = np.where(hits, abs_scores[np.newaxis, :] ** weight, 0.0)
-        totals = w.sum(axis=1, keepdims=True)
-        totals[totals == 0] = 1.0
-        hit_step = w / totals
-    running = np.cumsum(hit_step - miss_step, axis=1)
-    es_max = running.max(axis=1)
-    es_min = running.min(axis=1)
-    return np.where(np.abs(es_max) >= np.abs(es_min), es_max, es_min)
+    for start in range(0, permutations, batch_size):
+        b = min(batch_size, permutations - start)
+        # One random subset of `size` positions per row.
+        rand_keys = rng.random((b, n))
+        order = np.argsort(rand_keys, axis=1)
+        hit_idx = order[:, :size]  # (b, size) -- indices chosen as "hits"
+        hits = np.zeros((b, n), dtype=bool)
+        np.put_along_axis(hits, hit_idx, True, axis=1)
+
+        miss_step = np.where(hits, 0.0, 1.0 / n_miss)
+        if weight == 0:
+            hit_step = np.where(hits, 1.0 / size, 0.0)
+        else:
+            w = np.where(hits, abs_scores[np.newaxis, :] ** weight, 0.0)
+            totals = w.sum(axis=1, keepdims=True)
+            totals[totals == 0] = 1.0
+            hit_step = w / totals
+        running = np.cumsum(hit_step - miss_step, axis=1)
+        es_max = running.max(axis=1)
+        es_min = running.min(axis=1)
+        results[start:start + b] = np.where(
+            np.abs(es_max) >= np.abs(es_min), es_max, es_min)
+    return results

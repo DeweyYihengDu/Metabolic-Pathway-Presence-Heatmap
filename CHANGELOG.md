@@ -1,5 +1,44 @@
 # Changelog
 
+## 3.6.1
+
+GSEA correctness and memory. Reproduced with a failing case first, now has
+regression tests.
+
+### Non-finite scores rejected
+- `load_ranked_list`: `float()` accepts `"nan"`/`"inf"`/`"-inf"` without
+  raising, so these previously entered the ranking silently -- an `Inf`
+  score sorts to one end and dominates the running-sum statistic. A
+  realistic real-world source: DESeq2 and similar tools report `Inf`/`-Inf`
+  log-fold-change or `NA` for genes with zero counts in one group, and this
+  tool's own docs recommend piping such a tool's statistic in directly via
+  `--ranked-list`. Now rejected with a clear error naming the offending
+  genes. The bundled `examples/Ecoli_ranked_logFC.tsv` itself had 25 such
+  genes (of 3047) from the source study's own logFC column; regenerated with
+  them dropped (`examples/Ecoli_ranked_logFC_gsea.csv` updated to match --
+  the top hit, Ribosome, is unchanged at NES=-1.96, q=0.0054).
+- `rank_from_expression`: `dropna()` doesn't catch `+-Inf` surviving the
+  epsilon-padding meant to prevent literal division by zero (e.g. an `Inf`
+  already present in the input expression matrix). Now rejected the same way.
+
+### Memory
+- The gene-set permutation null distribution allocated one
+  `(permutations, n_genes)` array (plus several same-shaped temporaries) per
+  distinct category size -- for tens of thousands of genes and thousands of
+  permutations this can reach multiple GB at once. Now processed in batches
+  of 200 permutations, bounding peak memory regardless of the total
+  permutation count. Verified to produce bit-identical results to the
+  unbatched form for the same seed (numpy's `Generator` is stream-based, so
+  requesting the same draws in smaller chunks doesn't change them).
+
+### Documentation
+- Sharpened the module docstring: this is gene-set permutation on a fixed
+  ("preranked") ranking giving a *nominal* p-value, not the original GSEA's
+  default *phenotype* permutation (which re-derives the ranking from the raw
+  samples and so also captures gene-gene correlation structure) -- phenotype
+  permutation is not implemented here. `docs/methods.md` already documented
+  this distinction from an earlier pass.
+
 ## 3.6.0
 
 Module-completeness scoring now distinguishes "confirmed absent" from

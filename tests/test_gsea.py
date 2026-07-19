@@ -69,6 +69,20 @@ def test_gsea_analysis_recovers_known_signal():
     assert len(running_sums["top_set"]) == len(genes)
 
 
+def test_null_es_batch_size_does_not_change_results():
+    # The null distribution is now computed in chunks to bound peak memory
+    # for a large gene universe -- this must not change which random draws
+    # are consumed or the resulting statistics, regardless of chunk size.
+    from mpph.gsea import _null_es_batch
+    abs_scores = np.abs(np.random.default_rng(1).normal(size=200))
+    n, size, weight, permutations = 200, 15, 1.0, 137  # not divisible by 17
+    r1 = _null_es_batch(abs_scores, n, size, weight, permutations,
+                        np.random.default_rng(42), batch_size=200)
+    r2 = _null_es_batch(abs_scores, n, size, weight, permutations,
+                        np.random.default_rng(42), batch_size=17)
+    assert np.array_equal(r1, r2)
+
+
 def test_gsea_size_filter_excludes_out_of_range_categories():
     genes, scores = _ranking()
     ranked = pd.Series(scores, index=genes)
@@ -129,6 +143,32 @@ def test_load_ranked_list_rejects_duplicates(tmp_path):
     f.write_text("geneA\t1.0\ngeneA\t2.0\n")
     with pytest.raises(ValueError, match="duplicate"):
         load_ranked_list(f)
+
+
+@pytest.mark.parametrize("bad_value", ["nan", "inf", "-inf", "Infinity"])
+def test_load_ranked_list_rejects_non_finite_scores(tmp_path, bad_value):
+    # float() accepts these without raising -- a common real source is a DE
+    # tool (e.g. DESeq2) reporting Inf/-Inf log-fold-change or NA for genes
+    # with zero counts in one group. They must not silently enter the ranking
+    # (an Inf score would sort to one end and dominate the running sum).
+    f = tmp_path / "ranked.tsv"
+    f.write_text(f"geneA\t2.5\ngeneB\t{bad_value}\ngeneC\t-1.0\n")
+    with pytest.raises(ValueError, match="non-finite"):
+        load_ranked_list(f)
+
+
+def test_rank_from_expression_rejects_infinite_result(tmp_path):
+    # An Inf already present in the input expression matrix survives the
+    # epsilon-padding meant to avoid literal division by zero (log2fc's mean
+    # ratio propagates a single Inf cell straight through to log2(Inf)=Inf).
+    import pandas as pd
+    expr = pd.DataFrame({
+        "s1": [1.0, np.inf], "s2": [1.0, 5.0],
+        "s3": [5.0, 2.0], "s4": [5.0, 2.0],
+    }, index=["geneX", "geneY"])
+    groups = pd.Series({"s1": "A", "s2": "A", "s3": "B", "s4": "B"})
+    with pytest.raises(ValueError, match="non-finite"):
+        rank_from_expression(expr, groups, "A", "B", metric="log2fc")
 
 
 def test_load_expression_matrix(tmp_path):
