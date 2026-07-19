@@ -50,9 +50,30 @@ def test_compare_subcommand(tmp_path):
 
 
 def test_validate_subcommand(tmp_path):
+    (tmp_path / "a.txt").write_text("K00001\n")
+    (tmp_path / "b.txt").write_text("K00002\n")
     sheet = tmp_path / "s.tsv"
     sheet.write_text("sample_id\tannotation_file\nA\ta.txt\nB\tb.txt\n")
     assert cli.main(["validate", "--samples", str(sheet)]) == 0
+
+
+def test_validate_subcommand_reports_missing_annotation_file(tmp_path, capsys):
+    (tmp_path / "a.txt").write_text("K00001\n")
+    sheet = tmp_path / "s.tsv"
+    # B's annotation_file is never created.
+    sheet.write_text("sample_id\tannotation_file\nA\ta.txt\nB\tmissing.txt\n")
+    rc = cli.main(["validate", "--samples", str(sheet)])
+    assert rc == 1
+    assert "missing.txt" in capsys.readouterr().err
+
+
+def test_validate_subcommand_reports_empty_annotation_file(tmp_path, capsys):
+    (tmp_path / "a.txt").write_text("K00001\n")
+    sheet = tmp_path / "s.tsv"
+    sheet.write_text("sample_id\tannotation_file\nA\ta.txt\nB\t\n")
+    rc = cli.main(["validate", "--samples", str(sheet)])
+    assert rc == 1
+    assert "empty annotation_file" in capsys.readouterr().err
 
 
 def test_backward_compatible_shortcut_routes_to_run(tmp_path, monkeypatch):

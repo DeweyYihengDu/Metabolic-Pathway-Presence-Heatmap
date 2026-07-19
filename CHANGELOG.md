@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.5.3
+
+Correctness hotfix for user-input loading. Reproduced with a failing case
+first, now has a regression test.
+
+### `--user` input auto-detection
+- A single-genome KofamScan-style file (`gene<TAB>KO`, every row's gene id
+  unique) was silently split into one fake "sample" per gene, because the
+  `auto` heuristic only checked "more than one distinct first-column value" --
+  which a per-gene file also satisfies. It now requires a sample id to
+  actually *repeat* across rows before trusting the long-table reading; a
+  file where every row's id is unique is read as a single sample instead
+  (matching this tool's one-file-per-genome primary use case).
+- New `--input-format long` forces long-table parsing for the rare genuine
+  case where every sample happens to contribute exactly one row (structurally
+  indistinguishable from the case above -- the caller must say so explicitly).
+- Loading a directory where two files share a stem across extensions (e.g.
+  `sample.txt` and `sample.tsv`) silently let the later one overwrite the
+  earlier one's KOs with no warning. Now raises a clear error.
+
+### Sample sheets
+- A blank `sample_id` cell was silently accepted as a real (empty-string)
+  sample. Now rejected with the offending row number(s).
+- A blank `annotation_file` cell resolved, via `Path(base) / ""` being a
+  no-op join, to the sheet's own base directory -- silently unioning every
+  file in that directory into the row's KO set. Now rejected before it can
+  load anything.
+- `mpph validate` previously only checked that the `annotation_file` column
+  existed, not that its values were non-blank or pointed at real files. It
+  now reports both, so a bad sheet is caught before a real run instead of
+  producing a quietly-wrong sample.
+
 ## 3.5.2
 
 Correctness hotfix for ordination/PERMANOVA on degenerate data. Reproduced

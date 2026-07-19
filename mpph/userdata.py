@@ -43,9 +43,16 @@ def _kos_from_eggnog(text: str) -> set[str]:
     return kos
 
 
-def _load_long_table(path: Path) -> dict[str, set[str]]:
-    """Parse a ``sample<TAB>...KO...`` table (one record per line)."""
+def _load_long_table(path: Path) -> tuple[dict[str, set[str]], int]:
+    """Parse a ``sample<TAB>...KO...`` table (one record per line).
+
+    Returns ``(samples, n_data_rows)`` -- the row count excludes blank,
+    comment and KO-less lines, so it can be compared against ``len(samples)``
+    to tell a genuine long table (sample ids repeat across rows) from a file
+    that merely happens to have >=2 tab-separated fields per line.
+    """
     samples: dict[str, set[str]] = {}
+    n_rows = 0
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip() or line.startswith("#"):
             continue
@@ -53,17 +60,29 @@ def _load_long_table(path: Path) -> dict[str, set[str]]:
         kos = _KO.findall(line)
         if not kos:
             continue
+        n_rows += 1
         sample = fields[0].strip() or path.stem
         samples.setdefault(sample, set()).update(kos)
-    return samples
+    return samples, n_rows
 
 
 def load_user_kos(path: str | Path, fmt: str = "auto") -> dict[str, set[str]]:
     """Load KO sets keyed by sample name from ``path`` (dir or file).
 
-    ``fmt`` is ``auto`` (default), ``ko-list`` (scan any ``K#####``), or
-    ``eggnog`` (read the ``KEGG_ko`` column of eggNOG-mapper output). For a
-    directory, each file is one sample (named by its stem).
+    ``fmt`` is ``auto`` (default), ``ko-list`` (scan any ``K#####``, whole
+    file/each directory entry is one sample), ``long`` (force ``sample<TAB>KO``
+    parsing), or ``eggnog`` (read the ``KEGG_ko`` column of eggNOG-mapper
+    output). For a directory, each file is one sample (named by its stem).
+
+    A single two-column file is ambiguous by construction: it could be a long
+    table (``sample<TAB>KO``, the same sample id repeating over many rows) or
+    a one-sample-per-file annotation table (e.g. KofamScan ``--format mapper``,
+    ``gene<TAB>KO``, every row a *different* gene). ``auto`` only treats it as
+    a long table when at least one sample id genuinely repeats across rows;
+    otherwise the whole file is one sample (named by its stem), matching this
+    tool's primary one-file-per-genome use. Pass ``fmt="long"`` to force the
+    long-table reading for a genuine multi-sample table where every sample
+    happens to contribute exactly one row.
     """
     p = Path(path)
     if not p.exists():
@@ -79,6 +98,11 @@ def load_user_kos(path: str | Path, fmt: str = "auto") -> dict[str, set[str]]:
         for f in files:
             kos = extract(f.read_text(encoding="utf-8", errors="ignore"))
             if kos:
+                if f.stem in samples:
+                    raise ValueError(
+                        f"duplicate sample name {f.stem!r} in {p}: multiple "
+                        "files share this stem (e.g. .txt and .tsv), so the "
+                        "sample name is ambiguous. Rename one of them.")
                 samples[f.stem] = kos
         if not samples:
             raise ValueError(f"no KO ids (K#####) found in any file under {p}")
@@ -90,12 +114,21 @@ def load_user_kos(path: str | Path, fmt: str = "auto") -> dict[str, set[str]]:
         if not kos:
             raise ValueError(f"no KEGG_ko entries found in {p}")
         return {p.stem: kos}
+    if fmt == "long":
+        table, _n_rows = _load_long_table(p)
+        if not table:
+            raise ValueError(f"no KO ids (K#####) found in {p}")
+        return table
     if fmt == "auto":
-        # long table (sample<TAB>KO) vs. whole-file-is-one-sample
+        # long table (sample<TAB>KO) vs. whole-file-is-one-sample: only
+        # trust the long-table reading when a sample id actually repeats
+        # across rows -- otherwise a per-gene KofamScan file (one row per
+        # gene, every gene id unique) would silently turn each gene into its
+        # own "sample". See fmt="long" to force this reading regardless.
         first = next((ln for ln in text.splitlines() if ln.strip()), "")
         if len(first.split("\t")) >= 2 and _KO.search(text):
-            table = _load_long_table(p)
-            if len(table) > 1:
+            table, n_rows = _load_long_table(p)
+            if len(table) < n_rows:
                 return table
     kos = _kos_from_text(text)
     if not kos:

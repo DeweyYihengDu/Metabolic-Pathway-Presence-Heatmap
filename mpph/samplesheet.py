@@ -19,6 +19,11 @@ def read_sample_sheet(path: str | Path) -> pd.DataFrame:
     df = pd.read_csv(path, sep="\t", dtype=str).fillna("")
     if "sample_id" not in df.columns:
         raise ValueError("sample sheet must have a 'sample_id' column")
+    df["sample_id"] = df["sample_id"].str.strip()
+    blank = df["sample_id"] == ""
+    if blank.any():
+        rows = [i + 2 for i in df.index[blank]]  # 1-indexed + header line
+        raise ValueError(f"sample sheet has an empty sample_id at row(s): {rows}")
     if df["sample_id"].duplicated().any():
         dups = df.loc[df["sample_id"].duplicated(), "sample_id"].tolist()
         raise ValueError(f"duplicate sample_id(s): {dups}")
@@ -35,8 +40,15 @@ def load_kos_from_sheet(
     org_kos: dict[str, set[str]] = {}
     for _, row in sheet.iterrows():
         sid = row["sample_id"]
+        annotation_file = str(row["annotation_file"]).strip()
+        if not annotation_file:
+            # Path(base) / "" resolves to base itself -- silently loading
+            # every file in base_dir as this one sample's annotations.
+            raise ValueError(
+                f"sample sheet row for sample_id={sid!r} has an empty "
+                "annotation_file")
         fmt = row.get("input_format") or "auto"
-        loaded = load_user_kos(base / row["annotation_file"], fmt)
+        loaded = load_user_kos(base / annotation_file, fmt)
         # A per-sample annotation file is one sample; take the union of its KOs.
         kos: set[str] = set().union(*loaded.values()) if loaded else set()
         org_kos[sid] = kos

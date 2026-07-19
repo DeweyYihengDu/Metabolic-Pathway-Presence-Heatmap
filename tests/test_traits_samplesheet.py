@@ -67,6 +67,26 @@ def test_duplicate_sample_ids_rejected(tmp_path):
         read_sample_sheet(f)
 
 
+def test_empty_sample_id_rejected(tmp_path):
+    f = tmp_path / "s.tsv"
+    f.write_text("sample_id\tannotation_file\nA\tx\n\ty\n")
+    with pytest.raises(ValueError, match="empty sample_id"):
+        read_sample_sheet(f)
+
+
+def test_empty_annotation_file_rejected(tmp_path):
+    # A blank annotation_file must not silently resolve to base_dir itself
+    # (Path(base) / "" == base) and absorb every file under it.
+    (tmp_path / "real_sample.txt").write_text("K00001\n")
+    (tmp_path / "stray_notes.txt").write_text("unrelated K09999 mention\n")
+    f = tmp_path / "s.tsv"
+    f.write_text("sample_id\tannotation_file\n"
+                "real_sample\treal_sample.txt\nghost_row\t\n")
+    sheet = read_sample_sheet(f)
+    with pytest.raises(ValueError, match="empty annotation_file"):
+        load_kos_from_sheet(sheet, base_dir=tmp_path)
+
+
 def test_checkm2_and_gtdbtk_import(tmp_path):
     c = tmp_path / "checkm2.tsv"
     c.write_text("Name\tCompleteness\tContamination\nMAG1\t95.4\t1.2\n")

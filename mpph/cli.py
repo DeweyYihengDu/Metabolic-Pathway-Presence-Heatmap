@@ -376,6 +376,25 @@ def cmd_validate(args) -> int:
     sheet = read_sample_sheet(args.samples)
     n = len(sheet)
     has_files = "annotation_file" in sheet.columns
+    problems: list[str] = []
+    if has_files:
+        # Relative annotation_file paths are resolved against the sheet's own
+        # directory -- the same convention load_kos_from_sheet's caller uses.
+        base = Path(args.samples).parent
+        raw = sheet["annotation_file"].astype(str).str.strip()
+        blank = raw == ""
+        if blank.any():
+            problems.append(
+                f"{int(blank.sum())} row(s) with an empty annotation_file: "
+                f"{sheet.loc[blank, 'sample_id'].tolist()}")
+        for sid, af in zip(sheet["sample_id"], raw):
+            if af and not (base / af).exists():
+                problems.append(f"annotation_file not found for "
+                                f"sample_id={sid!r}: {base / af}")
+    if problems:
+        for p in problems:
+            print(f"PROBLEM: {p}", file=sys.stderr)
+        return 1
     print(f"OK: {n} samples, unique ids"
           + (", annotation_file present" if has_files else
              " (no annotation_file column)"))
@@ -719,8 +738,11 @@ def _add_run_arguments(p: argparse.ArgumentParser) -> None:
     src.add_argument("--user", metavar="PATH",
                      help="Your own KO annotations. Implies --completeness.")
     src.add_argument("--input-format", default="auto",
-                     choices=["auto", "ko-list", "eggnog"],
-                     help="Format of --user input.")
+                     choices=["auto", "ko-list", "long", "eggnog"],
+                     help="Format of --user input. 'long' forces sample<TAB>KO "
+                          "table parsing for an ambiguous two-column file "
+                          "where 'auto' would otherwise treat each row as its "
+                          "own sample.")
     ana = p.add_argument_group("analysis")
     ana.add_argument("--completeness", action="store_true",
                      help="Score KEGG module completeness (0..1).")
@@ -767,7 +789,7 @@ def _add_source_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--codes", metavar="FILE")
     p.add_argument("--user", metavar="PATH")
     p.add_argument("--input-format", default="auto",
-                   choices=["auto", "ko-list", "eggnog"])
+                   choices=["auto", "ko-list", "long", "eggnog"])
     p.add_argument("--all-modules", action="store_true")
 
 

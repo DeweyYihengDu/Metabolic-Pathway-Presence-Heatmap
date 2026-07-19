@@ -34,6 +34,33 @@ def test_no_ko_raises(tmp_path):
         load_user_kos(f)
 
 
+def test_ambiguous_two_column_file_is_not_split_into_fake_samples(tmp_path):
+    # A single-genome KofamScan --format mapper file: one row per gene, every
+    # gene id unique. Grouping by column 1 (the old heuristic: >1 distinct
+    # key => "long table") would wrongly turn each gene into its own sample.
+    f = tmp_path / "my_mag.txt"
+    f.write_text("geneA\tK00001\ngeneB\tK00002\ngeneC\tK00003\n")
+    kos = load_user_kos(f, fmt="auto")
+    assert kos == {"my_mag": {"K00001", "K00002", "K00003"}}
+
+
+def test_input_format_long_forces_long_table_reading(tmp_path):
+    # Escape hatch for a genuine multi-sample table where every sample
+    # happens to contribute exactly one row (indistinguishable from the
+    # per-gene case above by structure alone -- the caller must say so).
+    f = tmp_path / "my_mag.txt"
+    f.write_text("geneA\tK00001\ngeneB\tK00002\ngeneC\tK00003\n")
+    kos = load_user_kos(f, fmt="long")
+    assert kos == {"geneA": {"K00001"}, "geneB": {"K00002"}, "geneC": {"K00003"}}
+
+
+def test_directory_duplicate_stem_rejected(tmp_path):
+    (tmp_path / "sample.txt").write_text("K00001\nK00002\n")
+    (tmp_path / "sample.tsv").write_text("K00099\n")
+    with pytest.raises(ValueError, match="duplicate sample name"):
+        load_user_kos(tmp_path)
+
+
 def test_eggnog_format(tmp_path):
     f = tmp_path / "MAG1.emapper.annotations"
     f.write_text(
