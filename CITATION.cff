@@ -5,7 +5,7 @@ authors:
   - family-names: Du
     given-names: Yiheng
 repository-code: "https://github.com/DeweyYihengDu/Metabolic-Pathway-Presence-Heatmap"
-version: "3.9.0"
+version: "3.10.0"
 license: MIT
 preferred-citation:
   type: article

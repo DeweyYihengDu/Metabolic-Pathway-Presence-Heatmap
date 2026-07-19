@@ -5,6 +5,7 @@ from mpph.samplesheet import (
     import_checkm2,
     import_gtdbtk,
     load_kos_from_sheet,
+    mimag_quality_tier,
     read_sample_sheet,
     sheet_metadata,
 )
@@ -115,8 +116,19 @@ def test_checkm2_and_gtdbtk_import(tmp_path):
     c.write_text("Name\tCompleteness\tContamination\nMAG1\t95.4\t1.2\n")
     q = import_checkm2(c)
     assert q.loc["MAG1", "completeness"] == 95.4
+    assert q.loc["MAG1", "quality_tier"] == "high"
 
     g = tmp_path / "gtdbtk.tsv"
     g.write_text("user_genome\tclassification\nMAG1\td__Bacteria;p__X\n")
     t = import_gtdbtk(g)
     assert "Bacteria" in t.loc["MAG1", "taxonomy"]
+
+
+def test_mimag_quality_tier():
+    # MIMAG (Bowers et al. 2017) completeness/contamination cutoffs.
+    assert mimag_quality_tier(95, 2) == "high"
+    assert mimag_quality_tier(90, 2) == "medium"    # not strictly > 90
+    assert mimag_quality_tier(60, 8) == "medium"
+    assert mimag_quality_tier(60, 12) == "low"       # contamination too high
+    assert mimag_quality_tier(30, 1) == "low"
+    assert mimag_quality_tier(float("nan"), 2) == "unknown"

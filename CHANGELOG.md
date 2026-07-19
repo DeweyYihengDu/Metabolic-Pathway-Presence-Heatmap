@@ -1,5 +1,40 @@
 # Changelog
 
+## 3.10.0
+
+MAG genome-quality metadata wired into the `run` pipeline. `mpph.samplesheet`
+already had `import_checkm2()`/`import_gtdbtk()` parsers, but nothing in the
+CLI ever called them -- a missing feature in an incomplete MAG could look
+like true absence with no way to filter, annotate, or even be warned about it
+from the command line.
+
+- New `run --qc-metadata FILE`: a table keyed by `sample_id`/organism with a
+  `completeness` column (optionally `contamination`, `taxonomy` -- e.g.
+  `import_checkm2()`/`import_gtdbtk()` output saved to TSV). Joined into
+  `*_qc.csv` and recorded in the manifest.
+- New `--min-genome-completeness N`: drops organisms below `N`% completeness
+  before scoring, reported the same way as `--keep-empty`'s exclusions.
+  Any *included* organism under 90% completeness is warned about regardless.
+- New `mpph.samplesheet.mimag_quality_tier()`: the standard MIMAG (Bowers et
+  al. 2017) high/medium/low tiers from completeness+contamination (the full
+  standard also needs rRNA/tRNA evidence this doesn't assess -- documented
+  as such, not overclaimed). `import_checkm2()` now includes a
+  `quality_tier` column using it.
+- Documented explicitly, in both `docs/methods.md` and the new
+  `apply_genome_completeness_qc()`'s docstring: this filters or flags, it
+  does **not** attempt a linear completeness correction
+  (`observed / genome_completeness`) -- different functional genes are not
+  lost uniformly at random as assembly quality drops, so that correction
+  would fabricate precision the data doesn't support.
+
+This completes the P1 scientific-rigor batch (Module AST, GSEA, ORA, trait
+panels, tree/RF, MAG QC) from the third external review's most severe
+correctness/rigor items, on top of the three P0 fixes in 3.5.1-3.5.3. The
+review's remaining ~11 items (absent/unknown heatmap semantics, manifest/
+cache/report engineering, code reorg into subpackages, `cliffs_delta`
+performance, and release/repo-management asks) are still unaddressed and
+were not part of what was asked for in this round.
+
 ## 3.9.0
 
 Newick label safety and richer tree comparison. Reproduced with a failing

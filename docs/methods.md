@@ -179,6 +179,26 @@ shifted which pathway came out on top.
 
 Organisms with zero retained features are dropped (`--keep-empty` to keep) and
 recorded in `*_qc.csv`; per-organism fetch failures are recorded, not fatal. A
-missing feature in a MAG may reflect incomplete assembly rather than true
-absence — import CheckM2/GTDB-Tk metadata and interpret low-completeness genomes
-with care.
+missing feature in a MAG may reflect incomplete assembly, a contig break, a
+failed gene call, or missing KO annotation rather than true absence — not
+just a caveat in this text, but something `run --qc-metadata` acts on:
+
+- `--qc-metadata FILE`: a table keyed by `sample_id`/organism with a
+  `completeness` column (optionally `contamination`, `taxonomy`) — e.g.
+  `mpph.samplesheet.import_checkm2()` / `import_gtdbtk()` output saved to
+  TSV. Joined into `*_qc.csv` (plus a `quality_tier` column, the MIMAG
+  high/medium/low tiers from completeness+contamination only — the full
+  MIMAG standard also needs rRNA/tRNA evidence this doesn't assess) and
+  recorded in the manifest.
+- `--min-genome-completeness N`: drops organisms below `N`% completeness
+  before scoring (needs `--qc-metadata`); excluded organisms are reported the
+  same way as `--keep-empty`'s zero-feature exclusions.
+- Any *included* organism below 90% completeness gets a printed warning,
+  whether or not `--min-genome-completeness` was set — a reminder that its
+  apparent feature absences may be assembly gaps.
+
+**This does not, and should not, correct scores for completeness** (e.g.
+`observed / genome_completeness`) — different functional genes are not lost
+uniformly at random as assembly quality drops, so a linear correction would
+fabricate precision the data doesn't support. Filtering or flagging is the
+honest option; silently "fixing" the number is not.

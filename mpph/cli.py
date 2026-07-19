@@ -146,6 +146,36 @@ def run(args: argparse.Namespace) -> int:
               "(recorded in the QC table)", file=sys.stderr)
     annotated_counts = (df > 0).sum(axis=1).to_dict()  # for the QC report
 
+    # --- genome QC (completeness/contamination; MAGs, not KEGG references) ---
+    qc_meta = None
+    excluded_low_completeness: list[str] = []
+    if args.qc_metadata:
+        qc_meta = _read_metadata(Path(args.qc_metadata))
+        for col in ("completeness", "contamination"):
+            if col in qc_meta.columns:
+                qc_meta[col] = pd.to_numeric(qc_meta[col], errors="coerce")
+        n_matched = int(df.index.isin(qc_meta.index).sum())
+        print(f"      QC metadata matched {n_matched}/{df.shape[0]} organism(s)",
+              flush=True)
+        if "completeness" not in qc_meta.columns and args.min_genome_completeness is not None:
+            print("      warning: --min-genome-completeness needs a "
+                  "'completeness' column in --qc-metadata; ignoring.",
+                  file=sys.stderr)
+        df, excluded_low_completeness, low_included = apply_genome_completeness_qc(
+            df, qc_meta, args.min_genome_completeness)
+        if excluded_low_completeness:
+            print(f"      dropping {len(excluded_low_completeness)} organism(s) "
+                  f"below {args.min_genome_completeness}% completeness: "
+                  f"{', '.join(excluded_low_completeness)}", flush=True)
+        if low_included:
+            print(f"      warning: {len(low_included)} included organism(s) "
+                  "have <90% estimated completeness -- their apparent feature "
+                  "absences may reflect assembly gaps, not true absence: "
+                  f"{', '.join(low_included)}", file=sys.stderr)
+    elif args.min_genome_completeness is not None:
+        print("      warning: --min-genome-completeness needs --qc-metadata; "
+              "ignoring.", file=sys.stderr)
+
     # --- filter --------------------------------------------------------------
     # Order: restrict to a top-level category, drop aggregate overview maps,
     # then organisms left with no real features, then prevalence/core filtering
@@ -192,12 +222,24 @@ def run(args: argparse.Namespace) -> int:
         "top_category": [top_categories.get(k, "") for k in kept],
     }).to_csv(features_csv, index=False)
 
+    def _status(o: str) -> str:
+        if o in excluded_low_completeness:
+            return "excluded_low_completeness"
+        if o in excluded_empty:
+            return "excluded_empty"
+        return "included"
+
     qc_rows = [{"organism": o, "n_annotated_features": int(n),
-                "status": "excluded_empty" if o in excluded_empty else "included"}
+                "status": _status(o)}
                for o, n in annotated_counts.items()]
     qc_rows += [{"organism": f["organism"], "n_annotated_features": 0,
                  "status": "fetch_failed"} for f in failed]
-    pd.DataFrame(qc_rows).to_csv(qc_csv, index=False)
+    qc_df = pd.DataFrame(qc_rows)
+    if qc_meta is not None:
+        for col in ("completeness", "contamination", "quality_tier", "taxonomy"):
+            if col in qc_meta.columns:
+                qc_df[col] = qc_df["organism"].map(qc_meta[col])
+    qc_df.to_csv(qc_csv, index=False)
 
     # --- figure(s) -----------------------------------------------------------
     print("[4/4] Rendering heatmap ...", flush=True)
@@ -274,7 +316,9 @@ def run(args: argparse.Namespace) -> int:
         "organisms": list(df.index),
         "excluded_organisms": (
             [{"organism": o, "reason": "zero_features_after_filtering"}
-             for o in excluded_empty] + failed),
+             for o in excluded_empty] +
+            [{"organism": o, "reason": "below_min_genome_completeness"}
+             for o in excluded_low_completeness] + failed),
         "filters": {
             "mode_metric": metric,
             "top_category": None if (mode != "presence" or args.all_categories)
@@ -287,6 +331,8 @@ def run(args: argparse.Namespace) -> int:
             "prevalence_state": args.prevalence_state,
             "complete_threshold": args.complete_threshold,
             "module_types": "all" if args.all_modules else "Pathway",
+            "qc_metadata": args.qc_metadata,
+            "min_genome_completeness": args.min_genome_completeness,
         },
         "score_semantics": ("module_step_coverage" if mode == "completeness"
                             else "pathway_map_association"),
@@ -306,6 +352,30 @@ def run(args: argparse.Namespace) -> int:
     for p in sorted(outdir.glob(f"{slug}_*")):
         print(f"  - {p.name}")
     return 0
+
+
+def apply_genome_completeness_qc(
+    df: pd.DataFrame, qc_meta: pd.DataFrame | None, min_completeness: float | None,
+) -> tuple[pd.DataFrame, list[str], list[str]]:
+    """Drop organisms below ``min_completeness`` and flag low-completeness ones
+    still included. Returns ``(df, excluded, low_included)``.
+
+    A missing feature in an incomplete/contaminated MAG may reflect assembly
+    or binning gaps rather than true absence -- this can only warn or filter
+    on that, not correct scores for it (uneven random gene loss across a
+    genome is not a safe assumption to correct with).
+    """
+    if qc_meta is None or "completeness" not in qc_meta.columns:
+        return df, [], []
+    comp = qc_meta["completeness"].reindex(df.index)
+    excluded: list[str] = []
+    if min_completeness is not None:
+        excluded = list(df.index[comp < min_completeness])
+        if excluded:
+            df = df.drop(index=excluded)
+            comp = comp.drop(index=excluded)
+    low_included = sorted(comp[comp < 90].index)
+    return df, excluded, low_included
 
 
 # --------------------------------------------------------------------------- #
@@ -797,6 +867,17 @@ def _add_run_arguments(p: argparse.ArgumentParser) -> None:
                       help="Completeness at/above which a module counts as "
                            "'complete' for --prevalence-state complete.")
     filt.add_argument("--keep-empty", action="store_true")
+    qc = p.add_argument_group("genome quality")
+    qc.add_argument("--qc-metadata", metavar="FILE",
+                    help="Genome QC table (sample_id/organism + completeness "
+                         "[+ contamination]) -- e.g. mpph.samplesheet."
+                         "import_checkm2() output saved to TSV. A missing "
+                         "feature in an incomplete MAG may reflect assembly "
+                         "gaps, not true absence.")
+    qc.add_argument("--min-genome-completeness", type=float, default=None,
+                    help="Drop organisms below this %% completeness (needs "
+                         "--qc-metadata). Their apparent feature absences are "
+                         "not trustworthy enough to include.")
     out = p.add_argument_group("output")
     out.add_argument("--outdir", default="output")
     out.add_argument("--format", nargs="+", default=["pdf"],

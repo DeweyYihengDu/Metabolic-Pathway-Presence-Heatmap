@@ -204,6 +204,7 @@ mpph validate   --samples samples.tsv
 | `--cluster` / `--metric` | UPGMA-cluster both axes. Metric defaults to `jaccard` (presence) / `euclidean` (completeness); also `dice`, `hamming`, `braycurtis`, `cosine`. |
 | `--newick` | Export organism and feature trees as `.nwk`. |
 | `--drop-core`, `--min/--max-prevalence`, `--present-threshold` | Filter uninformative features by prevalence. |
+| `--qc-metadata FILE`, `--min-genome-completeness N` | Join CheckM2/GTDB-Tk-style completeness into `*_qc.csv`; drop MAGs below `N`% completeness and warn on any included MAG below 90% (see [methods](docs/methods.md)). |
 | `--format {pdf,png,svg}`, `--outdir DIR` | Figure format(s) and output directory. |
 | `--refresh`, `--no-cache`, `--cache-dir` | Control KEGG response caching. |
 

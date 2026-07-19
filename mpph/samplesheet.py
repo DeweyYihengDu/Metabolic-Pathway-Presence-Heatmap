@@ -62,15 +62,36 @@ def sheet_metadata(sheet: pd.DataFrame) -> pd.DataFrame:
     return meta.drop(columns=drop)
 
 
+def mimag_quality_tier(completeness: float, contamination: float) -> str:
+    """MIMAG genome-quality tier (Bowers et al. 2017, Nat. Biotechnol.).
+
+    ``high``: completeness > 90, contamination < 5 (also needs rRNA/tRNA
+    evidence per the full standard, which isn't assessed here -- this is
+    completeness/contamination only). ``medium``: completeness >= 50,
+    contamination < 10. Otherwise ``low``. NaN in either input -> ``unknown``.
+    """
+    if completeness != completeness or contamination != contamination:  # NaN
+        return "unknown"
+    if completeness > 90 and contamination < 5:
+        return "high"
+    if completeness >= 50 and contamination < 10:
+        return "medium"
+    return "low"
+
+
 def import_checkm2(path: str | Path) -> pd.DataFrame:
     """Parse a CheckM2 quality_report.tsv -> completeness / contamination."""
     df = pd.read_csv(path, sep="\t")
     name = _first_col(df, ["Name", "name", "genome", "Bin Id"])
     comp = _first_col(df, ["Completeness", "completeness"])
     cont = _first_col(df, ["Contamination", "contamination"])
+    completeness = pd.to_numeric(df[comp], errors="coerce")
+    contamination = pd.to_numeric(df[cont], errors="coerce")
     return pd.DataFrame({
-        "completeness": pd.to_numeric(df[comp], errors="coerce").to_numpy(),
-        "contamination": pd.to_numeric(df[cont], errors="coerce").to_numpy(),
+        "completeness": completeness.to_numpy(),
+        "contamination": contamination.to_numpy(),
+        "quality_tier": [mimag_quality_tier(c, k)
+                         for c, k in zip(completeness, contamination)],
     }, index=df[name].astype(str)).rename_axis("sample_id")
 
 

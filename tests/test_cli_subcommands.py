@@ -76,6 +76,50 @@ def test_validate_subcommand_reports_empty_annotation_file(tmp_path, capsys):
     assert "empty annotation_file" in capsys.readouterr().err
 
 
+def test_apply_genome_completeness_qc_drops_below_threshold():
+    df = pd.DataFrame({"f1": [1.0, 1.0, 1.0]}, index=["mag1", "mag2", "mag3"])
+    qc_meta = pd.DataFrame({"completeness": [98.5, 45.0, 85.0]},
+                           index=["mag1", "mag2", "mag3"])
+    out, excluded, low_included = cli.apply_genome_completeness_qc(
+        df, qc_meta, min_completeness=50.0)
+    assert list(out.index) == ["mag1", "mag3"]
+    assert excluded == ["mag2"]
+    assert low_included == ["mag3"]  # included but still <90%
+
+
+def test_apply_genome_completeness_qc_no_filter_still_warns():
+    df = pd.DataFrame({"f1": [1.0, 1.0]}, index=["mag1", "mag3"])
+    qc_meta = pd.DataFrame({"completeness": [98.5, 85.0]}, index=["mag1", "mag3"])
+    out, excluded, low_included = cli.apply_genome_completeness_qc(
+        df, qc_meta, min_completeness=None)
+    assert list(out.index) == ["mag1", "mag3"]  # nothing dropped
+    assert excluded == []
+    assert low_included == ["mag3"]
+
+
+def test_apply_genome_completeness_qc_without_metadata_is_a_no_op():
+    df = pd.DataFrame({"f1": [1.0]}, index=["mag1"])
+    out, excluded, low_included = cli.apply_genome_completeness_qc(
+        df, None, min_completeness=50.0)
+    assert out is df
+    assert excluded == [] and low_included == []
+
+
+def test_run_argparser_accepts_qc_flags():
+    args = cli.build_parser().parse_args([
+        "run", "Vibrio", "--completeness", "--qc-metadata", "qc.tsv",
+        "--min-genome-completeness", "70",
+    ])
+    assert args.qc_metadata == "qc.tsv"
+    assert args.min_genome_completeness == 70.0
+
+
+def test_run_argparser_qc_flags_default_to_none():
+    args = cli.build_parser().parse_args(["run", "Vibrio"])
+    assert args.qc_metadata is None
+    assert args.min_genome_completeness is None
+
+
 def test_traits_subcommand_writes_manifest_with_panel_provenance(tmp_path):
     users = tmp_path / "genomes"
     users.mkdir()
