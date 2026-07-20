@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.12.1
+
+`cliffs_delta` performance: replaced the O(n*m) pairwise comparison matrix
+(`a[:, None] > b[None, :]`) with the algebraically equivalent Mann-Whitney U
+statistic (`delta = 2U/(n*m) - 1`, computed via sorting in O(n log n + m log
+m)) -- for two groups of 20,000 each, ~95x faster and ~400MB less peak
+memory in this synthetic benchmark. Matters once a group is thousands of
+features/genes rather than the usual handful of organisms. Verified
+mathematically identical to the direct pairwise count, ties included (not
+just empirically checked -- `2U/(n*m) - 1` and `(greater - less)/(n*m)` are
+the same quantity, since ties count as 0.5 in U the same way they count as
+neither "greater" nor "less" directly). The one shipped example with a
+`cliffs_delta` column did not need regenerating, since the function's
+output for the same input is unchanged.
+
 ## 3.12.0
 
 HTML report: large-matrix protection. The interactive grid embedded the

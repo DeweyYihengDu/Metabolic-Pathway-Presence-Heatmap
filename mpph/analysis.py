@@ -42,14 +42,22 @@ def benjamini_hochberg(pvalues: np.ndarray) -> np.ndarray:
 
 
 def cliffs_delta(a: np.ndarray, b: np.ndarray) -> float:
-    """Cliff's delta effect size in [-1, 1] for two continuous samples."""
+    """Cliff's delta effect size in [-1, 1] for two continuous samples.
+
+    Computed from the Mann-Whitney U statistic (``delta = 2U/(n*m) - 1``,
+    ties counting as 0.5 in U the same way they count as neither "greater"
+    nor "less" here) rather than the full pairwise comparison matrix --
+    O(n log n + m log m) via sorting instead of O(n*m) time *and* memory,
+    which matters once either group reaches into the thousands (e.g.
+    thousands of features/genes rather than the usual handful of organism
+    groups). Identical results to the direct pairwise count, ties included.
+    """
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     if a.size == 0 or b.size == 0:
         return float("nan")
-    greater = np.sum(a[:, None] > b[None, :])
-    less = np.sum(a[:, None] < b[None, :])
-    return (greater - less) / (a.size * b.size)
+    u = stats.mannwhitneyu(a, b, alternative="two-sided").statistic
+    return 2 * u / (a.size * b.size) - 1
 
 
 # --------------------------------------------------------------------------- #

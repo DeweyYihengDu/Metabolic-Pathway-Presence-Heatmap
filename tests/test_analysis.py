@@ -59,6 +59,33 @@ def test_cliffs_delta_extremes():
     assert cliffs_delta([0, 1, 2], [3, 4, 5]) == -1.0
 
 
+def test_cliffs_delta_ties_and_edge_cases():
+    assert cliffs_delta([1, 1, 1], [1, 1, 1]) == 0.0  # every pair a tie
+    assert cliffs_delta([5], [3]) == 1.0               # single element each
+    assert cliffs_delta([5], [5]) == 0.0
+    assert np.isnan(cliffs_delta([], [1, 2]))
+    assert np.isnan(cliffs_delta([1, 2], []))
+
+
+def test_cliffs_delta_matches_direct_pairwise_count():
+    # cliffs_delta is now computed via the Mann-Whitney U statistic
+    # (O(n log n), avoiding an O(n*m) pairwise comparison matrix that gets
+    # expensive once a group reaches into the thousands) -- must still match
+    # the textbook direct-count definition exactly, ties included.
+    def direct(a, b):
+        a, b = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+        greater = np.sum(a[:, None] > b[None, :])
+        less = np.sum(a[:, None] < b[None, :])
+        return (greater - less) / (a.size * b.size)
+
+    rng = np.random.default_rng(3)
+    for _ in range(10):
+        n, m = rng.integers(2, 40), rng.integers(2, 40)
+        a = rng.normal(size=n).round(1)  # rounded to induce ties
+        b = rng.normal(size=m).round(1)
+        assert np.isclose(cliffs_delta(a, b), direct(a, b))
+
+
 def test_differential_binary_detects_difference():
     matrix = pd.DataFrame(
         {"f1": [1, 1, 1, 0, 0, 0], "f2": [1, 1, 1, 1, 1, 1]},
