@@ -149,6 +149,21 @@ def test_traits_subcommand_writes_manifest_with_panel_provenance(tmp_path):
     assert manifest["panel"]["panel_version"] == "1.0.0"
     assert len(manifest["panel"]["panel_sha256"]) == 64  # sha256 hex digest
     assert manifest["panel"]["panel_path"].endswith("biogeochemistry.json")
+    assert "numpy" in manifest["dependency_versions"]
+    assert "git_commit" in manifest  # present (value is None outside a checkout)
+
+
+def test_run_provenance_reports_dependency_versions():
+    prov = cli._run_provenance()
+    deps = prov["dependency_versions"]
+    assert set(deps) == {"numpy", "pandas", "scipy", "requests"}
+    assert all(isinstance(v, str) and v for v in deps.values())
+    assert "git_commit" in prov  # None or a str; never a missing key
+
+
+def test_run_provenance_git_commit_is_none_outside_a_checkout(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # an empty tmp_path is never a git checkout
+    assert cli._run_provenance()["git_commit"] is None
 
 
 def test_backward_compatible_shortcut_routes_to_run(tmp_path, monkeypatch):

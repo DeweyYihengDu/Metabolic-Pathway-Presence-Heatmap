@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
+import scipy
 
 from . import __version__
 from .kegg import DEFAULT_CACHE, kegg_release, make_session
@@ -301,6 +303,7 @@ def run(args: argparse.Namespace) -> int:
         "command": "mpph " + " ".join(getattr(args, "_raw_argv", sys.argv[1:])),
         "python": sys.version.split()[0],
         "platform": sys.platform,
+        **_run_provenance(),
         "source": ("user:" + str(args.user)) if from_user else label_src,
         "mode": mode,
         "metric": metric,
@@ -352,6 +355,32 @@ def run(args: argparse.Namespace) -> int:
     for p in sorted(outdir.glob(f"{slug}_*")):
         print(f"  - {p.name}")
     return 0
+
+
+def _run_provenance() -> dict:
+    """Git commit SHA (of the caller's working directory, not this package's
+    own installation) and the core dependency versions this run used.
+
+    Best-effort: ``git_commit`` is ``None`` when the current directory isn't
+    a git checkout, git isn't installed, or the lookup fails for any other
+    reason -- this is provenance metadata, never worth failing a run over.
+    """
+    git_commit = None
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+            timeout=5, check=False)
+        if result.returncode == 0:
+            git_commit = result.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return {
+        "git_commit": git_commit,
+        "dependency_versions": {
+            "numpy": np.__version__, "pandas": pd.__version__,
+            "scipy": scipy.__version__, "requests": requests.__version__,
+        },
+    }
 
 
 def apply_genome_completeness_qc(
@@ -621,6 +650,7 @@ def cmd_traits(args) -> int:
         "command": "mpph " + " ".join(getattr(args, "_raw_argv", sys.argv[1:])),
         "python": sys.version.split()[0],
         "platform": sys.platform,
+        **_run_provenance(),
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": ("user:" + str(args.user)) if args.user else
                   (args.codes or args.taxon),

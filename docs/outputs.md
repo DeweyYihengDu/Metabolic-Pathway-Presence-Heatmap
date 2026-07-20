@@ -28,10 +28,13 @@
 
 ## Manifest fields
 
-`mpph_version`, `command`, `python`, `platform`, `source`, `mode`, `metric`,
-`match`, `clustered`, `generated_utc`, `kegg_release`, `n_organisms_matched`,
-`n_organisms`, `n_features_before_filtering`, `n_features`, `organisms`,
-`excluded_organisms` (with reason), `filters`, `outputs`.
+`mpph_version`, `command`, `python`, `platform`, `git_commit` (the calling
+directory's HEAD, not this package's own; `null` outside a git checkout),
+`dependency_versions` (numpy/pandas/scipy/requests), `source`, `mode`,
+`metric`, `match`, `clustered`, `generated_utc`, `kegg_release`,
+`n_organisms_matched`, `n_organisms`, `n_features_before_filtering`,
+`n_features`, `organisms`, `excluded_organisms` (with reason), `filters`
+(now also `qc_metadata`/`min_genome_completeness` when set), `outputs`.
 
 The manifest is the reproducibility record: it captures the exact command, the
 software/KEGG versions, and every filter applied.

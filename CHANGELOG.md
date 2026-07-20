@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.13.0
+
+Manifest reproducibility: `run` and `traits` now record the calling
+directory's git commit SHA (`git_commit`, `null` outside a checkout -- a
+best-effort lookup that never fails the run) and the core dependency
+versions actually used (`dependency_versions`: numpy, pandas, scipy,
+requests). Together with the already-recorded `mpph_version`/`python`/
+`kegg_release`/full `command`, a manifest now identifies exactly which
+version of everything produced a given result.
+
+This completes the engineering batch (cache collision-proofing + atomic
+writes, HTML report large-matrix protection, `cliffs_delta` performance,
+manifest provenance) from the third external review's remaining
+recommendations, on top of the P0 fixes (3.5.1-3.5.3) and P1 scientific-
+rigor batch (3.6.0-3.10.1). Code reorganization into subpackages was
+explicitly not part of this batch. The release/repo-management items
+(GitHub Release, wheel-based CI, Docker, Dependabot) remain untouched and
+need explicit sign-off before any of that is attempted.
+
 ## 3.12.1
 
 `cliffs_delta` performance: replaced the O(n*m) pairwise comparison matrix
