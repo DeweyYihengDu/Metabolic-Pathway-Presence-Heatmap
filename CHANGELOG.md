@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.14.0
+
+New subcommand: **`mpph pathmap`** — draws a KEGG pathway (e.g. `ko00010`,
+Glycolysis) or the entire global metabolic network map (`ko01100`, every
+KEGG pathway stitched into one diagram, ~3,800 reactions) using KEGG's own
+KGML layout, colouring each enzyme node and the reaction(s) it catalyzes by
+whether it's present in group A, group B, both, or neither — comparative,
+not KEGG's own static colouring.
+
+- New `mpph.kgml` module: `fetch_kgml`/`parse_kgml` (KGML XML -> positioned
+  compound/enzyme/map-reference nodes + the reactions linking them),
+  `normalize_map_id` (`"01100"`/`"map01100"`/`"path:ko01100"` all resolve to
+  the `ko#####` form KEGG actually serves KGML for), `reactions_for_ortholog`.
+- New `plot_kgml_map`: an enzyme entry counts as present in a group if *any*
+  of its KOs are (KEGG sometimes lists several isozymes under one entry);
+  a reaction catalyzed by more than one such entry takes the union of all
+  their KOs. Every substrate-product pair of a reaction is drawn (not just a
+  guessed "primary chain"), since KGML's own compound order isn't a reliable
+  signal and some real steps genuinely branch (e.g. aldolase, one substrate
+  to two products). Compound nodes and map-reference boxes are drawn from
+  KGML's fixed layout for context, not coloured by data.
+- `--codes-a`/`--codes-b` (organism codes, KOs unioned) or `--user-a`/
+  `--user-b` (your own annotations) per group; a manifest records both
+  groups' sources/KO counts, per-status enzyme counts, and the usual
+  provenance fields.
+- New example: `examples/Prochlorococcus_MIT9313_vs_AS9601_pathmap.png` —
+  the same low-light/high-light strain pair as the existing enrichment
+  example, now as a network diagram. Porphyrin (chlorophyll/heme)
+  metabolism comes back entirely shared between the two strains — the core
+  photosynthetic-pigment pathway both need, distinct from the antenna-protein
+  genes the enrichment example found unique to the low-light strain.
+
 ## 3.13.0
 
 Manifest reproducibility: `run` and `traits` now record the calling

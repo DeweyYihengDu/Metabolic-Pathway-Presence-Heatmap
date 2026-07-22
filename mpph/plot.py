@@ -12,8 +12,11 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.cm import ScalarMappable  # noqa: E402
-from matplotlib.patches import Patch  # noqa: E402
+from matplotlib.collections import LineCollection, PatchCollection  # noqa: E402
+from matplotlib.patches import Circle, Patch, Rectangle  # noqa: E402
 from scipy.cluster.hierarchy import dendrogram, linkage  # noqa: E402
+
+from .kgml import KGMLPathway  # noqa: E402
 
 # --- Visual design tokens (validated categorical palette; light surface) ----
 INK = "#0b0b0b"
@@ -605,4 +608,165 @@ def plot_matrix(
         "row_link": row_link, "col_link": col_link,
         "row_labels": names, "col_labels": cols,
         "row_link_labels": link_row_labels, "col_link_labels": link_col_labels,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# KGML pathway / global metabolic map (comparative overlay)
+# --------------------------------------------------------------------------- #
+_KGML_A = CATEGORY_PALETTE[0]      # blue
+_KGML_B = CATEGORY_PALETTE[5]      # red
+_KGML_BOTH = CATEGORY_PALETTE[4]   # purple -- the classic "overlap" blend
+_KGML_NEITHER = "#d7d4cd"          # muted, present-but-not-in-either-group
+_KGML_COMPOUND = "#b9b7b0"
+_KGML_STATUS_COLOR = {"both": _KGML_BOTH, "a_only": _KGML_A,
+                      "b_only": _KGML_B, "neither": _KGML_NEITHER}
+# Draw order: "neither" first so a genuinely shared/unique reaction always
+# paints over an incidentally-overlapping absent one at the same position.
+_KGML_STATUS_ORDER = ("neither", "a_only", "b_only", "both")
+
+
+def _kgml_status(kos: frozenset[str], group_a: set[str], group_b: set[str]) -> str:
+    in_a, in_b = bool(kos & group_a), bool(kos & group_b)
+    if in_a and in_b:
+        return "both"
+    if in_a:
+        return "a_only"
+    if in_b:
+        return "b_only"
+    return "neither"
+
+
+def plot_kgml_map(
+    pathway: KGMLPathway,
+    group_a_kos: set[str],
+    group_b_kos: set[str],
+    outfile: Path,
+    title: str,
+    *,
+    group_a_label: str = "Group A",
+    group_b_label: str = "Group B",
+) -> dict:
+    """Render a KGML pathway or the global metabolic map (``ko01100``).
+
+    Each enzyme (KO) node and the reaction(s) it catalyzes is coloured by
+    whether any of its KOs are in ``group_a_kos``, ``group_b_kos``, both, or
+    neither -- a comparative "which steps does each group have" overlay, not
+    KEGG's own default static colouring. A reaction catalyzed by more than one
+    ortholog entry takes the union of their KOs (matching this tool's
+    any-of-these-genes-satisfies-the-step convention elsewhere). Compound
+    nodes and map-reference boxes are drawn from KGML's own fixed layout for
+    context only -- they are not coloured by data. Returns per-status counts.
+    """
+    nodes = pathway.nodes
+    orthologs = [n for n in nodes.values() if n.kind == "ortholog"]
+    compounds = {n.entry_id: n for n in nodes.values() if n.kind == "compound"}
+    map_refs = [n for n in nodes.values() if n.kind == "map"]
+
+    ortholog_status = {n.entry_id: _kgml_status(n.kos, group_a_kos, group_b_kos)
+                       for n in orthologs}
+
+    # Reaction-level status: the union of KOs from every ortholog entry that
+    # catalyzes it (KEGG sometimes splits alternative enzymes into separate
+    # entries pointing at the same reaction).
+    name_to_idx: dict[str, int] = {}
+    for idx, rxn in enumerate(pathway.reactions):
+        for name in rxn.names:
+            name_to_idx[name] = idx
+    reaction_kos: list[set[str]] = [set() for _ in pathway.reactions]
+    for n in orthologs:
+        for name in pathway.ortholog_reactions.get(n.entry_id, ()):
+            idx = name_to_idx.get(name)
+            if idx is not None:
+                reaction_kos[idx].update(n.kos)
+    reaction_status = [_kgml_status(frozenset(kos), group_a_kos, group_b_kos)
+                       for kos in reaction_kos]
+
+    xs = [n.x for n in nodes.values()]
+    ys = [n.y for n in nodes.values()]
+    # The true extent includes each node's own box/circle half-width/-height
+    # (a map-reference box's centre can sit right at the outermost node's x,
+    # with the box itself reaching well past it) plus a fixed allowance for
+    # label text overflowing its box, or the outermost labels clip.
+    x_min = min(n.x - n.width / 2 for n in nodes.values()) - 40
+    x_max = max(n.x + n.width / 2 for n in nodes.values()) + 40
+    y_min = min(n.y - n.height / 2 for n in nodes.values()) - 40
+    y_max = max(n.y + n.height / 2 for n in nodes.values()) + 40
+    x_span, y_span = (max(xs) - min(xs)) or 1.0, (max(ys) - min(ys)) or 1.0
+    width = min(28.0, max(7.0, x_span / 130))
+    height = min(28.0, max(6.0, y_span / 130))
+    fig, ax = plt.subplots(figsize=(width, height))
+
+    for n in map_refs:
+        ax.add_patch(Rectangle(
+            (n.x - n.width / 2, n.y - n.height / 2), n.width, n.height,
+            facecolor="none", edgecolor=MUTED, linewidth=0.6, zorder=4))
+        # KEGG's own self-referencing "TITLE:<name>" box (this map linking to
+        # itself, drawn as its title in a corner) is redundant with the
+        # figure's own title -- shown, but without the literal "TITLE:" text.
+        # zorder above the reaction/enzyme layers so a label is never
+        # partially hidden behind a coloured box it happens to overlap.
+        label = n.label.removeprefix("TITLE:")
+        ax.text(n.x, n.y, label, fontsize=min(6.5, n.width / 8), color=MUTED,
+               ha="center", va="center", clip_on=True, zorder=5)
+
+    if compounds:
+        cx = [c.x for c in compounds.values()]
+        cy = [c.y for c in compounds.values()]
+        ax.scatter(cx, cy, s=6, color=_KGML_COMPOUND, linewidths=0, zorder=2)
+
+    lines_by_status: dict[str, list] = {s: [] for s in _KGML_STATUS_ORDER}
+    for idx, rxn in enumerate(pathway.reactions):
+        status = reaction_status[idx]
+        for si in rxn.substrate_ids:
+            for pi in rxn.product_ids:
+                if si in nodes and pi in nodes:
+                    a, b = nodes[si], nodes[pi]
+                    lines_by_status[status].append(((a.x, a.y), (b.x, b.y)))
+    for status in _KGML_STATUS_ORDER:
+        segs = lines_by_status[status]
+        if segs:
+            lw = 1.1 if status in ("both", "a_only", "b_only") else 0.5
+            ax.add_collection(LineCollection(
+                segs, colors=_KGML_STATUS_COLOR[status], linewidths=lw,
+                alpha=0.9 if status != "neither" else 0.6, zorder=3))
+
+    for status in _KGML_STATUS_ORDER:
+        patches = [
+            Rectangle((n.x - n.width / 2, n.y - n.height / 2), n.width, n.height)
+            if n.shape != "circle" else Circle((n.x, n.y), max(n.width, n.height) / 2)
+            for n in orthologs if ortholog_status[n.entry_id] == status
+        ]
+        if patches:
+            ax.add_collection(PatchCollection(
+                patches, facecolor=_KGML_STATUS_COLOR[status],
+                edgecolor="none", zorder=4))
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.invert_yaxis()  # KGML y grows downward, matching KEGG's own images
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title(title, fontsize=15, color=INK, pad=14)
+
+    counts = {s: sum(1 for v in ortholog_status.values() if v == s)
+             for s in _KGML_STATUS_ORDER}
+    handles = [
+        Patch(facecolor=_KGML_BOTH, edgecolor="none",
+             label=f"in both ({group_a_label} & {group_b_label})"),
+        Patch(facecolor=_KGML_A, edgecolor="none", label=f"{group_a_label} only"),
+        Patch(facecolor=_KGML_B, edgecolor="none", label=f"{group_b_label} only"),
+        Patch(facecolor=_KGML_NEITHER, edgecolor=MUTED, linewidth=0.5,
+             label="in neither"),
+    ]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0),
+              ncol=4, frameon=False, fontsize=9)
+
+    fig.savefig(outfile, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+    return {
+        "map_id": pathway.map_id, "title": pathway.title,
+        "n_orthologs": len(orthologs), "n_reactions": len(pathway.reactions),
+        **{f"n_orthologs_{s}": counts[s] for s in _KGML_STATUS_ORDER},
     }

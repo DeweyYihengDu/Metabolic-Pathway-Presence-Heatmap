@@ -102,6 +102,19 @@ The analysis subcommands turn a run into comparative figures. Below, the
   vs. freshwater <em>Synechococcus</em>) rather than real expression — is in
   <a href="examples/">examples/</a> as an honest "did not clear FDR" case.</em>
 </p>
+<p align="center">
+  <img src="examples/Prochlorococcus_MIT9313_vs_AS9601_pathmap.png" width="75%"
+       alt="KEGG porphyrin metabolism pathway diagram, Prochlorococcus MIT 9313 vs AS9601"><br>
+  <em><code>mpph pathmap</code> — the same MIT 9313 vs. AS9601 pair as above,
+  now as a KEGG network diagram (KGML layout: enzyme/reaction nodes at KEGG's
+  own fixed coordinates) instead of a bar chart. Porphyrin metabolism
+  (chlorophyll/heme biosynthesis) comes back entirely <b>shared</b> (purple)
+  between the two strains — the core photosynthetic-pigment pathway both
+  need, unlike the antenna-protein genes above. <code>--map ko01100</code>
+  draws the *entire* global metabolic network the same way (~3,800 reactions,
+  every KEGG pathway map stitched into one diagram) if you want the full
+  picture rather than one pathway at a time.</em>
+</p>
 
 ## Features
 
@@ -113,6 +126,10 @@ The analysis subcommands turn a run into comparative figures. Below, the
   expression statistic (or bring your own pre-ranked list) and test whether
   KEGG/GO categories skew toward either end, no significance cutoff needed to
   define a study set first.
+- **KEGG pathway/global-map diagrams** (`mpph pathmap`) — a KEGG pathway or
+  the entire metabolic network (KGML layout), with enzyme nodes and reactions
+  coloured by whether two organism/MAG groups have them: shared, one-only, or
+  neither.
 - **Three input sources** — a taxon name, a file of organism codes, or your own
   KO annotations (KofamScan / eggNOG / any `K#####` list).
 - **Category-aware figures** — a functional-category colour strip + legend,
@@ -191,6 +208,10 @@ mpph gsea --expression counts.tsv --metadata meta.tsv --group-column condition \
 
 # Validate a sample sheet before a user-data run
 mpph validate   --samples samples.tsv
+
+# KEGG pathway diagram, coloured by which of two organism groups has each gene
+mpph pathmap --map ko00010 --codes-a marine.txt --label-a Marine \
+             --codes-b freshwater.txt --label-b Freshwater
 ```
 
 ### Key options

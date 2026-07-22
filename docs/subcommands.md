@@ -15,6 +15,7 @@
 | `validate` | a sample sheet | input checks |
 | `enrich` | a study-set gene/KO list + background | hypergeometric enrichment table + bar chart |
 | `gsea` | a ranked gene list, or an expression matrix + groups | ES/NES/leading-edge table + running-enrichment plot |
+| `pathmap` | a KEGG pathway/global-map id + two organism/user groups | KEGG-style network diagram, enzymes/reactions coloured by which group has them |
 
 Examples:
 
@@ -30,6 +31,8 @@ mpph community  --codes genomes.txt --max-combination-size 2
 mpph report     --results results/
 mpph enrich     --study unique.txt --background-organism pmt --ontology kegg-pathway
 mpph gsea       --ranked-list ranked.tsv --ontology kegg-module
+mpph pathmap    --map ko00010 --codes-a marine.txt --label-a Marine \
+                --codes-b freshwater.txt --label-b Freshwater
 ```
 
 Built-in trait panels: `biogeochemistry`, `respiration`, `carbon_fixation`.
@@ -132,3 +135,40 @@ mpph gsea --ranked-list ranked.tsv --ontology go \
 - Output includes **leading-edge genes** per category — the genes actually
   driving the enrichment, up to (positive ES) or from (negative ES) the
   running-sum peak.
+
+## `mpph pathmap`
+
+Draws a KEGG pathway (e.g. `ko00010`, Glycolysis) or the global metabolic
+network map (`ko01100` — every KEGG pathway map stitched into one diagram,
+~3,800 reactions) using KEGG's own KGML layout, then colours each enzyme
+(KO) node and the reaction(s) it catalyzes by whether it's present in
+group A, group B, both, or neither — a comparative overlay, not KEGG's own
+default static colouring.
+
+```bash
+# Two organism groups from KEGG codes files (one code per line each)
+mpph pathmap --map ko00010 \
+             --codes-a marine_codes.txt   --label-a Marine \
+             --codes-b freshwater_codes.txt --label-b Freshwater
+
+# The full global metabolic map, comparing your own MAG annotations
+mpph pathmap --map ko01100 \
+             --user-a marine_mags/ --label-a Marine \
+             --user-b freshwater_mags/ --label-b Freshwater --format svg
+```
+
+- `--map` accepts `01100`, `ko01100`, `map01100`, or `path:ko01100` — all
+  normalize to the KO-centric KGML KEGG actually serves (the bare `map#####`
+  reference id has no KGML of its own).
+- Each group is `--codes-X FILE` (organism codes, one per line; their KOs are
+  unioned) or `--user-X PATH` (your own annotations, same formats as `--user`
+  elsewhere) — exactly one of the two per group.
+- An enzyme entry sometimes lists several alternative KOs (isozymes) under
+  one node; it counts as present in a group if **any** of its KOs are, and a
+  reaction catalyzed by more than one such entry takes the union of all of
+  them — the same any-of-these-genes convention used elsewhere in this tool.
+- Compound nodes and map-reference boxes (linking to other pathway maps) are
+  drawn from KGML's own fixed layout for context; they are not coloured by
+  your data. Only enzyme/reaction presence is comparative.
+- `<slug>_pathmap_manifest.json` records both groups' sources/KO counts and
+  the per-status enzyme node counts alongside the usual provenance fields.

@@ -5,17 +5,50 @@ import pandas as pd
 
 import numpy as np
 
+from mpph.kgml import parse_kgml
 from mpph.plot import (
     plot_accumulation,
     plot_enrichment,
     plot_gsea_running,
     plot_gsea_summary,
+    plot_kgml_map,
     plot_matrix,
     plot_ordination,
     plot_prevalence,
     plot_volcano,
 )
 from mpph.tree import linkage_to_newick
+
+_SAMPLE_KGML = """<?xml version="1.0"?>
+<pathway name="path:ko99999" org="ko" number="99999" title="Test Pathway">
+    <entry id="1" name="cpd:C00001" type="compound">
+        <graphics name="C00001" type="circle" x="100" y="100" width="8" height="8"/>
+    </entry>
+    <entry id="2" name="cpd:C00002" type="compound">
+        <graphics name="C00002" type="circle" x="200" y="100" width="8" height="8"/>
+    </entry>
+    <entry id="3" name="cpd:C00003" type="compound">
+        <graphics name="C00003" type="circle" x="300" y="100" width="8" height="8"/>
+    </entry>
+    <entry id="10" name="ko:K00001" type="ortholog" reaction="rn:R00001">
+        <graphics name="K00001" type="rectangle" x="150" y="100" width="46" height="17"/>
+    </entry>
+    <entry id="11" name="ko:K00002 ko:K00003" type="ortholog" reaction="rn:R00002">
+        <graphics name="K00002..." type="rectangle" x="250" y="100" width="46" height="17"/>
+    </entry>
+    <entry id="20" name="path:ko00020" type="map">
+        <graphics name="Other pathway" type="roundrectangle" x="300" y="300" width="100" height="30"/>
+    </entry>
+    <reaction id="1" name="rn:R00001" type="irreversible">
+        <substrate id="1" name="cpd:C00001"/>
+        <product id="2" name="cpd:C00002"/>
+    </reaction>
+    <reaction id="2" name="rn:R00002" type="reversible">
+        <substrate id="2" name="cpd:C00002"/>
+        <product id="3" name="cpd:C00003"/>
+    </reaction>
+</pathway>
+"""
 
 
 def _matrix():
@@ -171,3 +204,39 @@ def test_plot_ordination_rank_one_solution_does_not_crash(tmp_path):
     out = tmp_path / "ord.png"
     plot_ordination(coords, [1.0], out, "rank-one test")
     assert out.exists()
+
+
+def test_plot_kgml_map_categorizes_by_group_and_unions_multi_ko_entries(tmp_path):
+    pw = parse_kgml(_SAMPLE_KGML)
+    out = tmp_path / "kgml.png"
+    # K00001 (entry 10) in group A only; K00003 (one of entry 11's two KOs,
+    # a multi-isozyme entry) in group B -- entry 11 must count as "both"
+    # since only ONE of its KOs needs to match either group.
+    stats = plot_kgml_map(pw, {"K00001"}, {"K00003"}, out, "kgml test",
+                          group_a_label="Marine", group_b_label="Freshwater")
+    assert out.exists()
+    assert stats["n_orthologs"] == 2
+    assert stats["n_orthologs_a_only"] == 1   # entry 10 (K00001)
+    assert stats["n_orthologs_both"] == 0
+    assert stats["n_orthologs_b_only"] == 1    # entry 11 (has K00003, not K00001)
+    assert stats["n_orthologs_neither"] == 0
+
+
+def test_plot_kgml_map_both_when_group_a_and_b_overlap_in_one_entry(tmp_path):
+    pw = parse_kgml(_SAMPLE_KGML)
+    out = tmp_path / "kgml_both.png"
+    # entry 11 has KOs {K00002, K00003}; group A brings K00002, group B
+    # brings K00003 -- the union means this single entry is "both".
+    stats = plot_kgml_map(pw, {"K00002"}, {"K00003"}, out, "kgml both test")
+    assert stats["n_orthologs_both"] == 1
+    assert stats["n_orthologs_a_only"] == 0
+    assert stats["n_orthologs_b_only"] == 0
+
+
+def test_plot_kgml_map_all_absent_reports_neither(tmp_path):
+    pw = parse_kgml(_SAMPLE_KGML)
+    out = tmp_path / "kgml_neither.png"
+    stats = plot_kgml_map(pw, {"K99999"}, {"K88888"}, out, "kgml neither test")
+    assert stats["n_orthologs_neither"] == 2
+    assert stats["n_orthologs_both"] == stats["n_orthologs_a_only"] == 0
+    assert stats["n_orthologs_b_only"] == 0

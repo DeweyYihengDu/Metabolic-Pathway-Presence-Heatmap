@@ -212,3 +212,38 @@ applies to both `mode='presence'` (a `NaN` cell used to compare equal to
 `module_completeness` result used to render as opaque black, since the
 colormap's transparent "bad" colour lost its alpha channel when only RGB was
 kept) — both are display bugs the value itself never had.
+
+## KGML pathway diagrams (`pathmap`)
+
+`mpph pathmap` draws a KEGG pathway or the global metabolic map from KEGG's
+own KGML data: compound and enzyme nodes at KEGG's own fixed layout
+coordinates, connected by lines for each reaction's substrate(s)/product(s).
+This is **not** KEGG's own default colouring (which shows a static reference
+map) — it's a comparative overlay: each enzyme (KO) node, and every reaction
+it catalyzes, is coloured by whether the KO is present in group A, group B,
+both, or neither, the same "is this step present" question the rest of this
+tool asks via heatmaps.
+
+- **KGML is only served KO-centric** (`ko#####`), not the bare reference map
+  (`map#####`, which 404s on KEGG's own `kgml` endpoint) — `--map` accepts
+  any common spelling and normalizes it.
+- **Isozymes**: KEGG sometimes lists several alternative KOs under one
+  enzyme entry (`ko:K00001 ko:K00002 ko:K00003`). An entry counts as present
+  in a group if *any* of its KOs are, matching the any-of-these-genes
+  convention `mpph explain`/module scoring already use for alternative steps.
+  A reaction catalyzed by more than one such entry (KEGG occasionally splits
+  isozymes into separate entries pointing at the same reaction) takes the
+  **union** of KOs across all of them.
+- **Every substrate-product pair of a reaction is drawn**, not just a
+  "primary chain" guess — KGML's own substrate/product order isn't a
+  reliable primary-vs-cofactor signal, and some real steps (e.g. aldolase,
+  one substrate splitting into two products) would lose a genuine branch
+  under a "first substrate to first product only" simplification. This does
+  mean a reaction with a cofactor pair (e.g. ATP/ADP) draws a few more lines
+  than KEGG's own hand-tuned image shows for the same step.
+- **Compound nodes and map-reference boxes are context, not data** — a
+  compound is a shared intermediate, not an organism-specific feature, and a
+  map-reference box just links to another pathway's own diagram.
+- The global map (`ko01100`, ~7,600 nodes / ~3,800 reactions) renders in a
+  few seconds; there is no size guard the way `report --max-cells` has one,
+  since this is a single fixed-layout figure rather than a per-cell DOM table.

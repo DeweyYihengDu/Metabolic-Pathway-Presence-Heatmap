@@ -1,0 +1,38 @@
+{
+  "mpph_version": "3.14.0",
+  "command": "mpph pathmap --map ko00860 --codes-a examples/Prochlorococcus_lowlight_MIT9313_codes.txt --label-a MIT9313 (low-light) --codes-b examples/Prochlorococcus_highlight_AS9601_codes.txt --label-b AS9601 (high-light) --outdir examples --format png",
+  "python": "3.11.0",
+  "platform": "win32",
+  "git_commit": "d475c6531c59bc453a069d1829a1219970d173d8",
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.3",
+    "scipy": "1.17.1",
+    "requests": "2.34.2"
+  },
+  "generated_utc": "2026-07-22T02:11:06+00:00",
+  "kegg_release": "pathway        587  2026/07/21",
+  "group_a": {
+    "label": "MIT9313 (low-light)",
+    "n_kos": 1115,
+    "source": "examples/Prochlorococcus_lowlight_MIT9313_codes.txt"
+  },
+  "group_b": {
+    "label": "AS9601 (high-light)",
+    "n_kos": 968,
+    "source": "examples/Prochlorococcus_highlight_AS9601_codes.txt"
+  },
+  "map_id": "path:ko00860",
+  "title": "Porphyrin metabolism",
+  "n_orthologs": 141,
+  "n_reactions": 135,
+  "n_orthologs_neither": 79,
+  "n_orthologs_a_only": 0,
+  "n_orthologs_b_only": 0,
+  "n_orthologs_both": 62,
+  "outputs": {
+    "figures": [
+      "Prochlorococcus_MIT9313_vs_AS9601_pathmap.png"
+    ]
+  }
+}

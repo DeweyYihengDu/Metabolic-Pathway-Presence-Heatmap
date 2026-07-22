@@ -4,7 +4,8 @@
 
 MPPH retrieves data at run time from the [KEGG REST API](https://www.kegg.jp/kegg/rest/keggapi.html)
 (`list/genome`, `list/pathway`, `list/module`, `get/md:`, `link/ko`,
-`get/br:br08901`, `info/kegg`). The KEGG release in effect for a run is recorded
+`get/br:br08901`, `info/kegg`, and `get/ko#####/kgml` for `mpph pathmap`'s
+pathway/global-map diagrams). The KEGG release in effect for a run is recorded
 in each run's `*_manifest.json`.
 
 **The MIT License in this repository covers the MPPH source code only — it does

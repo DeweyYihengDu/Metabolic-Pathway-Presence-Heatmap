@@ -44,7 +44,7 @@ from .tree import linkage_to_newick
 
 DEFAULT_CACHE_STR = str(DEFAULT_CACHE)
 SUBCOMMANDS = ("run", "traits", "explain", "compare", "pan", "ordination",
-               "community", "report", "validate", "enrich", "gsea")
+               "community", "report", "validate", "enrich", "gsea", "pathmap")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -426,6 +426,28 @@ def _load_source_kos(args, session, cache_dir) -> dict[str, set[str]]:
     return {f"{name} ({code})": organism_kos(session, code, cache_dir,
                                              refresh=args.refresh)
             for code, name in organisms}
+
+
+def _load_group_kos(
+    codes_path: str | None, user_path: str | None, input_format: str,
+    session, cache_dir, *, refresh: bool,
+) -> set[str]:
+    """Union of KO ids across every organism/sample in one comparison group
+    (for ``pathmap``, which compares group-level presence, not per-organism)."""
+    if user_path:
+        from .userdata import load_user_kos
+        per_sample = load_user_kos(user_path, input_format)
+        return set().union(*per_sample.values()) if per_sample else set()
+    if codes_path:
+        genomes = list_genomes(session, cache_dir, refresh=refresh)
+        organisms = select_by_codes(genomes, read_code_file(codes_path))
+        if not organisms:
+            raise ValueError(f"no organisms matched codes in {codes_path}")
+        kos: set[str] = set()
+        for code, _name in organisms:
+            kos |= organism_kos(session, code, cache_dir, refresh=refresh)
+        return kos
+    raise ValueError("each group needs --codes-a/--codes-b or --user-a/--user-b")
 
 
 def _load_pathway_module_defs(args, session, cache_dir):
@@ -844,6 +866,69 @@ def cmd_gsea(args) -> int:
     return 0
 
 
+def cmd_pathmap(args) -> int:
+    from .kgml import fetch_kgml, normalize_map_id, parse_kgml
+    from .plot import plot_kgml_map
+
+    if bool(args.codes_a) == bool(args.user_a):
+        print("Error: give exactly one of --codes-a / --user-a.", file=sys.stderr)
+        return 2
+    if bool(args.codes_b) == bool(args.user_b):
+        print("Error: give exactly one of --codes-b / --user-b.", file=sys.stderr)
+        return 2
+
+    cache_dir = None if args.no_cache else Path(args.cache_dir)
+    session = make_session()
+    group_a_kos = _load_group_kos(args.codes_a, args.user_a, args.input_format_a,
+                                  session, cache_dir, refresh=args.refresh)
+    group_b_kos = _load_group_kos(args.codes_b, args.user_b, args.input_format_b,
+                                  session, cache_dir, refresh=args.refresh)
+    print(f"      {args.label_a}: {len(group_a_kos)} KOs, "
+          f"{args.label_b}: {len(group_b_kos)} KOs", flush=True)
+
+    xml = fetch_kgml(session, args.map, cache_dir, refresh=args.refresh)
+    pathway = parse_kgml(xml)
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^0-9A-Za-z]+", "_", normalize_map_id(args.map))
+    stats: dict = {}
+    figures = []
+    for fmt in args.format:
+        fig_path = outdir / f"{slug}_pathmap.{fmt}"
+        stats = plot_kgml_map(
+            pathway, group_a_kos, group_b_kos, fig_path,
+            f"{pathway.title} ({pathway.map_id})",
+            group_a_label=args.label_a, group_b_label=args.label_b)
+        figures.append(fig_path.name)
+
+    manifest = {
+        "mpph_version": __version__,
+        "command": "mpph " + " ".join(getattr(args, "_raw_argv", sys.argv[1:])),
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        **_run_provenance(),
+        "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "kegg_release": kegg_release(session, cache_dir),
+        "group_a": {"label": args.label_a, "n_kos": len(group_a_kos),
+                   "source": args.codes_a or ("user:" + str(args.user_a))},
+        "group_b": {"label": args.label_b, "n_kos": len(group_b_kos),
+                   "source": args.codes_b or ("user:" + str(args.user_b))},
+        **stats,
+        "outputs": {"figures": figures},
+    }
+    (outdir / f"{slug}_pathmap_manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8")
+
+    print(f"{pathway.title} ({pathway.map_id}): {stats['n_orthologs_both']} shared, "
+          f"{stats['n_orthologs_a_only']} {args.label_a}-only, "
+          f"{stats['n_orthologs_b_only']} {args.label_b}-only, "
+          f"{stats['n_orthologs_neither']} in neither, "
+          f"of {stats['n_orthologs']} enzyme nodes ({stats['n_reactions']} reactions). "
+          f"Wrote {', '.join(figures)}")
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # Argument parser (subcommands; `mpph <taxon> ...` is a shortcut for `run`)
 # --------------------------------------------------------------------------- #
@@ -1094,6 +1179,33 @@ def build_parser() -> argparse.ArgumentParser:
     gse.add_argument("--outdir", default="output")
     gse.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
     _add_cache_args(gse)
+
+    pm = sub.add_parser(
+        "pathmap", help="Draw a KEGG pathway or the global metabolic map, "
+                        "comparing which enzymes/reactions two groups have.")
+    pm.add_argument("--map", required=True, metavar="ID",
+                    help="KEGG map/pathway id, e.g. ko00010 (Glycolysis) or "
+                         "ko01100 (the global metabolic network -- large, "
+                         "~3800 reactions).")
+    ga = pm.add_argument_group("group A")
+    ga.add_argument("--codes-a", metavar="FILE",
+                    help="Organism codes (one per line) whose KOs are unioned "
+                         "into group A.")
+    ga.add_argument("--user-a", metavar="PATH", help="Your own KO annotations "
+                    "for group A (same formats as --user elsewhere).")
+    ga.add_argument("--input-format-a", default="auto",
+                    choices=["auto", "ko-list", "long", "eggnog"])
+    ga.add_argument("--label-a", default="Group A")
+    gb = pm.add_argument_group("group B")
+    gb.add_argument("--codes-b", metavar="FILE")
+    gb.add_argument("--user-b", metavar="PATH")
+    gb.add_argument("--input-format-b", default="auto",
+                    choices=["auto", "ko-list", "long", "eggnog"])
+    gb.add_argument("--label-b", default="Group B")
+    pm.add_argument("--outdir", default="output")
+    pm.add_argument("--format", nargs="+", default=["png"],
+                    choices=["pdf", "png", "svg"])
+    _add_cache_args(pm)
     return p
 
 
@@ -1125,7 +1237,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": run, "traits": cmd_traits, "explain": cmd_explain,
         "compare": cmd_compare, "pan": cmd_pan, "ordination": cmd_ordination,
         "community": cmd_community, "report": cmd_report, "validate": cmd_validate,
-        "enrich": cmd_enrich, "gsea": cmd_gsea,
+        "enrich": cmd_enrich, "gsea": cmd_gsea, "pathmap": cmd_pathmap,
     }
     if args.command in ("run", "traits", "explain", "community"):
         err = _validate_source(args)

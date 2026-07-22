@@ -15,7 +15,7 @@ doi:10.1101/2023.06.27.546232
 """
 from __future__ import annotations
 
-__version__ = "3.13.0"
+__version__ = "3.14.0"
 
 # --- Public KEGG connection interface (open; talks to rest.kegg.jp) ---------
 from .kegg import KEGG_API_BASE, kegg_get, kegg_release, make_session
@@ -49,9 +49,26 @@ from .gsea import (
     rank_from_expression,
 )
 
+# --- KGML pathway/global-map diagrams (comparative two-group overlay) ------
+from .kgml import (
+    KGMLNode,
+    KGMLPathway,
+    KGMLReaction,
+    fetch_kgml,
+    normalize_map_id,
+    parse_kgml,
+    reactions_for_ortholog,
+)
+
 # --- Matrix + figure helpers ------------------------------------------------
 from .matrix import build_completeness_matrix, build_presence_matrix, filter_matrix
-from .plot import plot_enrichment, plot_gsea_running, plot_gsea_summary, plot_matrix
+from .plot import (
+    plot_enrichment,
+    plot_gsea_running,
+    plot_gsea_summary,
+    plot_kgml_map,
+    plot_matrix,
+)
 
 __all__ = [
     "__version__",
@@ -82,6 +99,14 @@ __all__ = [
     "rank_from_expression",
     "enrichment_score",
     "gsea_analysis",
+    # KGML pathway/global-map diagrams
+    "fetch_kgml",
+    "parse_kgml",
+    "normalize_map_id",
+    "reactions_for_ortholog",
+    "KGMLPathway",
+    "KGMLNode",
+    "KGMLReaction",
     # analysis + plotting
     "build_presence_matrix",
     "build_completeness_matrix",
@@ -91,4 +116,5 @@ __all__ = [
     "plot_enrichment",
     "plot_gsea_running",
     "plot_gsea_summary",
+    "plot_kgml_map",
 ]
