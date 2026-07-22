@@ -33,6 +33,40 @@ def test_pan_subcommand(tmp_path):
     assert (tmp_path / "Demo_accumulation.csv").exists()
 
 
+def test_pan_subcommand_unknown_policy_flags_reach_pan_classify(tmp_path):
+    slug = _make_results(tmp_path)
+    # 00030 is oA:1, oB:1, oC:0 -- forcing oD to unknown makes it 2 present /
+    # 1 confirmed-absent / 1 unknown among 4 organisms.
+    matrix = pd.read_csv(tmp_path / f"{slug}_matrix.csv", index_col="organism")
+    matrix.loc["oD", "00030"] = float("nan")
+    matrix.to_csv(tmp_path / f"{slug}_matrix.csv", index_label="organism")
+
+    assert cli.main(["pan", "--results", str(tmp_path),
+                     "--unknown-policy", "absent"]) == 0
+    classes = pd.read_csv(tmp_path / f"{slug}_pan_classes.csv",
+                          dtype={"feature_id": str}).set_index("feature_id")
+    # "absent" denominator is all 4 organisms: 2 present / 4 = 0.5 (would be
+    # 2/3 known-only under the default "exclude" policy).
+    assert classes.loc["00030", "prevalence"] == 0.5
+    assert classes.loc["00030", "n_known"] == 3  # true known count, policy-independent
+
+    assert cli.main(["pan", "--results", str(tmp_path),
+                     "--unknown-policy", "error"]) == 1
+
+
+def test_compare_subcommand_unknown_policy_flag_reaches_differential_features(tmp_path):
+    slug = _make_results(tmp_path)
+    matrix = pd.read_csv(tmp_path / f"{slug}_matrix.csv", index_col="organism")
+    matrix.loc["oD", "00030"] = float("nan")
+    matrix.to_csv(tmp_path / f"{slug}_matrix.csv", index_label="organism")
+    meta = tmp_path / "meta.tsv"
+    meta.write_text("sample_id\tgroup\noA\tX\noB\tX\noC\tY\noD\tY\n")
+
+    assert cli.main(["compare", "--results", str(tmp_path), "--metadata", str(meta),
+                     "--group-column", "group", "--group-a", "X", "--group-b", "Y",
+                     "--unknown-policy", "error"]) == 1
+
+
 def test_report_subcommand(tmp_path):
     _make_results(tmp_path)
     assert cli.main(["report", "--results", str(tmp_path)]) == 0

@@ -72,6 +72,7 @@ def differential_features(
     continuous: bool = False,
     present_threshold: float = 1e-9,
     min_known_per_group: int = 1,
+    unknown_policy: str = "exclude",
 ) -> pd.DataFrame:
     """Per-feature difference between two groups of organisms.
 
@@ -79,32 +80,63 @@ def differential_features(
     prevalence difference. Continuous (completeness): Mann-Whitney U, median
     difference and Cliff's delta. Both add BH-FDR q-values.
 
-    NaN means *unknown*, never absent: it is dropped per feature and per group,
-    so prevalences use a known-only denominator and the known/unknown counts are
-    reported. A feature with fewer than ``min_known_per_group`` known values in
-    either group is not tested (p/q stay NaN) and carries a warning.
+    ``unknown_policy`` controls how NaN ("unknown", never "confirmed absent")
+    is handled in the actual test:
+
+    - ``"exclude"`` (default): dropped per feature and per group, so the test
+      only sees known values -- prevalence/median use a known-only sample.
+    - ``"absent"``: counted as absent (0) instead of dropped -- an explicit
+      opt-in to the assumption that a missing call means "not there", which
+      may misrepresent assembly/annotation gaps (e.g. an incomplete MAG) as
+      genuine absence. Use only with a specific reason to believe it here.
+    - ``"error"``: raise immediately if either group has any NaN for any
+      feature, forcing you to resolve missingness before comparing groups.
+
+    The reported ``n_*_known``/``n_*_unknown`` counts are always the true,
+    policy-independent ones (an honest record of how much was actually
+    assessed), regardless of how ``unknown_policy`` treats them for the test
+    itself. A feature with fewer than ``min_known_per_group`` *true* known
+    values in either group is not tested (p/q stay NaN) and carries a warning,
+    regardless of policy -- a threshold on how much real evidence exists,
+    not on how the policy chooses to fill in what's missing.
 
     Not corrected for phylogenetic non-independence -- treat as exploratory.
     """
+    if unknown_policy not in ("exclude", "absent", "error"):
+        raise ValueError("unknown_policy must be one of exclude/absent/error, "
+                         f"got {unknown_policy!r}")
     a_ids = [o for o in matrix.index if groups.get(o) == group_a]
     b_ids = [o for o in matrix.index if groups.get(o) == group_b]
     if not a_ids or not b_ids:
         raise ValueError(f"need members in both groups ({group_a}, {group_b})")
 
+    if unknown_policy == "error":
+        sub = matrix.loc[a_ids + b_ids]
+        if sub.isna().any().any():
+            n_missing = int(sub.isna().sum().sum())
+            raise ValueError(f"unknown_policy='error': {n_missing} unknown "
+                             "(NaN) cell(s) among the compared groups.")
+
     rows = []
     for feat in matrix.columns:
         a_all = matrix.loc[a_ids, feat].to_numpy(dtype=float)
         b_all = matrix.loc[b_ids, feat].to_numpy(dtype=float)
-        a = a_all[np.isfinite(a_all)]
-        b = b_all[np.isfinite(b_all)]
+        a_known = a_all[np.isfinite(a_all)]
+        b_known = b_all[np.isfinite(b_all)]
+        # "exclude"/"error" test only known values; "absent" tests every
+        # sample, with unknowns filled in as 0 -- but the *_known/*_unknown
+        # counts below always reflect the true, policy-independent evidence.
+        a = a_known if unknown_policy != "absent" else np.nan_to_num(a_all, nan=0.0)
+        b = b_known if unknown_policy != "absent" else np.nan_to_num(b_all, nan=0.0)
         rec = {
             "feature_id": feat,
-            "n_a_total": len(a_all), "n_a_known": len(a),
-            "n_a_unknown": len(a_all) - len(a),
-            "n_b_total": len(b_all), "n_b_known": len(b),
-            "n_b_unknown": len(b_all) - len(b),
+            "n_a_total": len(a_all), "n_a_known": len(a_known),
+            "n_a_unknown": len(a_all) - len(a_known),
+            "n_b_total": len(b_all), "n_b_known": len(b_known),
+            "n_b_unknown": len(b_all) - len(b_known),
         }
-        testable = len(a) >= min_known_per_group and len(b) >= min_known_per_group
+        testable = (len(a_known) >= min_known_per_group
+                   and len(b_known) >= min_known_per_group)
         rec["warning"] = "" if testable else "insufficient_known_values"
 
         if continuous:
@@ -154,23 +186,57 @@ def pan_classify(
     shell: float = 0.15,
     present_threshold: float = 1e-9,
     min_known_fraction: float = 0.0,
+    min_known_samples: int = 0,
+    unknown_policy: str = "exclude",
 ) -> pd.DataFrame:
     """Classify features as core / soft-core / shell / cloud by prevalence.
 
-    Prevalence uses a **known-only denominator**: NaN means unknown, not absent.
-    A feature whose known fraction is below ``min_known_fraction`` is labelled
-    ``insufficient-data`` rather than assigned a pan class.
+    ``unknown_policy`` controls how NaN ("unknown", never "confirmed absent")
+    is handled:
+
+    - ``"exclude"`` (default): known-only denominator -- prevalence is
+      computed only among organisms where this feature was actually assessed.
+    - ``"absent"``: an explicit opt-in to counting NaN as absent (the full
+      organism count becomes the denominator) -- may misrepresent assembly/
+      annotation gaps (e.g. an incomplete MAG) as genuine absence. Use only
+      with a specific reason to believe missing really does mean absent here.
+    - ``"error"``: raise immediately if the matrix has any NaN, forcing you
+      to resolve missingness (e.g. via QC filtering) before classifying.
+
+    ``n_known``/``n_unknown``/``known_fraction`` are always the true,
+    policy-independent counts (an honest record of what was actually
+    assessed) -- only ``prevalence``/``n_present``/``n_absent`` change
+    denominator with the policy. A feature is labelled ``insufficient-data``
+    (never forced into a pan class) when its true known fraction is below
+    ``min_known_fraction`` or its true known count is below
+    ``min_known_samples`` -- again independent of ``unknown_policy``, since
+    these are thresholds on how much real evidence exists, not on how the
+    policy chooses to fill in what's missing.
     """
+    if unknown_policy not in ("exclude", "absent", "error"):
+        raise ValueError("unknown_policy must be one of exclude/absent/error, "
+                         f"got {unknown_policy!r}")
     known = matrix.notna()
+    if unknown_policy == "error" and not known.all().all():
+        n_missing = int((~known).sum().sum())
+        raise ValueError(f"unknown_policy='error': matrix has {n_missing} "
+                         "unknown (NaN) cell(s).")
+
     n_known = known.sum(axis=0)
-    n_present = (matrix > present_threshold).where(known).sum(axis=0)
     n_total = len(matrix.index)
+    if unknown_policy == "absent":
+        n_present = (matrix > present_threshold).fillna(False).sum(axis=0)
+        denom = pd.Series(float(n_total), index=matrix.columns)
+    else:
+        n_present = (matrix > present_threshold).where(known).sum(axis=0)
+        denom = n_known.astype(float)
     with np.errstate(invalid="ignore"):
-        prevalence = n_present / n_known.replace(0, np.nan)
+        prevalence = n_present / denom.replace(0, np.nan)
+    n_absent = denom - n_present
     known_fraction = n_known / n_total if n_total else n_known * 0.0
 
-    def _cls(p: float, kf: float) -> str:
-        if not np.isfinite(p) or kf < min_known_fraction:
+    def _cls(p: float, kf: float, nk: int) -> str:
+        if not np.isfinite(p) or kf < min_known_fraction or nk < min_known_samples:
             return "insufficient-data"
         if p >= core:
             return "core"
@@ -184,10 +250,12 @@ def pan_classify(
         "feature_id": prevalence.index,
         "prevalence": prevalence.to_numpy(),
         "n_present": n_present.to_numpy(dtype=int),
+        "n_absent": n_absent.to_numpy(dtype=int),
         "n_known": n_known.to_numpy(dtype=int),
         "n_unknown": (n_total - n_known).to_numpy(dtype=int),
         "known_fraction": known_fraction.to_numpy(),
-        "pan_class": [_cls(p, k) for p, k in zip(prevalence, known_fraction)],
+        "pan_class": [_cls(p, k, n) for p, k, n in
+                      zip(prevalence, known_fraction, n_known)],
     }).sort_values("prevalence", ascending=False,
                    na_position="last").reset_index(drop=True)
 

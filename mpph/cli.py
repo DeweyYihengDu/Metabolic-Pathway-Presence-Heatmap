@@ -528,7 +528,9 @@ def cmd_pan(args) -> int:
     slug = _find_slug(results, args.slug)
     matrix = _read_matrix(results, slug)
     classes = pan_classify(matrix, core=args.core, soft_core=args.soft_core,
-                           shell=args.shell)
+                           shell=args.shell, unknown_policy=args.unknown_policy,
+                           min_known_fraction=args.min_known_fraction,
+                           min_known_samples=args.min_known_samples)
     classes.to_csv(results / f"{slug}_pan_classes.csv", index=False)
     acc = accumulation_curve(matrix, permutations=args.permutations,
                              seed=args.seed)
@@ -538,7 +540,7 @@ def cmd_pan(args) -> int:
     plot_accumulation(acc, results / f"{slug}_accumulation.{args.format}",
                       f"Functional accumulation · {slug}")
     counts = classes["pan_class"].value_counts().to_dict()
-    print(f"Pan-functional classes: {counts}")
+    print(f"Pan-functional classes (unknown_policy={args.unknown_policy}): {counts}")
     print(f"Wrote {slug}_pan_classes.csv, _accumulation.csv, "
           f"_prevalence.{args.format}, _accumulation.{args.format}")
     return 0
@@ -555,13 +557,16 @@ def cmd_compare(args) -> int:
     continuous = (json.loads(manifest_path.read_text("utf-8")).get("mode")
                   == "completeness") if manifest_path.exists() else False
     out = differential_features(matrix, groups, args.group_a, args.group_b,
-                                continuous=continuous)
+                                continuous=continuous,
+                                unknown_policy=args.unknown_policy,
+                                min_known_per_group=args.min_known_samples)
     stem = f"{slug}_differential_{args.group_a}_vs_{args.group_b}"
     out.to_csv(results / f"{stem}.csv", index=False)
     plot_volcano(out, results / f"{stem}.{args.format}",
                  f"{args.group_a} vs {args.group_b} · {slug}")
     n_sig = int((out["q_value"] < 0.05).sum())
-    print(f"{len(out)} features tested, {n_sig} with q<0.05. "
+    print(f"{len(out)} features tested, {n_sig} with q<0.05 "
+          f"(unknown_policy={args.unknown_policy}). "
           f"Wrote {stem}.csv and {stem}.{args.format}")
     return 0
 
@@ -1054,6 +1059,16 @@ def build_parser() -> argparse.ArgumentParser:
     cmp.add_argument("--group-column", required=True)
     cmp.add_argument("--group-a", required=True)
     cmp.add_argument("--group-b", required=True)
+    cmp.add_argument("--unknown-policy", default="exclude",
+                     choices=["exclude", "absent", "error"],
+                     help="How to treat NaN ('unknown', never 'confirmed "
+                          "absent'): drop it from the test ('exclude', "
+                          "default), count it as absent ('absent' -- only "
+                          "with a specific reason to believe that here), or "
+                          "refuse to run if any is present ('error').")
+    cmp.add_argument("--min-known-samples", type=int, default=1,
+                     help="Skip testing a feature with fewer than this many "
+                          "true known values in either group (p/q stay NaN).")
     cmp.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
 
     pan = sub.add_parser("pan", help="Core/soft-core/shell/cloud classification.")
@@ -1062,6 +1077,19 @@ def build_parser() -> argparse.ArgumentParser:
     pan.add_argument("--core", type=float, default=1.0)
     pan.add_argument("--soft-core", type=float, default=0.95)
     pan.add_argument("--shell", type=float, default=0.15)
+    pan.add_argument("--unknown-policy", default="exclude",
+                     choices=["exclude", "absent", "error"],
+                     help="How to treat NaN ('unknown', never 'confirmed "
+                          "absent'): known-only denominator ('exclude', "
+                          "default), count it as absent ('absent' -- only "
+                          "with a specific reason to believe that here), or "
+                          "refuse to run if any is present ('error').")
+    pan.add_argument("--min-known-fraction", type=float, default=0.0,
+                     help="Label a feature 'insufficient-data' (not a pan "
+                          "class) below this true known fraction.")
+    pan.add_argument("--min-known-samples", type=int, default=0,
+                     help="Label a feature 'insufficient-data' below this "
+                          "many true known values.")
     pan.add_argument("--permutations", type=int, default=100)
     pan.add_argument("--seed", type=int, default=0)
     pan.add_argument("--format", default="png", choices=["pdf", "png", "svg"])

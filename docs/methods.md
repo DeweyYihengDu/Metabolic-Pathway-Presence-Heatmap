@@ -213,6 +213,31 @@ applies to both `mode='presence'` (a `NaN` cell used to compare equal to
 colormap's transparent "bad" colour lost its alpha channel when only RGB was
 kept) — both are display bugs the value itself never had.
 
+**`mpph compare`/`mpph pan` treat `NaN` the same way by default — excluded,
+never counted as absent — but `--unknown-policy` makes this an explicit,
+overridable choice** instead of a hardcoded one:
+
+- `exclude` (default): `differential_features` tests, and `pan_classify`
+  computes prevalence over, known values only — a known-only denominator.
+- `absent`: counts `NaN` as absent instead of dropping it (the full sample/
+  organism count becomes the denominator). This is never the default,
+  because it may misrepresent an assembly or annotation gap as genuine
+  absence — pick it only when there's a specific reason to believe missing
+  really does mean absent here (e.g. a well-assembled, well-annotated
+  genome where a true negative is far more likely than a missed call).
+- `error`: refuses to run at all if any `NaN` is present among the compared
+  groups (or, for `pan`, anywhere in the matrix) — forces missingness to be
+  resolved first, e.g. with `--min-genome-completeness` QC filtering.
+
+Whichever policy is active, `n_known`/`n_unknown`/`known_fraction` (and the
+`--min-known-samples`/`--min-known-fraction` thresholds that gate
+`insufficient_known_values`/`insufficient-data`) always reflect the *true*
+evidence, never the policy's substitution — a feature with too little real
+data is never waved through just because `absent` would otherwise happily
+fill the gaps with zeros. `pan_classify`'s output also reports `n_absent`
+alongside `n_present`, the complement under whichever denominator the
+active policy selects.
+
 ## KGML pathway diagrams (`pathmap`)
 
 `mpph pathmap` draws a KEGG pathway or the global metabolic map from KEGG's

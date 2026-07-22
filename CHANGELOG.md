@@ -1,5 +1,51 @@
 # Changelog
 
+## 3.15.0
+
+**`--unknown-policy`**: `mpph compare` and `mpph pan` now let you choose how
+`NaN` ("unknown", never "confirmed absent") is treated by the actual
+statistics, instead of always silently excluding it. This is distinct from
+the 3.10.1 heatmap hotfix, which only fixed how `NaN` is *rendered* -- the
+computations behind `differential_features`/`pan_classify` still hardcoded
+"drop it" with no way to opt into "count it as absent" or demand "refuse to
+run" instead. Completes the last unaddressed item from the third external
+review.
+
+- `differential_features()`/`pan_classify()` gain `unknown_policy`
+  (`"exclude"` default / `"absent"` / `"error"`):
+  - `"exclude"`: known-only denominator -- unchanged default behaviour.
+  - `"absent"`: explicit opt-in to counting `NaN` as absent. Never the
+    default, since it may misrepresent an assembly/annotation gap (e.g. an
+    incomplete MAG) as genuine absence -- only use it with a specific
+    reason to believe that's actually true here.
+  - `"error"`: raise immediately if any `NaN` is present among the compared
+    groups/matrix, forcing missingness to be resolved (e.g. via
+    `--min-genome-completeness` QC filtering) before you compare or
+    classify at all.
+  - `n_known`/`n_unknown`/`known_fraction` (and the min-known thresholds
+    that gate `insufficient_known_values`/`insufficient-data`) are always
+    computed from the **true, policy-independent** evidence -- a feature
+    with too little real data is never waved through just because
+    `"absent"` would otherwise happily fill the gaps with zeros.
+- `pan_classify()` gains a new `n_absent` output column (the complement of
+  `n_present` under whichever denominator `unknown_policy` selects) and a
+  `min_known_samples` threshold alongside the existing `min_known_fraction`
+  (both independent of `unknown_policy`, for the same reason as above).
+- New CLI flags: `mpph compare --unknown-policy {exclude,absent,error}
+  --min-known-samples N`; `mpph pan --unknown-policy {exclude,absent,error}
+  --min-known-fraction F --min-known-samples N` (`--min-known-fraction` was
+  already a `pan_classify()` parameter but had no CLI flag until now).
+- Incidental fix: regenerating `examples/Synechococcus_pan_classes.csv` for
+  the new `n_absent` column surfaced a pre-existing inconsistency -- its
+  `feature_id`s (`M00019`, `M00049`, ...) were KEGG module identifiers that
+  could only have come from a completeness/module-mode matrix, while the
+  currently-committed `Synechococcus_matrix.csv` (and its manifest's
+  `"mode": "presence"`) is pathway-based. No module-mode source data exists
+  anywhere in the repository to reproduce the original file's exact
+  content, so it is regenerated directly from the current
+  `Synechococcus_matrix.csv` instead -- making the file internally
+  consistent with its own committed source for the first time.
+
 ## 3.14.0
 
 New subcommand: **`mpph pathmap`** — draws a KEGG pathway (e.g. `ko00010`,

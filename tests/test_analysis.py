@@ -40,6 +40,37 @@ def test_differential_unknown_not_counted_as_absent():
     assert row["prevalence_b"] == 0.0
 
 
+def test_differential_rejects_invalid_unknown_policy():
+    matrix = pd.DataFrame({"f": [1.0, 0.0, 1.0, 0.0]},
+                          index=["a1", "a2", "b1", "b2"])
+    groups = pd.Series(["A", "A", "B", "B"], index=matrix.index)
+    with pytest.raises(ValueError, match="unknown_policy"):
+        differential_features(matrix, groups, "A", "B", unknown_policy="ignore")
+
+
+def test_differential_absent_policy_uses_full_group_denominator():
+    # group B: 1 present, 1 unknown. "exclude" (default) -> 1/1 known-present
+    # = 1.0; "absent" treats the unknown as absent too -> 1/2 = 0.5. The true
+    # known count (1) is reported the same either way.
+    matrix = pd.DataFrame({"f": [1.0, 1.0, 1.0, np.nan]},
+                          index=["a1", "a2", "b1", "b2"])
+    groups = pd.Series(["A", "A", "B", "B"], index=matrix.index)
+    excl = differential_features(matrix, groups, "A", "B",
+                                 unknown_policy="exclude").iloc[0]
+    absn = differential_features(matrix, groups, "A", "B",
+                                 unknown_policy="absent").iloc[0]
+    assert excl["prevalence_b"] == 1.0 and excl["n_b_known"] == 1
+    assert absn["prevalence_b"] == 0.5 and absn["n_b_known"] == 1
+
+
+def test_differential_error_policy_rejects_any_unknown_in_compared_groups():
+    matrix = pd.DataFrame({"f": [1.0, 1.0, 1.0, np.nan]},
+                          index=["a1", "a2", "b1", "b2"])
+    groups = pd.Series(["A", "A", "B", "B"], index=matrix.index)
+    with pytest.raises(ValueError, match="unknown_policy='error'"):
+        differential_features(matrix, groups, "A", "B", unknown_policy="error")
+
+
 def test_pan_prevalence_uses_known_denominator():
     matrix = pd.DataFrame({"f": [1.0, 0.0, np.nan, np.nan]}, index=list("abcd"))
     row = pan_classify(matrix).iloc[0]
@@ -52,6 +83,43 @@ def test_pan_insufficient_known_fraction_flagged():
     matrix = pd.DataFrame({"f": [1.0, np.nan, np.nan, np.nan]}, index=list("abcd"))
     row = pan_classify(matrix, min_known_fraction=0.8).iloc[0]
     assert row["pan_class"] == "insufficient-data"
+
+
+def test_pan_insufficient_known_samples_flagged():
+    matrix = pd.DataFrame({"f": [1.0, np.nan, np.nan, np.nan]}, index=list("abcd"))
+    row = pan_classify(matrix, min_known_samples=2).iloc[0]
+    assert row["pan_class"] == "insufficient-data"
+    # 1 known sample clears a lower bar.
+    assert pan_classify(matrix, min_known_samples=1).iloc[0]["pan_class"] != \
+        "insufficient-data"
+
+
+def test_pan_classify_rejects_invalid_unknown_policy():
+    matrix = pd.DataFrame({"f": [1.0, 0.0]}, index=list("ab"))
+    with pytest.raises(ValueError, match="unknown_policy"):
+        pan_classify(matrix, unknown_policy="ignore")
+
+
+def test_pan_classify_absent_policy_uses_full_denominator():
+    # 1 present, 1 confirmed-absent, 2 unknown: "exclude" (default) computes
+    # prevalence among the 2 known (0.5); "absent" instead treats the 2
+    # unknowns as absent too, over the full 4 organisms (0.25). n_known must
+    # stay the TRUE known count either way -- it is not a policy artifact.
+    matrix = pd.DataFrame({"f": [1.0, 0.0, np.nan, np.nan]}, index=list("abcd"))
+    excl = pan_classify(matrix, unknown_policy="exclude").iloc[0]
+    absn = pan_classify(matrix, unknown_policy="absent").iloc[0]
+    assert excl["prevalence"] == 0.5 and excl["n_known"] == 2
+    assert absn["prevalence"] == 0.25 and absn["n_known"] == 2
+    assert absn["n_absent"] == 3  # 1 confirmed + 2 assumed-absent
+
+
+def test_pan_classify_error_policy_rejects_any_unknown():
+    matrix = pd.DataFrame({"f": [1.0, np.nan]}, index=list("ab"))
+    with pytest.raises(ValueError, match="unknown_policy='error'"):
+        pan_classify(matrix, unknown_policy="error")
+    # No NaN at all -- "error" policy is a no-op, not a blanket refusal.
+    clean = pd.DataFrame({"f": [1.0, 0.0]}, index=list("ab"))
+    pan_classify(clean, unknown_policy="error")  # must not raise
 
 
 def test_cliffs_delta_extremes():
