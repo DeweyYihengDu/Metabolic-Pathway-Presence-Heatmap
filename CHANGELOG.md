@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.16.2
+
+CI hotfix #2: three of `tests/test_cli_annotate.py`'s tests
+(`..._missing_kofam_db_gives_clean_error_not_traceback`,
+`..._happy_path_writes_output_and_manifest`,
+`..._default_out_path_is_fasta_stem_annotated`) passed locally (where
+`pyhmmer` happens to be installed) but failed in CI, where the `annotate`
+extra is deliberately not part of the `dev` install: `cmd_annotate`'s own
+`import pyhmmer` availability probe runs before any of the code paths these
+tests exercise, so a genuinely-missing `pyhmmer` short-circuits to the
+"install the extra" message before ever reaching them. `tests/
+test_kofam_pyhmmer.py` already had the right guard for this
+(`pytest.importorskip("pyhmmer")`); these three needed the same guard and
+didn't get it. Fixed by adding it to each; verified by simulating a
+missing `pyhmmer` locally (blocking the import) and confirming these three
+now skip instead of fail, while the four tests that don't need real
+`pyhmmer` (argparse wiring, `--setup-db`, the missing-dependency message
+itself) still run and pass either way.
+
 ## 3.16.1
 
 CI hotfix, unrelated to 3.16.0's actual content: `dev`'s `ruff>=0.1` had no

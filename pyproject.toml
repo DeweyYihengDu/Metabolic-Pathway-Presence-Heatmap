@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mpph"
-version = "3.16.1"
+version = "3.16.2"
 description = "Metabolic Pathway Presence Heatmap: KEGG pathway presence and module completeness across genomes or your own MAGs."
 readme = "README.md"
 requires-python = ">=3.9"

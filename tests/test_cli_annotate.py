@@ -63,9 +63,11 @@ def test_cmd_annotate_missing_pyhmmer_gives_friendly_message(tmp_path, monkeypat
 
 
 def test_cmd_annotate_missing_kofam_db_gives_clean_error_not_traceback(tmp_path, capsys):
-    # pyhmmer itself is real/installed in this dev environment (confirmed
-    # earlier this session), so this exercises the actual
-    # load_ko_thresholds() FileNotFoundError -> main()'s shared except path.
+    # cmd_annotate's own pyhmmer-availability probe runs before this code
+    # path, so real pyhmmer must importable to reach it -- the `annotate`
+    # extra is deliberately not part of `dev`/CI's install, so skip rather
+    # than fail where it's absent (same reasoning as test_kofam_pyhmmer.py).
+    pytest.importorskip("pyhmmer")
     fasta = tmp_path / "x.faa"
     fasta.write_text(">g\nMKT\n")
     rc = cli.main(["annotate", "--fasta", str(fasta),
@@ -75,6 +77,11 @@ def test_cmd_annotate_missing_kofam_db_gives_clean_error_not_traceback(tmp_path,
 
 
 def test_cmd_annotate_happy_path_writes_output_and_manifest(tmp_path, monkeypatch):
+    # annotate_fasta is monkeypatched below (no real search happens), but
+    # cmd_annotate's own `import pyhmmer` availability probe still runs
+    # first and must succeed to reach that code -- see importorskip note
+    # on test_cmd_annotate_missing_kofam_db_gives_clean_error_not_traceback.
+    pytest.importorskip("pyhmmer")
     fasta = tmp_path / "genome.faa"
     fasta.write_text(">gene1\nMKT\n>gene2\nMKT\n")
     (tmp_path / "kofam_db").mkdir()
@@ -105,6 +112,8 @@ def test_cmd_annotate_happy_path_writes_output_and_manifest(tmp_path, monkeypatc
 
 
 def test_cmd_annotate_default_out_path_is_fasta_stem_annotated(tmp_path, monkeypatch):
+    # Same pyhmmer-availability-probe reasoning as the happy-path test above.
+    pytest.importorskip("pyhmmer")
     # cmd_annotate resolves the default relative to the CWD, not the fasta's
     # own directory -- chdir into a disposable tmp_path to check this safely
     # (the documented default is <fasta stem>_annotated.tsv).
