@@ -7,16 +7,16 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")  # headless-safe; we only save figures, never show them
-import matplotlib.colors as mcolors  # noqa: E402
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-from matplotlib.cm import ScalarMappable  # noqa: E402
-from matplotlib.collections import LineCollection, PatchCollection  # noqa: E402
-from matplotlib.patches import Circle, Patch, Rectangle  # noqa: E402
-from scipy.cluster.hierarchy import dendrogram, linkage  # noqa: E402
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.cm import ScalarMappable
+from matplotlib.collections import LineCollection, PatchCollection
+from matplotlib.patches import Circle, Patch, Rectangle
+from scipy.cluster.hierarchy import dendrogram, linkage
 
-from .kgml import KGMLPathway  # noqa: E402
+from .kgml import KGMLPathway
 
 # --- Visual design tokens (validated categorical palette; light surface) ----
 INK = "#0b0b0b"

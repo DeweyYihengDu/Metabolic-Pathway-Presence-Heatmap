@@ -213,7 +213,7 @@ def _extract_tar_safely(tar_path: Path, dest_dir: Path) -> None:
         if hasattr(tarfile, "data_filter"):  # Python >=3.12 (or backported)
             tf.extractall(dest_dir, filter="data")
         else:  # pragma: no cover -- older Python without the safety filter
-            tf.extractall(dest_dir)  # noqa: S202 -- trusted KEGG source over HTTPS
+            tf.extractall(dest_dir)  # trusted KEGG source over HTTPS
 
 
 def _download_one(session: requests.Session, url: str, dest_file: Path) -> None:
@@ -223,8 +223,7 @@ def _download_one(session: requests.Session, url: str, dest_file: Path) -> None:
     with session.get(url, stream=True, timeout=60) as resp:
         resp.raise_for_status()
         with open(tmp, "wb") as fh:
-            for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                fh.write(chunk)
+            fh.writelines(resp.iter_content(chunk_size=1024 * 1024))
     os.replace(tmp, dest_file)
 
 

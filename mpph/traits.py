@@ -49,7 +49,7 @@ def load_trait_panel(path: str | Path) -> dict[str, dict]:
     data = _read_panel_data(p)
     traits = data.get("traits", data)
     if not isinstance(traits, dict):
-        raise ValueError("trait panel must map trait ids to definitions")
+        raise TypeError("trait panel must map trait ids to definitions")
     return traits
 
 

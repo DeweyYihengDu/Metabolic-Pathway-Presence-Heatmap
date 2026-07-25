@@ -98,9 +98,8 @@ def test_reactions_for_ortholog_empty_for_unknown_entry():
 
 
 class _CountingSession:
-    headers: dict = {}
-
     def __init__(self, text):
+        self.headers = {}
         self.calls = 0
         self.text = text
 

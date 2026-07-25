@@ -21,9 +21,8 @@ def test_cache_path_readable_prefix_preserved(tmp_path):
 
 
 class _CountingSession:
-    headers: dict = {}
-
     def __init__(self, text="response body"):
+        self.headers = {}
         self.calls = 0
         self.text = text
 

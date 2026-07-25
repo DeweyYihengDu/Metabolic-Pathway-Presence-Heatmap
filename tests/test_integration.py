@@ -9,13 +9,14 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import mpph.cli as cli
+from mpph import cli
 
 FIXTURES = Path(__file__).parent / "fixtures" / "cache"
 
 
 class _NoNetworkSession:
-    headers: dict = {}
+    def __init__(self):
+        self.headers = {}
 
     def get(self, url, *a, **k):
         raise AssertionError(f"unexpected network call in offline test: {url}")
@@ -49,8 +50,8 @@ def test_presence_pipeline_offline(tmp_path, offline_cache):
     assert "03430" not in matrix.columns
     assert "01100" not in matrix.columns
 
-    foo = [i for i in matrix.index if i.startswith("Footaxon alpha")][0]
-    fo2 = [i for i in matrix.index if i.startswith("Footaxon beta")][0]
+    foo = next(i for i in matrix.index if i.startswith("Footaxon alpha"))
+    fo2 = next(i for i in matrix.index if i.startswith("Footaxon beta"))
     assert matrix.loc[foo, "00020"] == 1
     assert matrix.loc[fo2, "00020"] == 0
 

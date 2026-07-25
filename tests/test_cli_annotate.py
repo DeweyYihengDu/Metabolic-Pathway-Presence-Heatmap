@@ -10,8 +10,7 @@ import json
 
 import pytest
 
-import mpph.cli as cli
-import mpph.kofam as kofam
+from mpph import cli, kofam
 
 
 def test_annotate_argparser_fasta_and_setup_db_are_mutually_exclusive_and_required():

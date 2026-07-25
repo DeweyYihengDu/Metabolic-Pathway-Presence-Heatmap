@@ -99,7 +99,7 @@ def test_gsea_unannotated_genes_still_count_as_misses():
     # ranked gene (annotated or not) in the running-sum denominator.
     genes, scores = _ranking(20)
     gene_set = set(genes[:5])  # only 5 of 20 genes are "annotated" anywhere
-    es, running = enrichment_score(genes, scores, gene_set)
+    _es, running = enrichment_score(genes, scores, gene_set)
     assert len(running) == 20  # not reduced to 5
 
 

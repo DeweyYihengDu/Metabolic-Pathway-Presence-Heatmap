@@ -17,7 +17,7 @@ import pytest
 
 pyhmmer = pytest.importorskip("pyhmmer")
 
-from mpph.kofam import annotate_fasta, parse_ko_list  # noqa: E402
+from mpph.kofam import annotate_fasta, parse_ko_list
 
 # Four near-identical toy "family" sequences to build a profile from -- not a
 # real KO, just something a real match is easy to construct against.

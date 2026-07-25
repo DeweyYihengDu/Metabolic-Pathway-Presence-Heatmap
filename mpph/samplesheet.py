@@ -7,6 +7,7 @@ to scanning a directory.
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -70,7 +71,7 @@ def mimag_quality_tier(completeness: float, contamination: float) -> str:
     completeness/contamination only). ``medium``: completeness >= 50,
     contamination < 10. Otherwise ``low``. NaN in either input -> ``unknown``.
     """
-    if completeness != completeness or contamination != contamination:  # NaN
+    if math.isnan(completeness) or math.isnan(contamination):
         return "unknown"
     if completeness > 90 and contamination < 5:
         return "high"

@@ -84,7 +84,7 @@ def fetch_kgml(
 
 def parse_kgml(xml_text: str) -> KGMLPathway:
     """Parse KGML XML into positioned nodes and the reactions linking them."""
-    root = ET.fromstring(xml_text)  # noqa: S314 -- KEGG's own trusted response
+    root = ET.fromstring(xml_text)  # KEGG's own trusted response
 
     nodes: dict[int, KGMLNode] = {}
     ortholog_reactions: dict[int, frozenset[str]] = {}

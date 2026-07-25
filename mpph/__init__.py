@@ -15,11 +15,12 @@ doi:10.1101/2023.06.27.546232
 """
 from __future__ import annotations
 
-__version__ = "3.16.2"
+__version__ = "3.16.3"
 
 # --- Public KEGG connection interface (open; talks to rest.kegg.jp) ---------
 from .kegg import KEGG_API_BASE, kegg_get, kegg_release, make_session
 
+# isort: split
 # --- Public data-access interface -------------------------------------------
 from .modules import (
     fetch_module_definitions,
@@ -30,6 +31,7 @@ from .modules import (
 from .organisms import list_genomes, select_by_codes, select_by_taxon
 from .pathways import fetch_pathway_categories, get_pathways
 
+# isort: split
 # --- Enrichment (KEGG pathway/module ORA; GO needs a user-supplied mapping) -
 from .enrichment import (
     fetch_ko_module_membership,
@@ -40,6 +42,7 @@ from .enrichment import (
     load_gene_go_map,
 )
 
+# isort: split
 # --- GSEA (rank-based enrichment from expression or a pre-ranked list) ------
 from .gsea import (
     enrichment_score,
@@ -49,6 +52,7 @@ from .gsea import (
     rank_from_expression,
 )
 
+# isort: split
 # --- KGML pathway/global-map diagrams (comparative two-group overlay) ------
 from .kgml import (
     KGMLNode,
@@ -60,6 +64,7 @@ from .kgml import (
     reactions_for_ortholog,
 )
 
+# isort: split
 # --- Matrix + figure helpers ------------------------------------------------
 from .matrix import build_completeness_matrix, build_presence_matrix, filter_matrix
 from .plot import (
@@ -70,7 +75,7 @@ from .plot import (
     plot_matrix,
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022 -- grouped by API category (see comments below), not alphabetical
     "__version__",
     # KEGG connection interface (public)
     "KEGG_API_BASE",

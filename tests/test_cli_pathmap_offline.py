@@ -11,13 +11,14 @@ from pathlib import Path
 
 import pytest
 
-import mpph.cli as cli
+from mpph import cli
 
 FIXTURES = Path(__file__).parent / "fixtures" / "cache"
 
 
 class _NoNetworkSession:
-    headers: dict = {}
+    def __init__(self):
+        self.headers = {}
 
     def get(self, url, *a, **k):
         raise AssertionError(f"unexpected network call in offline test: {url}")

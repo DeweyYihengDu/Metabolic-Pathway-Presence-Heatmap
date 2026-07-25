@@ -13,6 +13,7 @@ same approximation used by KEGG-Decoder / MicrobeAnnotator.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -205,7 +206,7 @@ def step_complete(
         if module_defs and mid in module_defs and mid not in _stack:
             sub = module_completeness(module_defs[mid][0], ko_set, module_defs,
                                       _stack | {mid})
-            if sub == sub:  # not NaN: the nested module IS determined
+            if not math.isnan(sub):  # not NaN: the nested module IS determined
                 return "1" if sub >= 1.0 else "0"
         return "?"  # not fetched, a cycle, or itself undetermined
 
@@ -218,7 +219,7 @@ def step_complete(
         if not _SAFE.match(expr) or not expr:
             return None  # syntax this parser doesn't handle: unknown, not absent
         try:
-            return bool(eval(expr))  # noqa: S307 - expr validated to [01()&|]
+            return bool(eval(expr))  # expr validated to [01()&|]
         except SyntaxError:
             return None
 
@@ -226,7 +227,7 @@ def step_complete(
     if not _SAFE.match(pessimistic) or not pessimistic:
         return None
     try:
-        lo, hi = bool(eval(pessimistic)), bool(eval(optimistic))  # noqa: S307
+        lo, hi = bool(eval(pessimistic)), bool(eval(optimistic))
     except SyntaxError:
         return None
     return lo if lo == hi else None
@@ -338,7 +339,7 @@ def evaluate_module(
     n_sat = sum(1 for v in determined if v)
     score = (n_sat / len(determined)) if determined else float("nan")
     status = "valid" if not unresolved else "unresolved_references"
-    state = ("unknown" if score != score
+    state = ("unknown" if math.isnan(score)
              else classify_state(score, complete_threshold))
     return ModuleEvaluation(
         module_id, score, state,

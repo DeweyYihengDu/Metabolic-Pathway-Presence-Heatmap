@@ -1,5 +1,38 @@
 # Changelog
 
+## 3.16.3
+
+Lint cleanup + ruff upgrade: fixed the 44 pre-existing style findings that
+3.16.1 pinned around instead of fixing, then removed the `<0.16` upper
+bound so `dev`'s `ruff` dependency tracks the linter's latest release
+again. Each finding was checked individually rather than run through a
+blanket `--fix`, because ruff's isort (`I001`) and dunder-all (`RUF022`)
+autofixes both collapse comment-delimited groupings into one
+alphabetically-sorted block. `mpph/__init__.py` uses exactly that pattern
+for its KEGG/data-access/enrichment/gsea/kgml/matrix+plot import sections
+and its `__all__` category comments -- a blind `--fix` would have
+scattered unrelated symbols under the wrong header (e.g. `KGMLNode`
+sorting in under the "KEGG connection interface" comment meant for
+`kegg.py`'s exports). Import sections now use `# isort: split` between
+groups, which ruff honors for independent per-section sorting without
+touching the sections' relative order; `__all__` keeps its category
+comments behind a scoped `# noqa: RUF022`, since ruff's own docs describe
+preserving comment-delimited categories as out of scope for that rule's
+fix. Also fixed: a genuine duplicate `.modules` import in `cli.py`
+(`I001`); several `# noqa` suppressions for bandit/pycodestyle codes
+(`S314`, `S202`, `S307`, `E402`) that this project's ruff config doesn't
+enable and were therefore dead (`RUF100`); two `sub == sub` /
+`score != score` NaN self-comparison idioms replaced with `math.isnan()`
+(`PLR0124`); a `ValueError` -> `TypeError` fix in `traits.py`'s
+panel-shape check (`TRY004`), which also required adding `TypeError` to
+`cli.py`'s top-level error handler so a malformed panel file still prints
+a clean `Error: ...` message instead of an unhandled traceback; and, in
+the test suite, several mock `Session` classes' `headers: dict = {}`
+class attributes (`RUF012`) moved into `__init__` rather than annotated
+`ClassVar`, since `mpph.kegg.kegg_get` really does call
+`session.headers.update(...)` and a shared class-level dict would have
+leaked mutated headers across test instances.
+
 ## 3.16.2
 
 CI hotfix #2: three of `tests/test_cli_annotate.py`'s tests

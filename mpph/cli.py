@@ -21,14 +21,13 @@ from .matrix import (
     build_presence_matrix,
     filter_matrix,
 )
-from .modules import fetch_module_definitions, list_modules, organism_kos
+from .modules import evaluate_module, fetch_module_definitions, list_modules, organism_kos
 from .organisms import (
     list_genomes,
     read_code_file,
     select_by_codes,
     select_by_taxon,
 )
-from .modules import evaluate_module
 from .pathways import OVERVIEW_CATEGORY, fetch_pathway_categories, get_pathways
 from .plot import (
     plot_accumulation,
@@ -663,7 +662,7 @@ def cmd_traits(args) -> int:
     session = make_session()
     org_kos = _load_source_kos(args, session, cache_dir)
     panel = load_trait_panel(args.panel)
-    matrix, names, categories = score_traits(org_kos, panel)
+    matrix, _names, categories = score_traits(org_kos, panel)
     slug = re.sub(r"[^0-9A-Za-z]+", "_", Path(args.panel).stem) or "traits"
     matrix.to_csv(outdir / f"{slug}_matrix.csv", index_label="organism")
     title = f"Metabolic traits · {slug}"
@@ -1395,7 +1394,7 @@ def main(argv: list[str] | None = None) -> int:
     except requests.RequestException as exc:
         print(f"KEGG request failed: {exc}", file=sys.stderr)
         return 1
-    except (ValueError, FileNotFoundError, KeyError, ImportError) as exc:
+    except (ValueError, TypeError, FileNotFoundError, KeyError, ImportError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

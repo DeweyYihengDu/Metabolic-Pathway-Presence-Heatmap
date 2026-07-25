@@ -29,7 +29,7 @@ def test_builtin_panel_loads_and_scores():
     assert "nitrogen_fixation" in panel
     org_kos = {"diazotroph": {"K02586", "K02588", "K02591"},
                "none": {"K99999"}}
-    matrix, names, cats = score_traits(org_kos, panel)
+    matrix, _names, cats = score_traits(org_kos, panel)
     assert matrix.loc["diazotroph", "nitrogen_fixation"] == 1.0
     assert matrix.loc["none", "nitrogen_fixation"] == 0.0
     assert cats["nitrogen_fixation"] == "Nitrogen cycle"
@@ -39,7 +39,7 @@ def test_additional_builtin_panels_valid():
     for name in ("respiration", "carbon_fixation"):
         panel = load_trait_panel(name)
         assert panel
-        for _tid, defn in panel.items():
+        for defn in panel.values():
             assert defn.get("steps"), f"{name} trait missing steps"
 
 

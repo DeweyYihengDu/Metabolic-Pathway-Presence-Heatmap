@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import mpph.cli as cli
+from mpph import cli
 
 
 def _make_results(tmp_path, slug="Demo"):

@@ -1,9 +1,8 @@
 """Tests for figure labelling (rendered to SVG so text is inspectable)."""
 import re
 
-import pandas as pd
-
 import numpy as np
+import pandas as pd
 
 from mpph.kgml import parse_kgml
 from mpph.plot import (
