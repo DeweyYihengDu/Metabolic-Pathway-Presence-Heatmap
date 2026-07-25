@@ -22,6 +22,21 @@ Practical implications:
 - When you publish results, cite KEGG and record the KEGG release (the manifest
   captures it).
 
+## KOfam
+
+`mpph annotate` downloads KEGG's KOfam HMM profile database
+(`ko_list.gz` + `profiles.tar.gz`, from KEGG's own distribution server) on
+request, via `mpph annotate --setup-db DIR`. This is a separate KEGG-
+distributed resource from the REST API above, with the same terms: **the
+MIT License here covers MPPH's source code only, not KOfam's data.**
+
+- The local `.mpph_kofam_db/` directory (default `--kofam-db`) holds the
+  downloaded database. **Do not redistribute it as a standalone mirror**,
+  the same caveat as `.mpph_cache/`.
+- KO assignment via `mpph annotate` reimplements KofamScan's own scoring
+  logic (Aramaki et al. 2020) against this database; if you publish results
+  from it, cite KofamScan alongside MPPH.
+
 ## User-supplied annotations
 
 `--user` input (KofamScan / eggNOG-mapper / DRAM KO tables, etc.) is your own

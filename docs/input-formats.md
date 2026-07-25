@@ -27,6 +27,13 @@ rejected rather than silently overwritten) or a single file. `--input-format`:
   (the one case `auto` cannot infer on its own).
 - `eggnog` — read the `KEGG_ko` column of an eggNOG-mapper `.annotations` file.
 
+Don't have KO annotations yet? `mpph annotate --fasta genome.faa` (see
+[Subcommands](subcommands.md#mpph-annotate)) produces this exact
+`gene<TAB>K#####` mapper shape directly from a protein FASTA -- no external
+KofamScan/eggNOG-mapper install needed. Point `--user` at its output file
+directly, or at a directory of several genomes' worth of `mpph annotate`
+output (one file per genome) for the standard one-file-per-sample layout.
+
 ## Sample sheets (reproducible)
 
 A TSV with `sample_id` and `annotation_file`, optional `input_format`, and any

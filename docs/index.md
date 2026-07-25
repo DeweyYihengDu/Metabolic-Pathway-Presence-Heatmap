@@ -8,7 +8,8 @@ microbial metabolic-function profiles.
 - [Input formats](input-formats.md) — taxon / codes / user KO annotations,
   eggNOG, sample sheets, CheckM2 / GTDB-Tk.
 - [Subcommands](subcommands.md) — `run`, `traits`, `explain`, `compare`, `pan`,
-  `ordination`, `community`, `report`, `validate`, `enrich`, `gsea`.
+  `ordination`, `community`, `report`, `validate`, `enrich`, `gsea`, `pathmap`,
+  `annotate`.
 - [Output schema](outputs.md) — every file MPPH writes.
 
 Quick start:

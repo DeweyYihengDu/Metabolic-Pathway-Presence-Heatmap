@@ -43,8 +43,10 @@ from .plot import (
 from .tree import linkage_to_newick
 
 DEFAULT_CACHE_STR = str(DEFAULT_CACHE)
+DEFAULT_KOFAM_DB_STR = ".mpph_kofam_db"
 SUBCOMMANDS = ("run", "traits", "explain", "compare", "pan", "ordination",
-               "community", "report", "validate", "enrich", "gsea", "pathmap")
+               "community", "report", "validate", "enrich", "gsea", "pathmap",
+               "annotate")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -934,6 +936,73 @@ def cmd_pathmap(args) -> int:
     return 0
 
 
+def cmd_annotate(args) -> int:
+    from .kofam import (
+        annotate_fasta,
+        download_kofam_db,
+        load_ko_thresholds,
+        read_ko_subset,
+        write_mapper_tsv,
+    )
+
+    if args.setup_db:
+        dest = Path(args.setup_db)
+        print(f"Downloading KOfam database (~1.5 GB compressed) to {dest}/ ...",
+              flush=True)
+        download_kofam_db(dest, overwrite=args.overwrite_db)
+        print(f"Done. Use --kofam-db {dest} to annotate.")
+        return 0
+
+    try:
+        import pyhmmer  # noqa: F401 -- availability probe only
+    except ImportError:
+        print("Error: `mpph annotate` needs the optional `pyhmmer` dependency. "
+              "Install it with:  pip install mpph[annotate]", file=sys.stderr)
+        return 1
+
+    fasta = Path(args.fasta)
+    out = Path(args.out) if args.out else Path(f"{fasta.stem}_annotated.tsv")
+    ko_subset = read_ko_subset(args.ko_subset) if args.ko_subset else None
+
+    print(f"[1/3] Loading ko_list thresholds from {args.kofam_db} ...", flush=True)
+    entries = load_ko_thresholds(args.kofam_db)
+    n_assignable = sum(1 for e in entries.values() if e.assignable)
+    print(f"      {len(entries)} KO(s), {n_assignable} with a defined "
+          f"threshold (assignable)")
+
+    print(f"[2/3] Searching KOfam profiles against {fasta} "
+          f"(cpus={args.cpus or 'auto'}) ...", flush=True)
+    assignments = annotate_fasta(fasta, args.kofam_db, cpus=args.cpus,
+                                 entries=entries, ko_subset=ko_subset)
+
+    print(f"[3/3] Writing {out} ...", flush=True)
+    write_mapper_tsv(assignments, out)
+    n_genes = len({a.gene_id for a in assignments})
+
+    manifest = {
+        "mpph_version": __version__,
+        "command": "mpph " + " ".join(getattr(args, "_raw_argv", sys.argv[1:])),
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        **_run_provenance(),
+        "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "fasta": str(fasta),
+        "kofam_db": str(args.kofam_db),
+        "cpus": args.cpus,
+        "n_ko_profiles_searched": len(entries) if ko_subset is None else len(ko_subset),
+        "n_assignable_kos": n_assignable,
+        "n_assignments": len(assignments),
+        "n_genes_annotated": n_genes,
+        "outputs": {"annotations": out.name},
+    }
+    out.with_name(f"{out.stem}_manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8")
+
+    print(f"{len(assignments)} significant assignment(s), {n_genes} gene(s) "
+          f"annotated. Wrote {out}")
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # Argument parser (subcommands; `mpph <taxon> ...` is a shortcut for `run`)
 # --------------------------------------------------------------------------- #
@@ -1234,6 +1303,45 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--format", nargs="+", default=["png"],
                     choices=["pdf", "png", "svg"])
     _add_cache_args(pm)
+
+    ann = sub.add_parser(
+        "annotate", help="Locally annotate a protein FASTA with KEGG KO ids "
+                         "(KOfam HMM profiles via pyhmmer -- offline, no "
+                         "external HMMER install; needs `pip install "
+                         "mpph[annotate]` and a one-time KOfam database "
+                         "download, see --setup-db).")
+    mode = ann.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--fasta", metavar="FILE",
+                      help="Protein FASTA to annotate (already gene-called/"
+                           "translated -- NOT raw genomic DNA; no ORF "
+                           "prediction is done here).")
+    mode.add_argument("--setup-db", metavar="DIR",
+                      help="One-time setup: download + extract KEGG's KOfam "
+                           "database (ko_list.gz + profiles.tar.gz, ~1.5 GB "
+                           "compressed) into DIR, then exit.")
+    ann.add_argument("--kofam-db", default=DEFAULT_KOFAM_DB_STR, metavar="DIR",
+                     help="KOfam database directory (from --setup-db, or "
+                          "your own `tar xzf profiles.tar.gz` + `gunzip "
+                          "ko_list.gz` into the same DIR).")
+    ann.add_argument("--out", metavar="FILE", default=None,
+                     help="Output path (default: <fasta stem>_annotated.tsv). "
+                          "gene<TAB>K##### rows, one per significant "
+                          "assignment -- the same shape as KofamScan "
+                          "--format mapper, so it chains directly into "
+                          "--user (e.g. `mpph run --user <this file>`).")
+    ann.add_argument("--cpus", type=int, default=0,
+                     help="Worker threads (0 = auto-detect all cores, "
+                          "matching pyhmmer's own default; 1 = "
+                          "single-threaded).")
+    ann.add_argument("--ko-subset", metavar="FILE", default=None,
+                     help="Restrict the search to these KO ids only (one "
+                          "per line -- also accepts KEGG's own "
+                          "prokaryote.hal/eukaryote.hal directly). Much "
+                          "faster than the full profile database when the "
+                          "domain of life is known in advance.")
+    ann.add_argument("--overwrite-db", action="store_true",
+                     help="With --setup-db: re-download even if DIR already "
+                          "looks populated (default: skip).")
     return p
 
 
@@ -1266,6 +1374,7 @@ def main(argv: list[str] | None = None) -> int:
         "compare": cmd_compare, "pan": cmd_pan, "ordination": cmd_ordination,
         "community": cmd_community, "report": cmd_report, "validate": cmd_validate,
         "enrich": cmd_enrich, "gsea": cmd_gsea, "pathmap": cmd_pathmap,
+        "annotate": cmd_annotate,
     }
     if args.command in ("run", "traits", "explain", "community"):
         err = _validate_source(args)
@@ -1286,7 +1395,7 @@ def main(argv: list[str] | None = None) -> int:
     except requests.RequestException as exc:
         print(f"KEGG request failed: {exc}", file=sys.stderr)
         return 1
-    except (ValueError, FileNotFoundError, KeyError) as exc:
+    except (ValueError, FileNotFoundError, KeyError, ImportError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

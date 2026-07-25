@@ -25,6 +25,8 @@
 | `traits` | `<slug>_matrix.csv`, `<slug>_heatmap.<fmt>` |
 | `enrich` | `<label>_enrichment.csv`, `<label>_enrichment.<fmt>` |
 | `gsea` | `<label>_gsea.csv`, `<label>_gsea_summary.<fmt>`, `<label>_gsea_top.<fmt>` (+ `<label>_ranked_list.tsv` with `--expression`) |
+| `pathmap` | `<slug>_pathmap.<fmt>`, `<slug>_pathmap_manifest.json` |
+| `annotate` | `<out>` (`gene<TAB>KO` mapper TSV, default `<fasta stem>_annotated.tsv`), `<out stem>_manifest.json` |
 
 ## Manifest fields
 

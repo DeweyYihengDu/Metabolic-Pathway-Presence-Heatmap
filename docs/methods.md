@@ -272,3 +272,47 @@ tool asks via heatmaps.
 - The global map (`ko01100`, ~7,600 nodes / ~3,800 reactions) renders in a
   few seconds; there is no size guard the way `report --max-cells` has one,
   since this is a single fixed-layout figure rather than a per-cell DOM table.
+
+## Local KO annotation (`annotate`)
+
+`mpph annotate` assigns KEGG KO ids to a protein FASTA using KEGG's own
+KOfam HMM profile database (the same profiles KEGG uses to annotate genomes
+itself) searched via [pyhmmer](https://pyhmmer.readthedocs.io/), reimplementing
+KofamScan's own scoring logic rather than shelling out to compiled HMMER
+binaries + KofamScan's Ruby wrapper. This generalizes across the tree of
+life the way KOfam itself does — unlike tools that transfer annotation from
+a fixed set of reference species (accuracy degrades with evolutionary
+distance from whichever reference is closest), a profile built from many
+species' worth of a KO's sequences has no such "nearest reference" problem.
+
+**Scope**: KO assignment only, not GO — GO would need eggNOG's differently
+structured per-clade databases, a separate addition. Input must already be
+gene-called/translated protein sequences; `mpph annotate` does no ORF
+prediction of its own (e.g. run Prodigal first for raw contigs).
+
+**Significance rule**, ported from KofamScan's actual source (not its
+README, which disagrees with its own code on one point):
+
+- Every KOfam profile is searched against every input protein. A hit is
+  *assigned* only if its bit score is **≥** the KO's own threshold from
+  `ko_list` — KofamScan's README describes this as "higher than", but its
+  real implementation (`result/hit.rb`) uses `>=`; this reimplements the
+  actual behaviour, not the prose.
+- Most KOs compare the **full-sequence** score against their threshold; a
+  KO marked `score_type="domain"` in `ko_list` compares its **best single
+  domain's** score instead (`result/parser.rb`) — a real branch, not every
+  KO is scored the same way.
+- **Some KOs have no threshold in `ko_list` at all** (too few reference
+  sequences in KEGG GENES) — these can never be assigned, by KOfam's own
+  design. This is expected, not a gap in this tool.
+
+**Output** is `gene<TAB>K#####`, one row per significant assignment, no
+header — the same shape as KofamScan `--format mapper`, so it's already
+readable by `--user` with zero adapter code (see
+[Input formats](input-formats.md)).
+
+**The KOfam database is real KEGG data, not bundled with mpph.**
+`mpph annotate --setup-db DIR` downloads it once (~1.5 GB compressed); this
+is why `mpph`'s base install stays small — `pip install mpph[annotate]`
+opts in to the extra `pyhmmer` dependency, and the database download is a
+separate, explicit step. See `DATA_SOURCES.md` for KOfam's own terms.

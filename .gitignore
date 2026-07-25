@@ -13,6 +13,7 @@ env/
 
 # MPPH runtime artifacts
 .mpph_cache/
+.mpph_kofam_db/
 output/
 *.csv
 !examples/*.csv

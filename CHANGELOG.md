@@ -1,5 +1,48 @@
 # Changelog
 
+## 3.16.0
+
+New subcommand: **`mpph annotate`** -- locally annotates a protein FASTA
+with KEGG KO ids, entirely offline after a one-time database download. No
+external HMMER/KofamScan/eggNOG-mapper install needed.
+
+`mpph` previously assumed annotation already happened elsewhere (`--codes`
+for a KEGG organism, `--user` for your own already-annotated KOs). This
+closes that gap the way KOfam itself generalizes -- across the tree of
+life, not a fixed set of reference species (the approach tools like KOBAS
+use, which degrades with evolutionary distance from whichever reference is
+closest).
+
+- New `mpph.kofam` module: `annotate_fasta` searches every KOfam HMM
+  profile against every input protein via
+  [pyhmmer](https://pyhmmer.readthedocs.io/) (Cython bindings to HMMER3,
+  `pip install pyhmmer` -- no separate HMMER binary/compilation needed),
+  reimplementing KofamScan's own scoring/assignment logic rather than
+  shelling out to compiled HMMER + KofamScan's Ruby wrapper.
+- Significance rule ported from KofamScan's actual source
+  (`result/hit.rb`), not its README, which disagrees with its own code on
+  one point: the comparison is `score >= threshold`, not "higher than".
+  `score_type == "domain"` KOs compare their best single domain's score;
+  every other KO compares the full-sequence score (`result/parser.rb`). KOs
+  with no threshold in `ko_list` (too few reference sequences) are never
+  assignable, by KOfam's own design.
+- `download_kofam_db()` / `mpph annotate --setup-db DIR`: downloads
+  `ko_list.gz` + `profiles.tar.gz` from KEGG's own KOfam distribution
+  (~1.5 GB compressed) over HTTPS, skips re-downloading if `DIR` already
+  looks populated.
+- Output is `gene<TAB>K#####`, one row per significant assignment, no
+  header -- the same shape as KofamScan `--format mapper`, so it's already
+  readable by `--user` with zero adapter code (verified end-to-end against
+  the real, unmodified `load_user_kos()`, not just asserted by shape).
+- New `annotate` extras group (`pip install mpph[annotate]`) -- `pyhmmer`
+  is deliberately not part of the base install or the `dev` extra, so
+  `pip install mpph` stays thin; running `annotate` without it prints an
+  actionable error instead of a traceback.
+- Scope for this release is **KO-only, no GO** (GO would need eggNOG's
+  differently-structured per-clade databases, a separate addition) and
+  **protein FASTA only, no ORF prediction** (run Prodigal or similar first
+  for raw contigs).
+
 ## 3.15.0
 
 **`--unknown-policy`**: `mpph compare` and `mpph pan` now let you choose how

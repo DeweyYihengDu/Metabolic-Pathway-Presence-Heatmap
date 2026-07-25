@@ -130,8 +130,12 @@ The analysis subcommands turn a run into comparative figures. Below, the
   the entire metabolic network (KGML layout), with enzyme nodes and reactions
   coloured by whether two organism/MAG groups have them: shared, one-only, or
   neither.
+- **Local KO annotation** (`mpph annotate`) — no KO annotations yet? Search a
+  protein FASTA against KEGG's own KOfam HMM profiles via `pyhmmer`, entirely
+  offline after a one-time database download — no external HMMER/KofamScan
+  install, generalizes across any species the way KOfam itself does.
 - **Three input sources** — a taxon name, a file of organism codes, or your own
-  KO annotations (KofamScan / eggNOG / any `K#####` list).
+  KO annotations (KofamScan / eggNOG / `mpph annotate` / any `K#####` list).
 - **Category-aware figures** — a functional-category colour strip + legend,
   gridded cells, UPGMA dendrograms, italic organism labels.
 - **Newick export** (`--newick`) — the pathway/module tree for iTOL / FigTree.
@@ -148,7 +152,9 @@ cd Metabolic-Pathway-Presence-Heatmap
 pip install .          # or: pip install -e ".[dev]" for development
 ```
 
-This installs the `mpph` command. Requires Python 3.9+.
+This installs the `mpph` command. Requires Python 3.9+. `mpph annotate`
+(local KO annotation) needs the optional `pyhmmer` dependency:
+`pip install ".[annotate]"`.
 
 ## Usage
 
@@ -212,6 +218,11 @@ mpph validate   --samples samples.tsv
 # KEGG pathway diagram, coloured by which of two organism groups has each gene
 mpph pathmap --map ko00010 --codes-a marine.txt --label-a Marine \
              --codes-b freshwater.txt --label-b Freshwater
+
+# No KO annotations yet? Annotate a protein FASTA locally (one-time db setup,
+# then offline) and feed the output straight into --user above
+mpph annotate --setup-db .mpph_kofam_db
+mpph annotate --fasta genome.faa --out genome_annotated.tsv
 ```
 
 ### Key options

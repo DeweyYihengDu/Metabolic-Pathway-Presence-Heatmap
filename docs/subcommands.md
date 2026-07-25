@@ -16,6 +16,7 @@
 | `enrich` | a study-set gene/KO list + background | hypergeometric enrichment table + bar chart |
 | `gsea` | a ranked gene list, or an expression matrix + groups | ES/NES/leading-edge table + running-enrichment plot |
 | `pathmap` | a KEGG pathway/global-map id + two organism/user groups | KEGG-style network diagram, enzymes/reactions coloured by which group has them |
+| `annotate` | a protein FASTA (+ a one-time KOfam database) | `gene<TAB>KO` mapper TSV + manifest, ready for `--user` |
 
 Examples:
 
@@ -33,6 +34,8 @@ mpph enrich     --study unique.txt --background-organism pmt --ontology kegg-pat
 mpph gsea       --ranked-list ranked.tsv --ontology kegg-module
 mpph pathmap    --map ko00010 --codes-a marine.txt --label-a Marine \
                 --codes-b freshwater.txt --label-b Freshwater
+mpph annotate   --setup-db .mpph_kofam_db          # one-time, ~1.5 GB
+mpph annotate   --fasta genome.faa --out genome_annotated.tsv
 ```
 
 Built-in trait panels: `biogeochemistry`, `respiration`, `carbon_fixation`.
@@ -172,3 +175,43 @@ mpph pathmap --map ko01100 \
   your data. Only enzyme/reaction presence is comparative.
 - `<slug>_pathmap_manifest.json` records both groups' sources/KO counts and
   the per-status enzyme node counts alongside the usual provenance fields.
+
+## `mpph annotate`
+
+Locally annotates a protein FASTA with KEGG KO ids -- KOfam HMM profiles
+searched via `pyhmmer`, entirely offline after a one-time database download.
+No external HMMER/KofamScan install needed. See
+[Methods](methods.md#local-ko-annotation-annotate) for the scoring rule.
+
+```bash
+# One-time setup (~1.5 GB compressed, skipped if DIR already looks populated)
+mpph annotate --setup-db .mpph_kofam_db
+
+# Annotate a genome's proteins
+mpph annotate --fasta genome.faa --kofam-db .mpph_kofam_db \
+              --out genome_annotated.tsv
+
+# Restrict to a known domain of life (much faster than the full database) --
+# KEGG's own prokaryote.hal/eukaryote.hal work directly, or a bare KO list
+mpph annotate --fasta genome.faa --ko-subset prokaryote.hal
+
+# The output chains straight into --user, no adapter needed
+mpph run --user genome_annotated.tsv --completeness
+```
+
+- Needs `pip install mpph[annotate]` (the optional `pyhmmer` dependency) --
+  deliberately not part of the base install, so `pip install mpph` stays
+  thin. Running `annotate` without it prints an actionable error instead of
+  a traceback.
+- `--fasta` and `--setup-db` are mutually exclusive: one call downloads the
+  database, a separate call annotates.
+- `--kofam-db` defaults to `.mpph_kofam_db` (mirroring `.mpph_cache`'s
+  role for the KEGG REST cache); point it at a manually-arranged directory
+  (`tar xzf profiles.tar.gz` + `gunzip ko_list.gz`) if you already have one.
+- `--out` defaults to `<fasta stem>_annotated.tsv` in the current directory
+  (not next to the input FASTA) -- a `gene<TAB>K#####` table, one row per
+  significant assignment, plus a `<out stem>_manifest.json` alongside it.
+- `--cpus` (default `0` = auto-detect all cores, matching pyhmmer's own
+  default) controls search parallelism; searching the full ~20,000+ profile
+  database against a genome's worth of proteins takes real time (minutes,
+  not seconds) -- `--ko-subset` is the main lever for cutting that down.
