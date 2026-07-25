@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.16.1
+
+CI hotfix, unrelated to 3.16.0's actual content: `dev`'s `ruff>=0.1` had no
+upper bound, so CI's fresh `pip install -e ".[dev]"` picked up ruff 0.16.0
+the moment it was released and started failing on 44 pre-existing style
+findings across the repo (comment-divided import groups, an unused unpacked
+variable, a `dict.items()` that only uses the values, etc.) that every
+prior ruff 0.15.x release never flagged -- none introduced by 3.16.0's own
+changes (verified: ruff 0.15.22, the latest patch below the new release,
+passes the repo cleanly both before and after 3.16.0's diff). Pinned
+`ruff>=0.1,<0.16` so a future linter release can't silently break CI again
+without a deliberate version bump. The 44 pre-existing findings themselves
+are unaddressed -- a separate cleanup, not bundled into this hotfix or into
+3.16.0's `mpph annotate` work.
+
 ## 3.16.0
 
 New subcommand: **`mpph annotate`** -- locally annotates a protein FASTA
