@@ -103,7 +103,21 @@ support nor refute enrichment.
 **Category membership**: KEGG pathway/module membership comes from the global,
 non-organism-specific `link/pathway/ko` and `link/module/ko` endpoints, so the
 same category set applies regardless of which organism the study/background
-came from. **GO enrichment needs a gene-to-GO mapping you supply** (a long
+came from — this also means `--ontology kegg-pathway`/`mpph gsea`'s enrichment
+already works for any species (any organism whose genes/proteins you can map to
+KO ids, e.g. via `mpph annotate`), not only ones with a curated model-organism
+database. **KEGG PATHWAY is not metabolism-only** — the same database also
+covers Genetic Information Processing, Environmental Information Processing,
+Cellular Processes, Organismal Systems, Human Diseases and Drug Development, so
+an unrestricted `--ontology kegg-pathway` run can surface a significant hit
+from any of these, not just metabolic pathways. `--top-category NAME` (e.g.
+`Metabolism`) restricts the tested universe to one BRITE top-level category
+(the same `br08901` source `run --top-category` already uses for the presence
+heatmap); unset by default, matching this feature's behaviour before
+`--top-category` existed. The output always includes a `top_category` column
+when `--ontology kegg-pathway`, whether or not the flag is used, so you can
+also just filter the CSV yourself afterward. **GO enrichment needs a
+gene-to-GO mapping you supply** (a long
 table, or an eggNOG-mapper `.annotations` file) — KEGG itself carries no GO
 annotations. **This is flat GO term over-representation**: a gene annotated to
 a specific child term counts only toward that term, not its ancestors, unless

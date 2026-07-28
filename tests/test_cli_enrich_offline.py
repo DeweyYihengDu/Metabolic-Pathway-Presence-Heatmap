@@ -68,6 +68,62 @@ def test_enrich_kegg_pathway_offline(tmp_path, offline_cache):
     assert (out / "enrichment_enrichment.svg").exists()
 
 
+def test_enrich_kegg_pathway_top_category_filters_to_metabolism(tmp_path, offline_cache):
+    # K00001/K00002 hit map00010 (Metabolism); K00020/K00021 hit map00030,
+    # which the br08901 fixture classifies under "Genetic Information
+    # Processing" specifically so this filter has something real to exclude.
+    study = tmp_path / "study.txt"
+    study.write_text("K00001\nK00002\nK00020\nK00021\n")
+    out = tmp_path / "out"
+
+    rc = cli.main([
+        "enrich", "--study", str(study), "--background-organism", "testorg",
+        "--ontology", "kegg-pathway", "--top-category", "Metabolism",
+        "--cache-dir", str(offline_cache), "--outdir", str(out),
+    ])
+    assert rc == 0
+    results = pd.read_csv(out / "enrichment_enrichment.csv",
+                          dtype={"category_id": str})
+    # map00030 is excluded entirely -- not just non-significant, absent.
+    assert set(results["category_id"]) == {"00010", "00020"}
+    assert (results["top_category"] == "Metabolism").all()
+
+
+def test_enrich_kegg_pathway_default_has_top_category_column_without_filtering(
+        tmp_path, offline_cache):
+    study = tmp_path / "study.txt"
+    study.write_text("K00001\nK00002\nK00003\n")
+    out = tmp_path / "out"
+
+    rc = cli.main([
+        "enrich", "--study", str(study), "--background-organism", "testorg",
+        "--ontology", "kegg-pathway", "--cache-dir", str(offline_cache),
+        "--outdir", str(out),
+    ])
+    assert rc == 0
+    results = pd.read_csv(out / "enrichment_enrichment.csv",
+                          dtype={"category_id": str})
+    # No --top-category given -> nothing excluded, same universe as before
+    # this feature existed.
+    assert set(results["category_id"]) == {"00010", "00020", "00030"}
+    by_id = results.set_index("category_id")["top_category"]
+    assert by_id["00010"] == "Metabolism"
+    assert by_id["00030"] == "Genetic Information Processing"
+
+
+def test_enrich_top_category_warns_for_irrelevant_ontology(
+        tmp_path, offline_cache, capsys):
+    study = tmp_path / "study.txt"
+    study.write_text("K00001\nK00002\n")
+    rc = cli.main([
+        "enrich", "--study", str(study), "--background-organism", "testorg",
+        "--ontology", "kegg-module", "--top-category", "Metabolism",
+        "--cache-dir", str(offline_cache), "--outdir", str(tmp_path / "out"),
+    ])
+    assert rc == 0
+    assert "has no meaning for --ontology kegg-module" in capsys.readouterr().err
+
+
 def test_enrich_kegg_module_offline(tmp_path, offline_cache):
     study = tmp_path / "study.txt"
     study.write_text("K00001\nK00002\n")  # both members of M00010

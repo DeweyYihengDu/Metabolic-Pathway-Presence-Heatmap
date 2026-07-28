@@ -11,3 +11,5 @@ C    00230  Purine metabolism
 AGenetic Information Processing
 B  Replication and repair
 C    03430  Mismatch repair
+B  Test category (non-metabolism, for --top-category filter tests)
+C    00030  Test pathway thirty

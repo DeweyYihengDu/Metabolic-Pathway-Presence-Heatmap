@@ -76,6 +76,54 @@ def test_gsea_kegg_pathway_offline(tmp_path, offline_cache):
     assert (out / "gsea_gsea_top.svg").exists()
 
 
+def test_gsea_kegg_pathway_top_category_filters_to_metabolism(tmp_path, offline_cache):
+    # map00030 (the bottom-ranked pathway) is classified under "Genetic
+    # Information Processing" in the br08901 fixture -- restricting to
+    # Metabolism should drop it from the tested universe entirely.
+    ranked = _ranked_list_favoring_map00010(tmp_path)
+    out = tmp_path / "out"
+    rc = cli.main([
+        "gsea", "--ranked-list", str(ranked), "--ontology", "kegg-pathway",
+        "--top-category", "Metabolism", "--min-size", "2", "--max-size", "20",
+        "--permutations", "200", "--seed", "1", "--cache-dir", str(offline_cache),
+        "--outdir", str(out),
+    ])
+    assert rc == 0
+    results = pd.read_csv(out / "gsea_gsea.csv", dtype={"category_id": str})
+    assert set(results["category_id"]) == {"00010", "00020"}
+    assert (results["top_category"] == "Metabolism").all()
+
+
+def test_gsea_kegg_pathway_default_has_top_category_column_without_filtering(
+        tmp_path, offline_cache):
+    ranked = _ranked_list_favoring_map00010(tmp_path)
+    out = tmp_path / "out"
+    rc = cli.main([
+        "gsea", "--ranked-list", str(ranked), "--ontology", "kegg-pathway",
+        "--min-size", "2", "--max-size", "20", "--permutations", "200",
+        "--seed", "1", "--cache-dir", str(offline_cache), "--outdir", str(out),
+    ])
+    assert rc == 0
+    results = pd.read_csv(out / "gsea_gsea.csv", dtype={"category_id": str})
+    assert set(results["category_id"]) == {"00010", "00020", "00030"}
+    by_id = results.set_index("category_id")["top_category"]
+    assert by_id["00010"] == "Metabolism"
+    assert by_id["00030"] == "Genetic Information Processing"
+
+
+def test_gsea_top_category_warns_for_irrelevant_ontology(
+        tmp_path, offline_cache, capsys):
+    ranked = _ranked_list_favoring_map00010(tmp_path)
+    rc = cli.main([
+        "gsea", "--ranked-list", str(ranked), "--ontology", "kegg-module",
+        "--top-category", "Metabolism", "--min-size", "2", "--max-size", "20",
+        "--permutations", "200", "--seed", "1", "--cache-dir", str(offline_cache),
+        "--outdir", str(tmp_path / "out"), "--label", "modtest",
+    ])
+    assert rc == 0
+    assert "has no meaning for --ontology kegg-module" in capsys.readouterr().err
+
+
 def test_gsea_kegg_module_offline(tmp_path, offline_cache):
     ranked = _ranked_list_favoring_map00010(tmp_path)
     out = tmp_path / "out"

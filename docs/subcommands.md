@@ -64,6 +64,11 @@ contain more members of a category than expected from the *background*
 mpph enrich --study unique_genes.txt --background-organism pmt \
             --ontology kegg-pathway
 
+# Restrict to metabolic pathways only (KEGG PATHWAY also covers genetic/
+# environmental information processing, cellular processes, diseases, ...)
+mpph enrich --study unique_genes.txt --background-organism pmt \
+            --ontology kegg-pathway --top-category Metabolism
+
 # KEGG module enrichment: an explicit background file instead
 mpph enrich --study degs.txt --background all_annotated_kos.txt \
             --ontology kegg-module
@@ -91,6 +96,16 @@ mpph enrich --study degs.txt --background all_genes.txt --ontology go \
   eggNOG-mapper `.annotations` file (`--go-map-format eggnog`, reads `GO_terms`).
   `--go-names` is an optional `GO:#######<TAB>name` table for readable labels;
   without it, categories are labelled by their raw GO id.
+- `--top-category NAME` (`--ontology kegg-pathway` only, e.g. `Metabolism`):
+  restricts the tested universe to one BRITE top-level category (the same
+  `br08901` source `run --top-category` uses) — KEGG PATHWAY is not
+  metabolism-only, it also covers Genetic Information Processing,
+  Environmental Information Processing, Cellular Processes, Organismal
+  Systems, Human Diseases and Drug Development, so a plain `--ontology
+  kegg-pathway` run can surface any of these unless restricted. Unset by
+  default (tests every category, unchanged prior behaviour); the output's
+  `top_category` column is always present for `kegg-pathway`, so you can
+  also just filter the CSV yourself after the fact without this flag.
 
 ## `mpph gsea`
 
@@ -111,6 +126,10 @@ mpph gsea --expression counts.tsv --metadata meta.tsv \
 # GO, same bring-your-own-mapping rule as `enrich`
 mpph gsea --ranked-list ranked.tsv --ontology go \
           --gene-go-map sample.emapper.annotations --go-map-format eggnog
+
+# Metabolic pathways only, same --top-category as `enrich`
+mpph gsea --ranked-list deseq2_stat.tsv --ontology kegg-pathway \
+          --top-category Metabolism
 ```
 
 - `--ranked-list`: a `gene<TAB>score` file (any statistic, higher = more
@@ -138,6 +157,8 @@ mpph gsea --ranked-list ranked.tsv --ontology go \
 - Output includes **leading-edge genes** per category — the genes actually
   driving the enrichment, up to (positive ES) or from (negative ES) the
   running-sum peak.
+- `--top-category NAME`: same meaning and same `top_category` output column
+  as `enrich` (see above) — `--ontology kegg-pathway` only.
 
 ## `mpph pathmap`
 

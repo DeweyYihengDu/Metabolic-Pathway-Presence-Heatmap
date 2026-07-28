@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.17.0
+
+**`--top-category`** for `mpph enrich`/`mpph gsea` (`--ontology kegg-pathway`
+only): restrict the tested universe to one BRITE top-level category (e.g.
+`Metabolism`). KEGG PATHWAY isn't metabolism-only -- it also covers Genetic
+Information Processing, Environmental Information Processing, Cellular
+Processes, Organismal Systems, Human Diseases and Drug Development, so an
+unrestricted run can surface a significant hit from any of these. `mpph run`
+already had this exact filter (`--top-category`/`--all-categories`) for the
+presence heatmap; `enrich`/`gsea` didn't.
+
+- Reuses the same `mpph.pathways.fetch_pathway_categories()` (`br08901`)
+  source `run --top-category` already uses -- no new KEGG endpoint.
+- Unset by default: **no behaviour change** for existing usage -- every
+  category is still tested unless `--top-category` is explicitly given
+  (deliberately not mirroring `run`'s own default-to-Metabolism behaviour,
+  since `enrich`/`gsea` are already-shipped subcommands and changing their
+  default would silently change existing results).
+- The output CSV always gains a `top_category` column when `--ontology
+  kegg-pathway`, whether or not the flag is used, so the current, unrestricted
+  default output can still be filtered by category afterward without rerunning.
+- A `--top-category` value with `--ontology kegg-module`/`go` (which have no
+  BRITE top-level category) prints a warning and is otherwise ignored, rather
+  than silently doing nothing.
+
 ## 3.16.3
 
 Lint cleanup + ruff upgrade: fixed the 44 pre-existing style findings that

@@ -700,6 +700,27 @@ def cmd_traits(args) -> int:
     return 0
 
 
+def _restrict_to_top_category(
+    category_to_items: dict, session, cache_dir: Path | None, *,
+    refresh: bool, top_category: str | None,
+) -> tuple[dict, dict[str, str]]:
+    """For ``--ontology kegg-pathway``: fetch each pathway's BRITE top-level
+    category (the same ``br08901`` source ``run --top-category`` already
+    uses), optionally restrict ``category_to_items`` to just
+    ``top_category``, and always return the full ``{category_id:
+    top_category}`` map so the caller can attach it as an output column
+    regardless of whether filtering was requested."""
+    from .pathways import fetch_pathway_categories
+    categories = fetch_pathway_categories(session, cache_dir, refresh=refresh)
+    id_to_top = {cat_id: categories.get(cat_id, ("Other", "Other"))[0]
+                for cat_id in category_to_items}
+    if top_category:
+        category_to_items = {cat_id: items
+                             for cat_id, items in category_to_items.items()
+                             if id_to_top.get(cat_id) == top_category}
+    return category_to_items, id_to_top
+
+
 def cmd_enrich(args) -> int:
     from .enrichment import (
         fetch_ko_module_membership,
@@ -757,9 +778,22 @@ def cmd_enrich(args) -> int:
             return 2
 
     category_to_items = invert_membership(item_to_cats)
+    top_category_map = None
+    if args.ontology == "kegg-pathway":
+        category_to_items, top_category_map = _restrict_to_top_category(
+            category_to_items, session, cache_dir, refresh=args.refresh,
+            top_category=args.top_category)
+    elif args.top_category:
+        print(f"Warning: --top-category has no meaning for --ontology "
+              f"{args.ontology} (only kegg-pathway has BRITE top-level "
+              f"categories); ignoring.", file=sys.stderr)
+
     results, stats = hypergeometric_enrichment(
         study, background, category_to_items, category_names,
         min_category_size=args.min_category_size)
+    if top_category_map is not None:
+        results["top_category"] = (
+            results["category_id"].map(top_category_map).fillna("Other"))
 
     dest_csv = outdir / f"{args.label}_enrichment.csv"
     results.to_csv(dest_csv, index=False)
@@ -836,10 +870,23 @@ def cmd_gsea(args) -> int:
             category_names = list_modules(session, cache_dir, refresh=args.refresh)
 
     category_to_items = invert_membership(item_to_cats)
+    top_category_map = None
+    if args.ontology == "kegg-pathway":
+        category_to_items, top_category_map = _restrict_to_top_category(
+            category_to_items, session, cache_dir, refresh=args.refresh,
+            top_category=args.top_category)
+    elif args.top_category:
+        print(f"Warning: --top-category has no meaning for --ontology "
+              f"{args.ontology} (only kegg-pathway has BRITE top-level "
+              f"categories); ignoring.", file=sys.stderr)
+
     results, running_sums, ranked_genes = gsea_analysis(
         ranked, category_to_items, category_names,
         weight=args.weight, min_size=args.min_size, max_size=args.max_size,
         permutations=args.permutations, seed=args.seed)
+    if top_category_map is not None:
+        results["top_category"] = (
+            results["category_id"].map(top_category_map).fillna("Other"))
 
     dest_csv = outdir / f"{args.label}_gsea.csv"
     results.to_csv(dest_csv, index=False)
@@ -1206,6 +1253,13 @@ def build_parser() -> argparse.ArgumentParser:
     enr.add_argument("--ontology", required=True,
                      choices=["kegg-pathway", "kegg-module", "go"],
                      help="Category source to test the study set against.")
+    enr.add_argument("--top-category", metavar="NAME",
+                     help="--ontology kegg-pathway only: restrict the tested "
+                          "universe to this BRITE top-level category (e.g. "
+                          "\"Metabolism\") -- unset by default (tests every "
+                          "KEGG pathway, all categories, matching prior "
+                          "behaviour). The result table always includes a "
+                          "top_category column regardless of this flag.")
     enr.add_argument("--gene-go-map", metavar="FILE",
                      help="Required for --ontology go: a gene-to-GO mapping "
                           "(long table, or an eggNOG-mapper .annotations file "
@@ -1252,6 +1306,13 @@ def build_parser() -> argparse.ArgumentParser:
     gse.add_argument("--ontology", required=True,
                      choices=["kegg-pathway", "kegg-module", "go"],
                      help="Category source to test the ranking against.")
+    gse.add_argument("--top-category", metavar="NAME",
+                     help="--ontology kegg-pathway only: restrict the tested "
+                          "universe to this BRITE top-level category (e.g. "
+                          "\"Metabolism\") -- unset by default (tests every "
+                          "KEGG pathway, all categories, matching prior "
+                          "behaviour). The result table always includes a "
+                          "top_category column regardless of this flag.")
     gse.add_argument("--gene-go-map", metavar="FILE",
                      help="Required for --ontology go (see `enrich --help`).")
     gse.add_argument("--go-map-format", default="auto",
