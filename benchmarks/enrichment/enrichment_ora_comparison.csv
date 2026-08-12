@@ -1,0 +1,2 @@
+n_tested_mpph,n_tested_clusterprofiler,n_tested_both,n_only_mpph,n_only_clusterprofiler,n_significant_mpph,n_significant_clusterprofiler,n_significant_both,significant_set_jaccard,spearman_p_value,spearman_p_value_pvalue
+113,23,23,90,0,13,15,13,0.8666666666666667,1.0,0.0

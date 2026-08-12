@@ -1,5 +1,39 @@
 # Changelog
 
+## 3.17.1
+
+New `benchmarks/` directory: head-to-head validation against the established
+tools this package overlaps with, on real data. **No package code changed in
+this release** -- the benchmarks were run against 3.17.0 and apply unchanged
+to 3.17.1; only `benchmarks/` and a `.gitignore` rule are new.
+
+- **Annotation** (`benchmarks/annotation/`) -- `mpph annotate` vs KofamScan
+  1.3.0 vs eggNOG-mapper 2.1.15, over three difficulty tiers: three model
+  organisms (*E. coli*, *B. subtilis*, *M. jannaschii*), two non-model
+  environmental genomes KEGG never hand-curated (*Verrucomicrobia* sp. S94,
+  *Lentisphaerae* sp. WC36), and three real marine MAGs with no reference
+  annotation at all. `mpph annotate` reproduces KofamScan at Jaccard 1.000
+  on six of the eight genomes (0.9997 and 0.9994 on the other two) while
+  running against the same KOfam database; F1 against KEGG's own KO
+  assignments is 0.842-0.934. The profile-HMM tools' margin over
+  eggNOG-mapper is *larger* on the non-model genomes than on the model
+  organisms.
+- **Enrichment** (`benchmarks/enrichment/`) -- `mpph gsea`/`mpph enrich` vs
+  clusterProfiler 4.18.4 on identical `TERM2GENE` category definitions and
+  identical size filters: GSEA enrichment-score Spearman rho = 1.000
+  (NES 0.999, p-value 0.994), ORA p-value rho = 1.000.
+- **Reported against this package, not omitted**: `mpph annotate`'s peak
+  memory is 10-17x KofamScan's (2.3-12.3 GB vs 0.13-0.72 GB) and scales
+  erratically with input size. See `benchmarks/annotation/README.md`.
+- Both comparison harnesses ship with tests that check their metrics against
+  hand-constructed inputs with known expected values (`pytest benchmarks/`,
+  deliberately outside the package's own `testpaths`). Figures regenerate
+  from the committed summary tables via `python benchmarks/make_figures.py`,
+  with no reference database needed.
+- `.gitignore`: the repo-wide `*.csv` rule was hiding the benchmark summary
+  tables, which are the evidence behind the README claims and the input to
+  the figure script -- exempted.
+
 ## 3.17.0
 
 **`--top-category`** for `mpph enrich`/`mpph gsea` (`--ontology kegg-pathway`

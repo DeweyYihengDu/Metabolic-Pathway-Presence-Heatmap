@@ -17,6 +17,10 @@ env/
 output/
 *.csv
 !examples/*.csv
+# Benchmark summary tables are the evidence behind benchmarks/README.md and
+# the input to make_figures.py -- they must be committed, unlike the
+# multi-GB per-gene raw outputs (which stay out via benchmarks/*/results/raw).
+!benchmarks/**/*.csv
 
 # OS / editor
 .DS_Store
