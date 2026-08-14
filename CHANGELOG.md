@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.18.1
+
+Documentation and validation-figure release; no package code changed.
+
+- New `paper/manuscript.md`: an Applications Note draft describing what this
+  tool is now. The 2023 preprint's framing ("constructing phylogenetic trees
+  based on metabolic pathways") no longer matches a 13-subcommand toolkit
+  that annotates, profiles, tests and draws. Every figure in it is
+  reproducible from `benchmarks/`; the outstanding decisions (authorship,
+  target venue, whether to add a PVC application section) are listed
+  explicitly in the draft rather than silently assumed.
+- New `benchmarks/figures/fig3_phylo_calibration`: Type I error uncorrected
+  vs corrected, one point per simulated no-effect scenario.
+- **Correction to 3.18.0's reported numbers**: `benchmarks/phylo/README.md`
+  said 41 of 50 cells exceeded the nominal 0.05 under the uncorrected test.
+  The real count is **31 of 50** (verified against `calibration.csv`). Every
+  other figure in that table -- worst 0.948 vs 0.072, median 0.086 vs 0.000,
+  1 corrected cell above nominal -- was correct as published.
+
 ## 3.18.0
 
 **`mpph compare --tree`: phylogeny-aware testing.** `compare`'s Fisher and

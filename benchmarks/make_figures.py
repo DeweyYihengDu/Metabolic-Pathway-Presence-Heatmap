@@ -212,8 +212,60 @@ def main() -> int:
                      dtype={"ID": str})[["ID", "NES"]].rename(
         columns={"ID": "category_id", "NES": "NES_cp"})
     figure_enrichment(mpph, cp, out_dir / "fig2_enrichment_benchmark.png")
+
+    calib_path = here / "phylo" / "calibration.csv"
+    if calib_path.exists():
+        figure_phylo_calibration(pd.read_csv(calib_path),
+                                 out_dir / "fig3_phylo_calibration.png")
     return 0
 
+
+
+def figure_phylo_calibration(calib: pd.DataFrame, out_path: Path) -> None:
+    """Type I error, uncorrected vs corrected, one point per simulated cell.
+
+    Every point is a scenario with no group effect present, so every
+    rejection is a false positive: a calibrated test sits at or below the
+    nominal 0.05 line.
+    """
+    df = calib.dropna(subset=["phylo_type1"]).copy()
+    fig, ax = plt.subplots(figsize=(5.4, 5.0), facecolor=SURFACE)
+    ax.set_facecolor(SURFACE)
+    ax.grid(True, color=GRID, linewidth=0.7, zorder=0)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+    ax.tick_params(colors=INK_MUTED, length=0)
+
+    ax.axhline(0.05, color=INK_MUTED, linewidth=1.0, linestyle=(0, (4, 3)),
+               zorder=2, label="nominal 0.05")
+    ax.axvline(0.05, color=INK_MUTED, linewidth=1.0, linestyle=(0, (4, 3)),
+               zorder=2)
+    markers = {"balanced": "o", "unbalanced": "^"}
+    for shape, marker in markers.items():
+        sub = df[df["shape"] == shape]
+        ax.scatter(sub["fisher_type1"], sub["phylo_type1"], s=42, marker=marker,
+                   color=BLUE, edgecolor=SURFACE, linewidth=1.2, alpha=0.85,
+                   zorder=3, label=f"{shape} tree")
+
+    ax.set_xlim(-0.04, 1.02)
+    # Tight to the data: nothing exceeds 0.072, and a 0.35 ceiling
+    # would spend most of the panel on empty space above the story.
+    ax.set_ylim(-0.005, 0.09)
+    ax.set_xlabel("Type I error, uncorrected (Fisher)", fontsize=9, color=INK_MUTED)
+    ax.set_ylabel("Type I error, corrected (--tree)", fontsize=9, color=INK_MUTED)
+    ax.set_title(f"No group effect present: every rejection is a false positive\n"
+                 f"{len(df)} simulated scenarios   ·   worst "
+                 f"{df['fisher_type1'].max():.2f} → {df['phylo_type1'].max():.2f}",
+                 loc="left", fontsize=10, color=INK, pad=10)
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
+
+    fig.savefig(out_path, dpi=200, bbox_inches="tight", facecolor=SURFACE)
+    fig.savefig(out_path.with_suffix(".pdf"), bbox_inches="tight", facecolor=SURFACE)
+    plt.close(fig)
+    print(f"Wrote {out_path} and {out_path.with_suffix('.pdf')}")
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -48,7 +48,7 @@ Gate: **passed.**
 |---|---|---|
 | worst Type I across cells | **0.948** | **0.072** |
 | median Type I across cells | 0.086 | **0.000** |
-| cells above nominal 0.05 | 41 of 50 | **1 of 50** |
+| cells above nominal 0.05 | 31 of 50 | **1 of 50** |
 
 50 of the 54 cells were evaluable; 4 requested prevalence strata are
 unreachable at their rate (see above).
