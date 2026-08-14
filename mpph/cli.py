@@ -557,10 +557,14 @@ def cmd_compare(args) -> int:
     manifest_path = results / f"{slug}_manifest.json"
     continuous = (json.loads(manifest_path.read_text("utf-8")).get("mode")
                   == "completeness") if manifest_path.exists() else False
+    tree = _load_reference_tree(args, results, slug, matrix) if args.tree else None
     out = differential_features(matrix, groups, args.group_a, args.group_b,
                                 continuous=continuous,
                                 unknown_policy=args.unknown_policy,
-                                min_known_per_group=args.min_known_samples)
+                                min_known_per_group=args.min_known_samples,
+                                tree=tree,
+                                phylo_permutations=args.phylo_permutations,
+                                seed=args.seed)
     stem = f"{slug}_differential_{args.group_a}_vs_{args.group_b}"
     out.to_csv(results / f"{stem}.csv", index=False)
     plot_volcano(out, results / f"{stem}.{args.format}",
@@ -569,7 +573,72 @@ def cmd_compare(args) -> int:
     print(f"{len(out)} features tested, {n_sig} with q<0.05 "
           f"(unknown_policy={args.unknown_policy}). "
           f"Wrote {stem}.csv and {stem}.{args.format}")
+    if tree is not None:
+        n_sig_phylo = int((out["q_value_phylo"] < 0.05).sum())
+        accepted = out["n_phylo_replicates_accepted"].replace(0, np.nan).min()
+        floor = len(out) / (accepted + 1) if accepted and accepted > 0 else np.nan
+        print(f"Phylogenetically corrected: {n_sig_phylo} with q<0.05 "
+              f"({int((out['phylo_confounded'] == True).sum())} feature(s) "
+              f"arose once on the tree, where association and shared ancestry "
+              f"cannot be told apart).")
+        if np.isfinite(floor) and floor > 0.05:
+            print(f"Warning: with {len(out)} features and as few as "
+                  f"{int(accepted)} accepted replicates, the smallest "
+                  f"attainable q_value_phylo is {floor:.2f} -- raise "
+                  f"--phylo-permutations before reading a null result as "
+                  f"'nothing survives correction'.", file=sys.stderr)
     return 0
+
+
+def _load_reference_tree(args, results: Path, slug: str, matrix):
+    """Parse the reference phylogeny, refuse mpph's own dendrogram, and check
+    the labels actually line up with the matrix."""
+    from .phylo import parse_newick
+    from .treecompare import robinson_foulds
+
+    text = Path(args.tree).read_text(encoding="utf-8")
+    tree = parse_newick(text)
+
+    # Circularity guard. mpph's dendrogram is built FROM the features being
+    # tested, so correcting those tests with it would be circular. Compare by
+    # content, not filename -- a copy or a rename has to be caught too.
+    own = results / f"{slug}_organism_tree.nwk"
+    reference = own.read_text(encoding="utf-8") if own.exists() else None
+    if reference is None:
+        from scipy.cluster.hierarchy import linkage
+
+        from .tree import linkage_to_newick
+        if matrix.shape[0] >= 3:
+            link = linkage(matrix.to_numpy(dtype=float), method="average")
+            reference = linkage_to_newick(link, list(matrix.index))
+    if reference:
+        try:
+            rf = robinson_foulds(text, reference)
+        except (ValueError, KeyError, IndexError):
+            rf = None
+        if rf and rf.get("n_shared_leaves", 0) >= 3 and rf.get("rf_distance") == 0:
+            raise ValueError(
+                "--tree is mpph's own functional dendrogram (identical "
+                "topology). That tree is built from the very features being "
+                "tested, so correcting the test with it is circular and the "
+                "corrected p-values would be meaningless. Supply an "
+                "independent phylogeny instead -- a GTDB-Tk tree, a 16S "
+                "tree, or a concatenated marker-gene tree.")
+
+    tip_labels = set(tree.tip_labels)
+    organisms = set(map(str, matrix.index))
+    matched = tip_labels & organisms
+    print(f"Reference tree: {len(tip_labels)} tips, {len(organisms)} organisms "
+          f"in the matrix, {len(matched)} matched.")
+    if len(matched) < 0.8 * len(organisms):
+        only_tree = sorted(tip_labels - organisms)[:5]
+        only_matrix = sorted(organisms - tip_labels)[:5]
+        raise ValueError(
+            f"only {len(matched)}/{len(organisms)} organisms match a tree tip "
+            f"(<80%). Running on the survivors would silently report a "
+            f"much smaller analysis than it looks like. Unmatched tree tips "
+            f"e.g. {only_tree}; unmatched organisms e.g. {only_matrix}.")
+    return tree
 
 
 def cmd_ordination(args) -> int:
@@ -1184,6 +1253,18 @@ def build_parser() -> argparse.ArgumentParser:
     cmp.add_argument("--min-known-samples", type=int, default=1,
                      help="Skip testing a feature with fewer than this many "
                           "true known values in either group (p/q stay NaN).")
+    cmp.add_argument("--tree", metavar="FILE",
+                     help="Newick reference phylogeny (with branch lengths) "
+                          "to correct for phylogenetic non-independence. Must "
+                          "be INDEPENDENT of the features being tested -- a "
+                          "GTDB-Tk / 16S / marker-gene tree, never mpph's own "
+                          "functional dendrogram (rejected if supplied).")
+    cmp.add_argument("--phylo-permutations", type=int, default=9999,
+                     help="Simulated replicates per feature for --tree. A "
+                          "permutation q-value cannot fall below "
+                          "n_features/(replicates+1), so 999 is too few for a "
+                          "few-hundred-feature matrix.")
+    cmp.add_argument("--seed", type=int, default=0)
     cmp.add_argument("--format", default="png", choices=["pdf", "png", "svg"])
 
     pan = sub.add_parser("pan", help="Core/soft-core/shell/cloud classification.")

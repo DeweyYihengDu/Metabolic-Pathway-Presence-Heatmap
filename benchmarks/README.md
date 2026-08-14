@@ -8,6 +8,7 @@ numbers measure the implementations rather than their inputs.
 |---|---|---|
 | [`annotation/`](annotation/) | `mpph annotate` vs **KofamScan** vs **eggNOG-mapper**, 8 genomes across 3 difficulty tiers | `mpph` reproduces KofamScan at Jaccard **1.000** on 6 of 8 genomes (0.9997, 0.9994 on the other two); F1 vs KEGG's own KO assignments 0.842–0.934 |
 | [`enrichment/`](enrichment/) | `mpph gsea`/`mpph enrich` vs **clusterProfiler** | GSEA ES Spearman ρ = **1.000**, NES ρ = 0.999; ORA p-value ρ = **1.000** |
+| [`phylo/`](phylo/) | `mpph compare --tree`'s Type I error against the uncorrected test, 54 simulated cells with no group effect present | uncorrected reaches **94.8%** false positives at a nominal 5%; corrected worst **7.2%**, median **0.0%** |
 
 Figures: [`figures/`](figures/) — regenerate with `python make_figures.py`
 (reads only the committed result tables; no reference databases needed).

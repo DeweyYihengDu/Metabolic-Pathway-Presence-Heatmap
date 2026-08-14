@@ -73,6 +73,9 @@ def differential_features(
     present_threshold: float = 1e-9,
     min_known_per_group: int = 1,
     unknown_policy: str = "exclude",
+    tree=None,
+    phylo_permutations: int = 9999,
+    seed: int = 0,
 ) -> pd.DataFrame:
     """Per-feature difference between two groups of organisms.
 
@@ -100,7 +103,28 @@ def differential_features(
     regardless of policy -- a threshold on how much real evidence exists,
     not on how the policy chooses to fill in what's missing.
 
-    Not corrected for phylogenetic non-independence -- treat as exploratory.
+    Pass ``tree`` (a :class:`mpph.phylo.PhyloTree` from an **independent**
+    reference phylogeny) to also get phylogenetically-corrected p-values.
+    Without it the tests above treat every genome as an independent
+    observation, which they are not: close relatives share features by
+    descent. Measured on a 32-tip balanced tree with the two groups being the
+    two root-split clades and traits simulated with *no* group effect,
+    Fisher's exact test rejects at 27.7% for a nominal 5% test.
+
+    With a tree, each feature also gets ``p_value_phylo`` -- the same
+    statistic scored against a null simulated on the tree (symmetric Mk for
+    presence, Brownian motion for completeness) rather than against an
+    exchangeable-samples null -- plus ``n_state_changes``, the minimum number
+    of state changes the tree implies. ``n_state_changes == 1`` sets
+    ``phylo_confounded``: the feature arose once, and if that single origin
+    sits on the branch separating the groups then no method can tell
+    association from coincidence (Maddison & FitzJohn 2015). A large
+    ``p_value_phylo`` there is the correct answer, not a failed test.
+
+    How much the correction moves a p-value depends on tree shape -- on how
+    much of the tree's total path length separates the two groups rather than
+    varying within them. Two deeply divergent clades are strongly corrected;
+    two interleaved sets of tips barely at all.
     """
     if unknown_policy not in ("exclude", "absent", "error"):
         raise ValueError("unknown_policy must be one of exclude/absent/error, "
@@ -172,7 +196,91 @@ def differential_features(
 
     out = pd.DataFrame(rows)
     out["q_value"] = benjamini_hochberg(out["p_value"].to_numpy())
+    if tree is not None:
+        out = _add_phylo_columns(
+            out, matrix, a_ids, b_ids, tree, continuous=continuous,
+            present_threshold=present_threshold, unknown_policy=unknown_policy,
+            n_sims=phylo_permutations, seed=seed)
     return out.sort_values("p_value", na_position="last").reset_index(drop=True)
+
+
+def _add_phylo_columns(out, matrix, a_ids, b_ids, tree, *, continuous,
+                       present_threshold, unknown_policy, n_sims, seed):
+    """Append the phylogenetically-corrected columns to `differential_features`
+    output. Split out so the un-treed path stays byte-identical to before."""
+    from .phylo import (
+        _cliffs_delta_columns,
+        binary_phylo_test,
+        continuous_null,
+        fitch_changes,
+        phylo_p_from_null,
+        prune_to,
+    )
+
+    tree = prune_to(tree, set(a_ids) | set(b_ids))
+    pos = {lab: i for i, lab in enumerate(tree.tip_labels)}
+    missing = [o for o in list(a_ids) + list(b_ids) if o not in pos]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} compared organism(s) are not tips of the tree, "
+            f"e.g. {missing[:5]}. Prune or rename before calling.")
+    rng = np.random.default_rng(seed)
+    null_cache: dict = {}
+    records = []
+
+    for feat in out["feature_id"]:
+        col = matrix[feat]
+        # Per-tip values in TREE order -- the simulated statistic has to be
+        # computed over exactly the tips the observed one used, or the two
+        # are not comparable.
+        states = np.full(len(tree.tip_labels), np.nan)
+        for org in list(a_ids) + list(b_ids):
+            states[pos[org]] = col.get(org, np.nan)
+        if unknown_policy == "absent":
+            states = np.nan_to_num(states, nan=0.0)
+
+        idx_a = np.array([pos[o] for o in a_ids if np.isfinite(states[pos[o]])])
+        idx_b = np.array([pos[o] for o in b_ids if np.isfinite(states[pos[o]])])
+        rec = {"feature_id": feat, "n_state_changes": np.nan,
+               "phylo_confounded": False, "p_value_phylo": np.nan,
+               "n_phylo_replicates_accepted": 0, "phylo_k_tolerance": np.nan,
+               "phylo_warning": ""}
+        if len(idx_a) < 1 or len(idx_b) < 1:
+            rec["phylo_warning"] = "insufficient_known_values"
+            records.append(rec)
+            continue
+
+        binary_states = (states > present_threshold).astype(float)
+        binary_states[~np.isfinite(states)] = np.nan
+        rec["n_state_changes"] = fitch_changes(tree, binary_states)
+        rec["phylo_confounded"] = bool(rec["n_state_changes"] == 1)
+
+        used = np.concatenate([idx_a, idx_b])
+        if continuous:
+            key = (frozenset(idx_a.tolist()), frozenset(idx_b.tolist()))
+            if key not in null_cache:
+                null_cache[key] = continuous_null(tree, idx_a, idx_b, n_sims, rng)
+            observed = float(
+                _cliffs_delta_columns(states.reshape(-1, 1), idx_a, idx_b)[0])
+            rec["p_value_phylo"] = phylo_p_from_null(observed, null_cache[key])
+            rec["n_phylo_replicates_accepted"] = int(null_cache[key].size)
+            rec["phylo_k_tolerance"] = 0
+        else:
+            present = int(np.nansum(binary_states[used] > 0.5))
+            if present in (0, len(used)):
+                # Invariant among the compared tips: no difference to test,
+                # and Fisher would give p = 1 too. Skip the optimizer.
+                rec.update({"p_value_phylo": 1.0, "phylo_k_tolerance": 0,
+                            "phylo_warning": "invariant_feature"})
+            else:
+                rec.update(binary_phylo_test(
+                    tree, binary_states, idx_a, idx_b, n_sims=n_sims, rng=rng))
+        records.append(rec)
+
+    phylo = pd.DataFrame(records)
+    phylo["q_value_phylo"] = benjamini_hochberg(
+        phylo["p_value_phylo"].to_numpy(dtype=float))
+    return out.merge(phylo, on="feature_id", how="left")
 
 
 # --------------------------------------------------------------------------- #

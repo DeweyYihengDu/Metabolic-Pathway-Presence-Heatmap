@@ -330,3 +330,69 @@ readable by `--user` with zero adapter code (see
 is why `mpph`'s base install stays small — `pip install mpph[annotate]`
 opts in to the extra `pyhmmer` dependency, and the database download is a
 separate, explicit step. See `DATA_SOURCES.md` for KOfam's own terms.
+
+## Phylogenetic non-independence (`compare --tree`)
+
+`mpph compare`'s Fisher and Mann-Whitney tests assume every genome is an
+independent observation. Genomes are not: close relatives share features by
+common descent, so the same feature is counted many times over and p-values
+are anti-conservative. Measured on a 32-tip balanced tree with the two groups
+being the two clades descending from the root, and traits simulated with **no
+group effect at all**, Fisher's exact test rejects at **27.7%** for a nominal
+5% test. Across a wider grid of tree shapes, prevalences and rates it reaches
+above 70%.
+
+`--tree reference.nwk` replaces the exchangeable-samples null with one
+simulated on the tree:
+
+- **presence mode** — the feature is simulated under a symmetric 2-state Mk
+  model whose rate is fitted by maximum likelihood (Felsenstein's pruning
+  algorithm) on the observed data. Fitting a single rate with no group term
+  *is* fitting the null, which makes this a parametric bootstrap.
+- **completeness mode** — the feature is simulated under Brownian motion and
+  scored with Cliff's delta. Because a rank statistic is invariant to
+  positive scaling and to translation, the null distribution depends on
+  neither the Brownian rate nor the ancestral state: **nothing is fitted**.
+  The same null therefore serves every feature, which is why a large
+  replicate count is cheap here.
+
+**The presence null is conditioned on the observed number of present
+genomes.** Without that condition roughly a third of simulated replicates
+come out invariant, contribute a zero statistic, dilute the tail, and the
+test then calls a purely clade-confounded feature significant (measured
+p = 0.013 on a 16-tip tree, getting *worse* as the tree grows). Conditioning
+gives p ≈ 0.8 on the same input. Fisher's exact test conditions on its
+margins; this null has to as well. The accepted-replicate count and the
+prevalence band actually used are reported per feature.
+
+**The tree must be independent of the features being tested.** `mpph`'s own
+dendrogram is built *from* those features, so using it here is circular; it
+is rejected by comparing topologies (Robinson-Foulds distance 0), which
+catches a renamed copy too. Supply a GTDB-Tk, 16S or concatenated
+marker-gene tree. Branch lengths are required — a cladogram is rejected
+rather than defaulted to 1, which would fabricate the distances the whole
+correction is computed from.
+
+**`n_state_changes` is the number that explains the result.** It is the
+minimum number of state changes the tree implies (Fitch parsimony) — exact,
+deterministic, no simulation. When it is 1 the feature arose once, and if
+that single origin sits on the branch separating the groups then no method
+can distinguish association from coincidence: the effective sample size is 1
+(Maddison & FitzJohn 2015, *Syst. Biol.*). A large `p_value_phylo` there is
+the correct answer, not a broken test, and `phylo_confounded` flags it.
+
+**How much the correction moves a p-value depends on tree shape** — on how
+much of the tree's total path length separates the two groups rather than
+varying within them. Two deeply divergent clades are corrected strongly; two
+interleaved sets of tips barely at all. This is a property of the question,
+not a tuning knob.
+
+**Resolution limit.** A permutation p-value cannot fall below
+`1/(replicates+1)`, so after BH correction over `m` features the smallest
+attainable q is `m/(replicates+1)`. With 999 replicates and 400 features that
+floor is 0.40 — every q would look non-significant for purely arithmetic
+reasons. `--phylo-permutations` therefore defaults to 9999, and `compare`
+warns when the floor still exceeds 0.05.
+
+Calibration and the uncorrected error rates above are reproducible with
+`benchmarks/phylo/calibrate_type1.py`.

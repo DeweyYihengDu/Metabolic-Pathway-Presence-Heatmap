@@ -157,14 +157,25 @@ def plot_ordination(
 
 def plot_volcano(diff: pd.DataFrame, outfile: Path, title: str,
                  alpha: float = 0.05) -> None:
-    """Volcano plot for `compare` output: effect size vs -log10(q-value)."""
+    """Volcano plot for `compare` output: effect size vs -log10(q-value).
+
+    When `compare --tree` produced phylogenetically-corrected q-values, those
+    are plotted instead of the uncorrected ones (and the axis says so): a
+    reader who went to the trouble of supplying a reference phylogeny should
+    not be shown the figure that ignores it. Both columns are still written
+    to the CSV.
+    """
     if "prevalence_diff" in diff.columns:
         xcol, xlabel = "prevalence_diff", "prevalence difference (A − B)"
     elif "cliffs_delta" in diff.columns:
         xcol, xlabel = "cliffs_delta", "Cliff's delta (A − B)"
     else:
         xcol, xlabel = diff.columns[0], diff.columns[0]
-    q = diff["q_value"].to_numpy(dtype=float)
+    qcol, qlabel = "q_value", "−log10(q-value)"
+    if ("q_value_phylo" in diff.columns
+            and np.isfinite(diff["q_value_phylo"].to_numpy(dtype=float)).any()):
+        qcol, qlabel = "q_value_phylo", "−log10(q-value, phylogeny-corrected)"
+    q = diff[qcol].to_numpy(dtype=float)
     qmin = q[q > 0].min() if (q > 0).any() else 1e-300
     y = -np.log10(np.clip(q, qmin, 1.0))
     sig = q < alpha
@@ -175,7 +186,7 @@ def plot_volcano(diff: pd.DataFrame, outfile: Path, title: str,
                edgecolor="white", linewidth=0.4, label=f"q < {alpha}")
     ax.axhline(-np.log10(alpha), color=MUTED, linewidth=0.8, linestyle="--")
     ax.set_xlabel(xlabel, color=SECONDARY)
-    ax.set_ylabel("−log10(q-value)", color=SECONDARY)
+    ax.set_ylabel(qlabel, color=SECONDARY)
     ax.set_title(title, fontsize=15, color=INK)
     ax.legend(frameon=False, fontsize=9)
     for s in ("top", "right"):

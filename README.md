@@ -65,8 +65,9 @@ The analysis subcommands turn a run into comparative figures. Below, the
        alt="Differential module volcano plot, marine vs freshwater"><br>
   <em><code>mpph compare</code> — differential module completeness between marine
   Synechococcus and six non-marine strains (<em>S. elongatus</em> + thermophilic
-  JA isolates); 21 modules at q&lt;0.05 (red). Exploratory — not corrected for
-  phylogenetic non-independence.</em>
+  JA isolates); 21 modules at q&lt;0.05 (red). Shown uncorrected; pass
+  <code>--tree</code> with a reference phylogeny for phylogenetically
+  corrected q-values.</em>
 </p>
 <p align="center">
   <img src="examples/Prochlorococcus_MIT9313_unique_enrichment.png" width="75%"
@@ -344,6 +345,13 @@ code is MIT-licensed.)
   profiles; horizontal transfer, niche convergence, gene loss, annotation
   coverage and genome completeness all affect it. Validate against a reference
   tree before making evolutionary claims.
+- **Genomes are not independent samples.** Close relatives share features by
+  descent, so an uncorrected `compare` is anti-conservative — measured Type I
+  error reaches 27.7% at a nominal 5% when the two groups are two clades.
+  `mpph compare --tree reference.nwk` corrects this against an independent
+  reference phylogeny (see [methods](docs/methods.md)); mpph's own dendrogram
+  is rejected for this purpose because it is built from the features being
+  tested.
 - **Annotation depth varies** between genomes, and a MAG's missing features may
   reflect incomplete assembly rather than true absence.
 - **Taxon matching is by organism name**, so it is reliable for genus/species

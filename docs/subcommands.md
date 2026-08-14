@@ -53,6 +53,37 @@ a browser table that large (each cell its own styled DOM node) can hang the
 page. The QC/manifest tabs and the underlying CSV/figure outputs are
 unaffected either way.
 
+## `mpph compare --tree`
+
+Corrects the differential test for phylogenetic non-independence. Without it,
+`compare` treats every genome as an independent sample; genomes that share a
+recent ancestor share features because of that ancestry, which inflates
+significance (measured Type I error 27.7% at a nominal 5% when the two groups
+are two clades — see [methods](methods.md#phylogenetic-non-independence-compare---tree)).
+
+```bash
+mpph compare --results results/ --metadata meta.tsv \
+             --group-column habitat --group-a surface --group-b deep \
+             --tree gtdbtk_reference.nwk
+```
+
+- `--tree FILE` — a Newick reference phylogeny **with branch lengths**, whose
+  tip labels match the matrix's organism names. It must be independent of the
+  features being tested: a GTDB-Tk / 16S / marker-gene tree. mpph's own
+  `*_organism_tree.nwk` is rejected (by topology, so a renamed copy is caught
+  too) because it is derived from those very features.
+- `--phylo-permutations N` (default 9999) — simulated replicates. A
+  permutation q cannot fall below `n_features/(N+1)`, so 999 is too few for a
+  few-hundred-feature matrix; `compare` warns if the floor still exceeds 0.05.
+- `--seed N` (default 0) — same seed, same p-values.
+
+Adds to the output CSV: `p_value_phylo` / `q_value_phylo`, `n_state_changes`
+(minimum state changes on the tree — `1` means the feature arose once, so
+association and shared ancestry cannot be separated), `phylo_confounded`,
+`n_phylo_replicates_accepted`, `phylo_k_tolerance` and `phylo_warning`. The
+uncorrected `p_value`/`q_value` stay in the CSV; the volcano plot switches to
+the corrected q, with the axis labelled accordingly.
+
 ## `mpph enrich`
 
 Hypergeometric over-representation (ORA): does a *study set* of genes/KOs

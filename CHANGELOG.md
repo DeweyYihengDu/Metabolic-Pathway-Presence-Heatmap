@@ -1,5 +1,60 @@
 # Changelog
 
+## 3.18.0
+
+**`mpph compare --tree`: phylogeny-aware testing.** `compare`'s Fisher and
+Mann-Whitney tests assumed every genome is an independent observation. They
+are not -- close relatives share features by common descent -- so the tests
+were anti-conservative, which this package had documented as a caveat
+("treat as exploratory") in four places rather than fixed. Measured across a
+54-cell grid of tree shapes, prevalences and evolutionary rates with **no
+group effect present at all**, the uncorrected test's Type I error reaches
+**94.8%** at a nominal 5%.
+
+- New `mpph.phylo`: a Newick parser that keeps branch lengths (the existing
+  `treecompare` one is topology-only by design), tip pruning that folds a
+  collapsed degree-2 node's length into its surviving child, Brownian and
+  symmetric-Mk simulation, Felsenstein pruning with per-node rescaling, ML
+  rate fitting, and Fitch parsimony.
+- `differential_features(..., tree=...)` and `mpph compare --tree FILE
+  --phylo-permutations N --seed N` add `p_value_phylo`/`q_value_phylo`,
+  `n_state_changes`, `phylo_confounded`, `n_phylo_replicates_accepted`,
+  `phylo_k_tolerance` and `phylo_warning`. **Without `--tree` nothing
+  changes**, columns included.
+- **The presence null is conditioned on the observed number of present
+  genomes.** This is what makes the test work rather than a refinement:
+  unconditioned, about a third of simulated replicates come out invariant,
+  contribute a zero statistic, dilute the tail, and the test then calls a
+  purely clade-confounded feature significant (p = 0.013 at 16 tips, getting
+  worse as the tree grows -- i.e. failing on exactly the case it exists to
+  catch). Conditioned, the same input gives p ~ 0.78.
+- **The completeness null fits nothing.** Scored with a rank statistic
+  (Cliff's delta), which is invariant to positive scaling and translation,
+  the Brownian null depends on neither the rate nor the ancestral state --
+  so no optimizer, and one null serves every feature.
+- **mpph's own dendrogram is rejected as `--tree`**, by topology rather than
+  filename so a renamed copy is caught too: it is built from the very
+  features being tested, so correcting those tests with it is circular.
+  A cladogram without branch lengths is also rejected rather than defaulted
+  to 1.0, and a tree matching under 80% of the organisms errors instead of
+  silently analysing the survivors.
+- `--phylo-permutations` defaults to **9999, not 999**: a permutation q
+  cannot fall below `n_features/(replicates+1)`, so at 999 a 400-feature
+  matrix could never produce a q under 0.40 -- a purely arithmetic artifact
+  that reads as "nothing survives correction". `compare` warns when the
+  floor still exceeds 0.05.
+- `n_state_changes` (Fitch, exact and simulation-free) is the number that
+  explains the result: when it is 1 the feature arose once, and if that
+  origin sits on the branch separating the groups, no method can separate
+  association from coincidence (Maddison & FitzJohn 2015). A large
+  `p_value_phylo` there is the correct answer.
+- Calibration gate in `benchmarks/phylo/`: worst corrected Type I 0.072
+  against 0.948 uncorrected, median 0.000 against 0.086, with 1 of 50 cells
+  above nominal where 3.9 are expected by chance. Regression guards live in
+  `tests/test_phylo.py`, including hand-computed pruning likelihoods
+  (0.2161661792 / 0.2838338208), a bit-identical-across-rootings check, an
+  exact VCV, and the clade-confounded acceptance test.
+
 ## 3.17.1
 
 New `benchmarks/` directory: head-to-head validation against the established
