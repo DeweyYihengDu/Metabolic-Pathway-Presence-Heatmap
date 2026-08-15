@@ -17,9 +17,14 @@ category-aware heatmap with UPGMA dendrograms. It works two ways:
   and the recommended mode for metabolic-capability analysis.
 
 It runs on genomes **KEGG already has**, on an explicit **list of organism
-codes**, or on **your own MAGs** via their KO annotations. The clustered
-dendrogram reflects **functional-profile similarity**, and should not be read as
-a sequence-based species phylogeny without external validation.
+codes**, or on **any genomes of your own** via their KO annotations — bacteria,
+archaea and eukaryotes alike, from finished reference genomes to fragmentary
+MAGs. Nothing in the toolkit is prokaryote-specific: KO is a cross-domain
+orthology system, and `mpph annotate` searches the same KOfam profiles for a
+plant proteome as for a bacterial one (benchmarked across all three domains —
+see [benchmarks](benchmarks/annotation/README.md)). The clustered dendrogram
+reflects **functional-profile similarity**, and should not be read as a
+sequence-based species phylogeny without external validation.
 
 <p align="center">
   <img src="examples/Prochlorococcus_presence_heatmap.png" width="90%"
@@ -134,7 +139,10 @@ The analysis subcommands turn a run into comparative figures. Below, the
 - **Local KO annotation** (`mpph annotate`) — no KO annotations yet? Search a
   protein FASTA against KEGG's own KOfam HMM profiles via `pyhmmer`, entirely
   offline after a one-time database download — no external HMMER/KofamScan
-  install, generalizes across any species the way KOfam itself does.
+  install. Because profile HMMs are built from many species rather than
+  transferred from a nearest reference, this is not restricted to model or
+  microbial organisms: measured F1 against KEGG's own assignments is 0.89–0.93
+  for bacteria and archaea, 0.91 for yeast and 0.87 for *Arabidopsis*.
 - **Three input sources** — a taxon name, a file of organism codes, or your own
   KO annotations (KofamScan / eggNOG / `mpph annotate` / any `K#####` list).
 - **Category-aware figures** — a functional-category colour strip + legend,
@@ -170,7 +178,7 @@ mpph Prochlorococcus --completeness --cluster --min-prevalence 0.1 \
 # An explicit set of KEGG organism codes
 mpph --codes my_codes.txt --cluster
 
-# Your own MAGs: a directory with one KO list per genome (implies completeness)
+# Your own genomes: a directory with one KO list per genome (implies completeness)
 mpph --user annotations/ --cluster --format png pdf
 ```
 
@@ -243,17 +251,31 @@ mpph annotate --fasta genome.faa --out genome_annotated.tsv
 
 Run `mpph --help` for the full list.
 
-## Input for your own MAGs
+## Input for your own genomes
 
 `--user` accepts either:
 
-- **a directory** with one file per genome/MAG (the file stem is the sample
-  name); each file is scanned for KO ids, so KofamScan `--format mapper` output
+- **a directory** with one file per genome (the file stem is the sample name);
+  each file is scanned for KO ids, so KofamScan `--format mapper` output
   (`gene<TAB>K#####`) or a bare KO list both work; or
 - **a single `sample<TAB>KO` table** (long form).
 
 For eggNOG-mapper output, extract the `KEGG_ko` column into per-sample lists
 first.
+
+Any organism with a protein FASTA works here — a MAG, an isolate genome, or a
+eukaryotic proteome. Two things are worth knowing before pointing this at a
+eukaryote:
+
+- **Isoforms.** A eukaryotic proteome usually lists every splice variant
+  (*Arabidopsis* 48,265 proteins, human RefSeq 136,807), while KEGG names one
+  representative protein per gene. Per-genome KO *sets* are unaffected, since
+  isoforms of one gene collapse to the same KO — but per-gene counts are not
+  comparable to a prokaryotic genome's.
+- **Coverage is genuinely lower**, and this is biology rather than a defect:
+  KO covers metabolism and core cellular processes well, so ~62% of yeast and
+  ~24% of *Arabidopsis* proteins receive a KO versus ~76% for *E. coli*. Read
+  a NaN as "not assessed", never as "confirmed absent".
 
 ## Output
 

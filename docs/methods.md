@@ -296,13 +296,40 @@ KofamScan's own scoring logic rather than shelling out to compiled HMMER
 binaries + KofamScan's Ruby wrapper. This generalizes across the tree of
 life the way KOfam itself does — unlike tools that transfer annotation from
 a fixed set of reference species (accuracy degrades with evolutionary
-distance from whichever reference is closest), a profile built from many
-species' worth of a KO's sequences has no such "nearest reference" problem.
+distance from whichever reference is closest), or tools of the KOBAS type
+that ship curated backgrounds for human, mouse and a short list of other
+model organisms, a profile built from many species' worth of a KO's
+sequences has no such "nearest reference" problem.
 
 **Scope**: KO assignment only, not GO — GO would need eggNOG's differently
 structured per-clade databases, a separate addition. Input must already be
 gene-called/translated protein sequences; `mpph annotate` does no ORF
 prediction of its own (e.g. run Prodigal first for raw contigs).
+
+**Domain of life is not a constraint.** Measured against KEGG's own KO
+assignments (`benchmarks/annotation/`), F1 is 0.89–0.93 for bacteria and
+archaea, 0.911 for *S. cerevisiae* and 0.867 for *A. thaliana*; the
+48,265-protein *Arabidopsis* proteome runs in ~35 min at 9.7 GB peak RSS on
+28 threads. Two things do differ when the input is a eukaryote, and neither
+is a defect:
+
+- **Coverage falls** — 76% of *E. coli* proteins receive a KO, 62% of yeast,
+  24% of *Arabidopsis*, for every tool tested alike. KO describes metabolism
+  and core cellular processes, not a plant's full protein complement. Recall
+  against what KEGG *does* assign stays high (0.925 for *Arabidopsis*, the
+  best of any genome benchmarked).
+- **Isoforms inflate per-gene counts** — a eukaryotic proteome lists every
+  splice variant. Per-genome KO *sets*, which is what MPPH's matrices are
+  built from, are unaffected: isoforms of one gene collapse to the same KO.
+  Per-gene call counts are not comparable to a prokaryotic genome's.
+
+**Sequence loading.** `--sequence-loading {auto,prefetch,stream}` controls
+whether the target proteome is held in memory or streamed. Both give
+identical results; a prefetched block costs a measured ~1 kB per protein
+(45 MB for all of *Arabidopsis*), so `auto` prefetches up to 1,000,000
+proteins. This matters only for metagenome-scale protein catalogues, not for
+any single organism — peak memory in this tool is dominated by the profile
+search, not by the targets.
 
 **Significance rule**, ported from KofamScan's actual source (not its
 README, which disagrees with its own code on one point):

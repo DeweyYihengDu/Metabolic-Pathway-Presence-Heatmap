@@ -1087,8 +1087,10 @@ def cmd_annotate(args) -> int:
 
     print(f"[2/3] Searching KOfam profiles against {fasta} "
           f"(cpus={args.cpus or 'auto'}) ...", flush=True)
+    prefetch = {"auto": None, "prefetch": True, "stream": False}[args.sequence_loading]
     assignments = annotate_fasta(fasta, args.kofam_db, cpus=args.cpus,
-                                 entries=entries, ko_subset=ko_subset)
+                                 entries=entries, ko_subset=ko_subset,
+                                 prefetch=prefetch)
 
     print(f"[3/3] Writing {out} ...", flush=True)
     write_mapper_tsv(assignments, out)
@@ -1480,6 +1482,16 @@ def build_parser() -> argparse.ArgumentParser:
                           "prokaryote.hal/eukaryote.hal directly). Much "
                           "faster than the full profile database when the "
                           "domain of life is known in advance.")
+    ann.add_argument("--sequence-loading", default="auto",
+                     choices=["auto", "prefetch", "stream"],
+                     help="How the input proteome is held in memory during "
+                          "the search. Both give identical results; the only "
+                          "difference is holding ~1 kB per protein, so a "
+                          "whole plant proteome costs ~45 MB and no single "
+                          "genome makes this matter. 'auto' (default) "
+                          "prefetches up to 1,000,000 proteins and streams "
+                          "above that -- reach for 'stream' on a "
+                          "metagenome-scale protein catalogue, not a genome.")
     ann.add_argument("--overwrite-db", action="store_true",
                      help="With --setup-db: re-download even if DIR already "
                           "looks populated (default: skip).")

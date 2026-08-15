@@ -19,6 +19,7 @@ from compare_annotation import (
     load_protein_id_map,
     pairwise_agreement,
     precision_recall_f1,
+    restrict_to_evaluable,
 )
 
 
@@ -132,6 +133,35 @@ def test_pairwise_agreement_disjoint_is_zero():
     a = {"gene1": {"K00001"}}
     b = {"gene2": {"K00002"}}
     assert pairwise_agreement(a, b)["jaccard"] == 0.0
+
+
+def test_restrict_to_evaluable_drops_unrepresented_isoforms():
+    # A eukaryotic proteome carries every splice isoform; KEGG's reference
+    # names one representative protein per gene. Scoring a call on an isoform
+    # the reference never mentions as a false positive would manufacture
+    # ~117,000 of them for human.
+    calls = {"NP_1": {"K00001"}, "NP_1_iso2": {"K00001"}, "NP_2": {"K00002"}}
+    evaluable = {"NP_1", "NP_2"}
+    assert restrict_to_evaluable(calls, evaluable) == {
+        "NP_1": {"K00001"}, "NP_2": {"K00002"}}
+
+
+def test_restrict_to_evaluable_is_a_no_op_when_everything_is_covered():
+    # The prokaryotic case: one protein per gene, near-complete coverage.
+    calls = {"NP_1": {"K00001"}, "NP_2": {"K00002"}}
+    assert restrict_to_evaluable(calls, {"NP_1", "NP_2", "NP_3"}) == calls
+
+
+def test_isoform_inflation_would_wreck_precision_without_the_restriction():
+    # Quantifies why the restriction exists rather than asserting it exists:
+    # the same perfectly-correct tool scores 0.5 precision unrestricted and
+    # 1.0 restricted, purely from isoforms the reference cannot represent.
+    truth = {"NP_1": {"K00001"}, "NP_2": {"K00002"}}
+    calls = {"NP_1": {"K00001"}, "NP_2": {"K00002"},
+             "NP_1_iso2": {"K00001"}, "NP_2_iso2": {"K00002"}}
+    assert precision_recall_f1(calls, truth)["precision"] == 0.5
+    restricted = restrict_to_evaluable(calls, set(truth))
+    assert precision_recall_f1(restricted, truth)["precision"] == 1.0
 
 
 def test_build_report_with_ground_truth_includes_precision_recall():

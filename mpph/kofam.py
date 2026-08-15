@@ -122,6 +122,20 @@ def read_ko_subset(path: str | Path) -> set[str]:
     return kos
 
 
+def count_sequences(fasta_path: str | Path) -> int:
+    """Number of records in a FASTA, counted without loading the sequences.
+
+    Used to decide between pre-fetching and streaming the target database,
+    so it must not itself materialise a proteome in memory.
+    """
+    n = 0
+    with open(fasta_path, "rb") as fh:
+        for line in fh:
+            if line.startswith(b">"):
+                n += 1
+    return n
+
+
 def is_significant_hit(entry: KOListEntry, full_sequence_score: float,
                        best_domain_score: float | None) -> bool:
     """KofamScan's own significance rule, ported from its actual source
@@ -138,11 +152,31 @@ def is_significant_hit(entry: KOListEntry, full_sequence_score: float,
     return full_sequence_score >= entry.threshold
 
 
+# Above this many input proteins, stream the sequence database instead of
+# pre-fetching it.
+#
+# The number is set from a direct measurement, not from extrapolating this
+# function's total memory use: a prefetched digital sequence block costs
+# **~1.0 kB per protein** (measured 4.5 MB for B. subtilis' 4,237 and 45.5 MB
+# for Arabidopsis' 48,265). So prefetching an entire plant proteome costs
+# ~45 MB, and even the human RefSeq set (137k entries) costs ~135 MB.
+#
+# That is a rounding error next to this function's actual peak RSS, which is
+# 2-12 GB and is dominated by the profile search itself, not by the targets
+# (measured on the same input: prefetch 11.4 GB vs stream 11.6 GB -- streaming
+# is, if anything, marginally worse). Streaming therefore buys nothing for any
+# single organism's proteome and the threshold is placed accordingly: it bites
+# only on metagenome-scale protein catalogues in the millions, where ~1 GB of
+# held targets does start to matter.
+PREFETCH_MAX_SEQUENCES = 1_000_000
+
+
 def annotate_fasta(
     fasta_path: str | Path, kofam_db_dir: str | Path, *,
     cpus: int = 0,
     entries: dict[str, KOListEntry] | None = None,
     ko_subset: set[str] | None = None,
+    prefetch: bool | None = None,
 ) -> list[Assignment]:
     """Search every KOfam profile in ``kofam_db_dir`` against every protein
     in ``fasta_path`` (protein FASTA, already gene-called -- no ORF
@@ -154,6 +188,14 @@ def annotate_fasta(
     it; if ``None``, this loads them itself. Needs the optional ``pyhmmer``
     dependency (``pip install mpph[annotate]``) -- imported locally so
     importing :mod:`mpph.kofam` itself never requires it.
+
+    ``prefetch`` chooses how the target sequences are held. ``True`` loads
+    them all into memory; ``False`` streams them from the file; ``None``
+    (default) prefetches up to :data:`PREFETCH_MAX_SEQUENCES` proteins. Both
+    paths return identical assignments -- the choice is purely about holding
+    ~1 kB per protein, which no single organism's proteome makes significant
+    (see :data:`PREFETCH_MAX_SEQUENCES` for the measurements). Reach for
+    ``False`` on a metagenome protein catalogue, not on a genome.
     """
     import pyhmmer
 
@@ -167,11 +209,11 @@ def annotate_fasta(
                 f"--ko-subset matched none of the profiles under {kofam_db_dir}")
 
     alphabet = pyhmmer.easel.Alphabet.amino()
-    with pyhmmer.easel.SequenceFile(fasta_path, digital=True,
-                                    alphabet=alphabet) as sf:
-        sequences = sf.read_block()
-    if len(sequences) == 0:
+    n_sequences = count_sequences(fasta_path)
+    if n_sequences == 0:
         raise ValueError(f"no protein sequences found in {fasta_path}")
+    use_prefetch = (n_sequences <= PREFETCH_MAX_SEQUENCES
+                    if prefetch is None else prefetch)
 
     def _iter_profile_hmms():
         for p in profile_paths:
@@ -179,19 +221,33 @@ def annotate_fasta(
                 yield from hmm_file
 
     assignments: list[Assignment] = []
-    # T=0: report every hit down to score 0, matching kofam_scan's own
-    # `hmmsearch -T 0` invocation -- ko_list's threshold, not hmmsearch's
-    # own default E-value-based gate, is meant to be the only significance
-    # filter (see is_significant_hit).
-    for hits in pyhmmer.hmmsearch(_iter_profile_hmms(), sequences,
-                                  cpus=cpus, T=0):
-        entry = entries.get(hits.query.name)
-        if entry is None or not entry.assignable:
-            continue
-        for hit in hits:
-            best_dom = hit.best_domain.score if len(hit.domains) else None
-            if is_significant_hit(entry, hit.score, best_dom):
-                assignments.append(Assignment(hit.name, hits.query.name, hit.score))
+
+    def _collect(hits_iter):
+        # T=0: report every hit down to score 0, matching kofam_scan's own
+        # `hmmsearch -T 0` invocation -- ko_list's threshold, not hmmsearch's
+        # own default E-value-based gate, is meant to be the only
+        # significance filter (see is_significant_hit).
+        for hits in hits_iter:
+            entry = entries.get(hits.query.name)
+            if entry is None or not entry.assignable:
+                continue
+            for hit in hits:
+                best_dom = hit.best_domain.score if len(hit.domains) else None
+                if is_significant_hit(entry, hit.score, best_dom):
+                    assignments.append(
+                        Assignment(hit.name, hits.query.name, hit.score))
+
+    if use_prefetch:
+        with pyhmmer.easel.SequenceFile(fasta_path, digital=True,
+                                        alphabet=alphabet) as sf:
+            sequences = sf.read_block()
+        _collect(pyhmmer.hmmsearch(_iter_profile_hmms(), sequences,
+                                   cpus=cpus, T=0))
+    else:
+        with pyhmmer.easel.SequenceFile(fasta_path, digital=True,
+                                        alphabet=alphabet) as sf:
+            _collect(pyhmmer.hmmsearch(_iter_profile_hmms(), sf,
+                                       cpus=cpus, T=0))
 
     assignments.sort(key=lambda a: (a.gene_id, a.ko_id))
     return assignments

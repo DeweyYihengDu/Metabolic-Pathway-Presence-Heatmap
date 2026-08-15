@@ -267,3 +267,16 @@ mpph run --user genome_annotated.tsv --completeness
   default) controls search parallelism; searching the full ~20,000+ profile
   database against a genome's worth of proteins takes real time (minutes,
   not seconds) -- `--ko-subset` is the main lever for cutting that down.
+- **Any organism works, not just microbes.** Measured F1 against KEGG's own
+  assignments: 0.89-0.93 across bacteria and archaea, 0.911 for
+  *S. cerevisiae*, 0.867 for *A. thaliana*. Scale is the only practical
+  difference -- *Arabidopsis*' 48,265 proteins take ~35 min on 28 threads
+  versus ~3 min for a bacterial genome. See
+  [Methods](methods.md#local-ko-annotation-annotate) for what changes with a
+  eukaryotic input (lower KO coverage, splice isoforms) and
+  `benchmarks/annotation/` for the full comparison.
+- `--sequence-loading {auto,prefetch,stream}` chooses whether the proteome is
+  held in memory or streamed. Both give identical output; the difference is
+  ~1 kB per protein, so this only matters for metagenome-scale protein
+  catalogues in the millions. `auto` (default) prefetches up to 1,000,000
+  proteins, which covers every single-organism proteome.

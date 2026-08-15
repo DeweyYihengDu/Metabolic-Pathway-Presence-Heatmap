@@ -17,8 +17,19 @@ import pandas as pd
 
 # Tier assignment -- kept here (not inferred) so the distinction that matters
 # scientifically is explicit rather than guessed from a filename.
-MODEL_ORGANISMS = {"eco", "bsu", "mja"}
+MODEL_ORGANISMS = {"eco", "bsu", "mja", "sce", "ath"}
 NONMODEL_ORGANISMS = {"vbs", "lbac"}
+
+# Domain of life, reported as its own column rather than folded into the tier:
+# the two axes are independent. Curation tier answers "has anyone hand-built a
+# pathway model for this genome"; domain answers "does the method work outside
+# bacteria at all" -- including at eukaryotic proteome scale, where the
+# 48,265-protein Arabidopsis run is ~11x the size of a bacterial one.
+DOMAIN = {
+    "eco": "Bacteria", "bsu": "Bacteria", "vbs": "Bacteria", "lbac": "Bacteria",
+    "mja": "Archaea",
+    "sce": "Eukaryota", "ath": "Eukaryota",
+}
 
 _ELAPSED = re.compile(r"Elapsed \(wall clock\) time.*?:\s*([\d:.]+)")
 _MAXRSS = re.compile(r"Maximum resident set size \(kbytes\):\s*(\d+)")
@@ -30,6 +41,13 @@ def _tier(label: str) -> str:
     if label in NONMODEL_ORGANISMS:
         return "2_nonmodel_genome"
     return "3_mag"
+
+
+def _domain(label: str) -> str:
+    """A MAG's domain is genuinely unknown here -- these bins carry no
+    taxonomic assignment in this benchmark, and guessing one would be
+    inventing a fact the run does not establish."""
+    return DOMAIN.get(label, "unassigned")
 
 
 def parse_time_log(path: Path) -> dict:
@@ -57,6 +75,7 @@ def collect_accuracy(report_dir: Path, results_dir: Path) -> pd.DataFrame:
         df = pd.read_csv(csv)
         label = csv.stem.removeprefix("annotation_")
         df["tier"] = _tier(label)
+        df["domain"] = _domain(label)
         tool_to_prefix = {"mpph_annotate": "mpph", "kofamscan": "kofamscan",
                           "eggnog_mapper": "emapper"}
         timings = [parse_time_log(results_dir / f"{tool_to_prefix[t]}_{label}.time.log")
@@ -67,7 +86,7 @@ def collect_accuracy(report_dir: Path, results_dir: Path) -> pd.DataFrame:
     if not frames:
         return pd.DataFrame()
     out = pd.concat(frames, ignore_index=True)
-    lead = ["tier", "organism", "tool"]
+    lead = ["tier", "domain", "organism", "tool"]
     return out[lead + [c for c in out.columns if c not in lead]].sort_values(
         ["tier", "organism", "tool"]).reset_index(drop=True)
 
@@ -76,12 +95,14 @@ def collect_agreement(report_dir: Path) -> pd.DataFrame:
     frames = []
     for csv in sorted(report_dir.glob("annotation_*_agreement.csv")):
         df = pd.read_csv(csv)
-        df["tier"] = _tier(csv.stem.removeprefix("annotation_").removesuffix("_agreement"))
+        label = csv.stem.removeprefix("annotation_").removesuffix("_agreement")
+        df["tier"] = _tier(label)
+        df["domain"] = _domain(label)
         frames.append(df)
     if not frames:
         return pd.DataFrame()
     out = pd.concat(frames, ignore_index=True)
-    lead = ["tier", "organism", "tool_a", "tool_b"]
+    lead = ["tier", "domain", "organism", "tool_a", "tool_b"]
     return out[lead + [c for c in out.columns if c not in lead]].sort_values(
         ["tier", "organism"]).reset_index(drop=True)
 

@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
-from summarize import _tier, collect_accuracy, parse_time_log
+from summarize import _domain, _tier, collect_accuracy, parse_time_log
 
 
 def test_tier_assignment():
@@ -18,6 +18,24 @@ def test_tier_assignment():
     # anything not explicitly listed is a MAG -- the MAG labels are long
     # binning-tool filenames, not a fixed enumerable set.
     assert _tier("SRR12479784_metabat2_bin17") == "3_mag"
+    # Yeast and Arabidopsis are eukaryotes but also long-curated model
+    # organisms: domain and curation tier are independent axes, and the
+    # eukaryotes must not silently fall through to the MAG tier.
+    assert _tier("sce") == "1_model_organism"
+    assert _tier("ath") == "1_model_organism"
+
+
+def test_domain_assignment_covers_all_three_domains():
+    assert _domain("eco") == "Bacteria"
+    assert _domain("mja") == "Archaea"
+    assert _domain("sce") == "Eukaryota"
+    assert _domain("ath") == "Eukaryota"
+
+
+def test_domain_of_an_unclassified_mag_is_unassigned_not_guessed():
+    # These bins carry no taxonomic assignment in this benchmark. Defaulting
+    # them to "Bacteria" would report a fact the run never established.
+    assert _domain("SRR12479784_metabat2_bin17") == "unassigned"
 
 
 # Expected values are post-rounding: parse_time_log reports to 0.1 s
@@ -56,6 +74,7 @@ def test_collect_accuracy_joins_timings_and_tiers(tmp_path):
 
     out = collect_accuracy(report, results)
     assert list(out["tier"]) == ["1_model_organism"] * 2
+    assert list(out["domain"]) == ["Bacteria"] * 2
     mpph_row = out[out["tool"] == "mpph_annotate"].iloc[0]
     assert mpph_row["wall_clock_s"] == 169.2  # rounded to 0.1 s, see above
     assert mpph_row["peak_memory_mb"] == pytest.approx(1000.0)

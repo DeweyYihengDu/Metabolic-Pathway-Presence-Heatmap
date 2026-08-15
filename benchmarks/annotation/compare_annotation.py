@@ -129,6 +129,21 @@ def load_ground_truth(path: str | Path, org: str,
     return pairs
 
 
+def restrict_to_evaluable(calls: dict[str, set[str]],
+                          evaluable: set[str]) -> dict[str, set[str]]:
+    """Drop calls on proteins the reference cannot score.
+
+    Eukaryotic proteomes carry every splice isoform (human RefSeq: 136,807
+    proteins) while KEGG's reference names one representative protein per
+    gene (20,091). Counting a call on an unrepresented isoform as a false
+    positive would manufacture ~117,000 of them for human and make the
+    accuracy numbers meaningless. A protein the reference never covers is
+    outside the evaluable set, not evidence against the tool. Prokaryotes are
+    almost unaffected (E. coli: 4,288 of 4,300).
+    """
+    return {gene: kos for gene, kos in calls.items() if gene in evaluable}
+
+
 def _pairs(gene_to_kos: dict[str, set[str]]) -> set[tuple[str, str]]:
     """Flatten {gene: {KO, ...}} to a set of (gene, KO) pairs -- the natural
     unit for precision/recall when a gene can have more than one true KO."""
@@ -224,6 +239,18 @@ def main() -> int:
                       if args.protein_id_map else None)
     truth = (load_ground_truth(args.ground_truth, args.org, protein_id_map)
              if args.ground_truth else None)
+    if truth is not None and protein_id_map is not None:
+        # Score only where the reference can score: see restrict_to_evaluable.
+        evaluable = set(protein_id_map.values())
+        n_before = sum(len(v) for v in mpph.values())
+        mpph = restrict_to_evaluable(mpph, evaluable)
+        kofamscan = restrict_to_evaluable(kofamscan, evaluable)
+        emapper = restrict_to_evaluable(emapper, evaluable)
+        n_after = sum(len(v) for v in mpph.values())
+        if n_after < n_before:
+            print(f"Restricted to the {len(evaluable)} proteins KEGG's "
+                  f"reference covers: {n_before - n_after} call(s) on "
+                  f"unrepresented isoforms excluded from scoring.")
 
     accuracy, agreement = build_report(args.org, args.n_genes, mpph, kofamscan, emapper, truth)
     out = Path(args.out)

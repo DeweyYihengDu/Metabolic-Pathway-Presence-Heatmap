@@ -1,5 +1,61 @@
 # Changelog
 
+## 3.19.0
+
+**Validated beyond microbes: all three domains of life.** The toolkit was
+written for, benchmarked on and documented around prokaryotes and MAGs.
+Nothing in it is actually prokaryote-specific -- KO is a cross-domain
+orthology system -- but "should work" is not a result, so the annotation
+benchmark now includes *Saccharomyces cerevisiae* (6,021 proteins) and
+*Arabidopsis thaliana* (48,265 proteins, 11x *E. coli*) against KEGG's own
+KO assignments, under the same containers and the same KOfam database as
+every other genome.
+
+- **Accuracy does not degrade outside bacteria.** F1: yeast **0.911**,
+  *Arabidopsis* **0.867**, against 0.894-0.934 for the prokaryotes.
+  `mpph annotate` still reproduces KofamScan call for call -- Jaccard 1.000
+  on yeast and 0.9999 on *Arabidopsis*.
+- **The residual disagreement is fully explained.** All three differing calls
+  across *Arabidopsis*' 12,223 lie within 0.016 bits of the KO's threshold,
+  in both directions. HMMER prints bit scores to one decimal and KofamScan
+  parses that text, so it compares a rounded score against a two-decimal
+  threshold; `mpph annotate` compares pyhmmer's in-memory value at full
+  precision. The two agree on every call that is not a tie inside the
+  reference database's own printing precision.
+- **Coverage does fall, and that is biology**: 76% of *E. coli* proteins get
+  a KO, 62% of yeast, 24% of *Arabidopsis* -- for all three tools alike. KO
+  describes metabolism and core cellular processes, not a plant's whole
+  protein complement. Recall against what KEGG *does* assign is the highest
+  in the benchmark (0.925 for *Arabidopsis*).
+- **Eukaryotic isoforms are now scored fairly.** A eukaryotic proteome lists
+  every splice variant while KEGG names one representative protein per gene.
+  Without a restriction to the evaluable set, 10,025 calls on isoforms the
+  reference cannot represent would have counted as false positives, dragging
+  a hypothetical perfect tool to precision 0.5. Applied identically to all
+  three tools; a no-op for prokaryotes.
+- README, `docs/`, and `paper/manuscript.md` rewritten from "microbial /
+  MAG" framing to any genome, with the eukaryote-specific caveats stated
+  where a user would hit them. Figure 1 gains the two eukaryotes and a
+  domain-of-life column.
+
+**Correction to 3.18.x's `--sequence-loading` rationale.** That flag shipped
+with the claim that pyhmmer's prefetching drives peak memory and would not
+scale to a eukaryotic proteome. Measured, that is wrong in both halves:
+
+- A prefetched sequence block costs **~1.0 kB per protein** -- 4.5 MB for
+  *B. subtilis*, 45.5 MB for all of *Arabidopsis*. The earlier reasoning
+  extrapolated a roughly constant quantity as if it scaled with input size.
+- Re-running *B. subtilis* both ways: prefetch 11.4 GB / 2:06.9, stream
+  11.6 GB / 2:07.5, byte-identical output. Streaming is marginally *worse*.
+
+The flag is kept -- it is a real control for metagenome-scale protein
+catalogues, where ~1 kB each does add up -- but `auto` now switches at
+**1,000,000** proteins rather than 10,000, and the documentation says what
+was measured instead of what was assumed. Peak memory (2.3-11.8 GB) is
+dominated by the profile search, not the targets: the worst case in the
+whole benchmark is the 4,237-protein *B. subtilis* at 11.8 GB, while the
+48,265-protein *Arabidopsis* peaks lower at 9.7 GB.
+
 ## 3.18.1
 
 Documentation and validation-figure release; no package code changed.

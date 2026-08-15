@@ -43,15 +43,21 @@ PAIR_LABEL = {("mpph_annotate", "kofamscan"): "mpph ↔ KofamScan",
 
 # Explicit order: the primary validation organism first within its tier,
 # then increasing difficulty by tier. Alphabetical would bury E. coli.
-ORGANISM_ORDER = ["eco", "bsu", "mja", "vbs", "lbac",
+# Within the model tier, ordered by domain (Bacteria, Archaea, Eukaryota) so
+# the domain labels down the right margin come out as contiguous blocks.
+ORGANISM_ORDER = ["eco", "bsu", "mja", "sce", "ath", "vbs", "lbac",
                   "SRR12479784_metabat2_bin17", "SRR13122148_dastool_bin007",
                   "SRR13122166_dastool_bin006"]
 
-# Display names: species in italics, MAGs by bin with their SRA run.
+# Display names: species in italics, MAGs by bin with their SRA run. Proteome
+# size is shown for the eukaryotes only, where it is the point -- Arabidopsis
+# is 11x E. coli and is what makes this a scale test, not just a scope one.
 DISPLAY = {
     "eco": "$\\it{E.\\ coli}$ K-12",
     "bsu": "$\\it{B.\\ subtilis}$ 168",
     "mja": "$\\it{M.\\ jannaschii}$",
+    "sce": "$\\it{S.\\ cerevisiae}$ (6,021 prot.)",
+    "ath": "$\\it{A.\\ thaliana}$ (48,265 prot.)",
     "vbs": "$\\it{Verrucomicrobia}$ sp. S94",
     "lbac": "$\\it{Lentisphaerae}$ sp. WC36",
     "SRR12479784_metabat2_bin17": "MAG bin17 (SRR12479784)",
@@ -62,6 +68,17 @@ DISPLAY = {
 # only 2-3 rows tall, so a longer phrase overruns into the neighbouring tier.
 TIER_LABEL = {"1_model_organism": "Model", "2_nonmodel_genome": "Non-model",
               "3_mag": "MAGs"}
+# Abbreviated for the same reason -- see _domain_labels. An em dash for the
+# MAGs: their domain is genuinely unknown, not omitted for space.
+DOMAIN_LABEL = {"Bacteria": "Bact.", "Archaea": "Arch.",
+                "Eukaryota": "Euk.", "unassigned": "—"}
+
+# Right margin holds two annotation columns outside the data range. The gap
+# has to clear the value labels, which sit at v + 0.012 and reach x ~ 1.06 on
+# panel b where every mpph<->KofamScan bar is exactly 1.000 -- at a narrower
+# X_MAX those labels collide with the domain column.
+X_MAX = 1.30
+X_DOMAIN, X_TIER = 1.135, 1.25
 
 
 def _style_axis(ax) -> None:
@@ -90,37 +107,72 @@ def _grouped_barh(ax, groups, series, values, colors, labels, bar_h=0.26):
     ax.set_yticks(range(len(groups)))
     ax.set_yticklabels([DISPLAY.get(g, g) for g in groups], fontsize=8.5, color=INK)
     ax.invert_yaxis()
-    ax.set_xlim(0, 1.18)
+    ax.set_xlim(0, X_MAX)
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
+
+
+def _runs(labels):
+    """Contiguous runs as (label, first_index, last_index)."""
+    out, start = [], 0
+    for i, t in enumerate(labels):
+        if i and t != labels[i - 1]:
+            out.append((labels[i - 1], start, i - 1))
+            start = i
+    out.append((labels[-1], start, len(labels) - 1))
+    return out
 
 
 def _tier_dividers(ax, groups, tiers) -> None:
     """A hairline between tiers, with the tier named on the right."""
-    seen, start = [], 0
-    for i, t in enumerate(tiers):
-        if i and t != tiers[i - 1]:
-            ax.axhline(i - 0.5, color=GRID, linewidth=0.9, zorder=2)
-            seen.append((tiers[i - 1], start, i - 1))
-            start = i
-    seen.append((tiers[-1], start, len(groups) - 1))
-    for tier, lo, hi in seen:
-        ax.text(1.155, (lo + hi) / 2, TIER_LABEL[tier], rotation=270,
+    for tier, lo, hi in _runs(tiers):
+        if lo:
+            ax.axhline(lo - 0.5, color=GRID, linewidth=0.9, zorder=2)
+        ax.text(X_TIER, (lo + hi) / 2, TIER_LABEL[tier], rotation=270,
                 va="center", ha="center", fontsize=7.5, color=INK_MUTED)
+
+
+def _domain_labels(ax, domains) -> None:
+    """Domain of life in a second, inner margin column.
+
+    Deliberately unrotated and abbreviated: `_tier_dividers` can rotate
+    because its blocks are 2-3 rows tall, but Archaea is a single row here
+    and a rotated word would overrun into its neighbours. No dividers --
+    the tier hairlines already segment the axis, and a second set of rules
+    would read as a grid rather than as an annotation.
+    """
+    for domain, lo, hi in _runs(domains):
+        ax.text(X_DOMAIN, (lo + hi) / 2, DOMAIN_LABEL[domain], va="center",
+                ha="center", fontsize=6.8, color=INK_MUTED, zorder=4)
 
 
 def figure_annotation(accuracy: pd.DataFrame, agreement: pd.DataFrame,
                       out_path: Path) -> None:
     def _ordered(df):
+        known = set(ORGANISM_ORDER)
+        missing = sorted(set(df["organism"]) - known)
+        if missing:
+            # Silently dropping a benchmarked genome from the figure would be
+            # the worst possible failure mode here -- it would look like a
+            # clean result rather than a missing one.
+            raise KeyError(f"organism(s) not in ORGANISM_ORDER: {missing}")
         present = [o for o in ORGANISM_ORDER if o in set(df["organism"])]
-        tiers = [df.loc[df["organism"] == o, "tier"].iloc[0] for o in present]
-        return present, tiers
+
+        def first(organism, column):
+            # Boolean mask, not .set_index().loc[] -- the latter returns a
+            # scalar rather than a Series when an organism has exactly one
+            # row, and .iloc[0] would then raise.
+            return df.loc[df["organism"] == organism, column].iloc[0]
+
+        return (present,
+                [first(o, "tier") for o in present],
+                [first(o, "domain") for o in present])
 
     acc = accuracy.dropna(subset=["f1"]).copy()
-    acc_groups, acc_tiers = _ordered(acc)
+    acc_groups, acc_tiers, acc_domains = _ordered(acc)
     acc_vals = {(r.organism, r.tool): r.f1 for r in acc.itertuples()}
 
     agr = agreement.copy()
-    agr_groups, agr_tiers = _ordered(agr)
+    agr_groups, agr_tiers, agr_domains = _ordered(agr)
     agr_vals = {(r.organism, (r.tool_a, r.tool_b)): r.jaccard for r in agr.itertuples()}
 
     fig, (ax_a, ax_b) = plt.subplots(
@@ -132,6 +184,7 @@ def figure_annotation(accuracy: pd.DataFrame, agreement: pd.DataFrame,
     _style_axis(ax_a)
     _grouped_barh(ax_a, acc_groups, tools, acc_vals, TOOL_COLOR, TOOL_LABEL)
     _tier_dividers(ax_a, acc_groups, acc_tiers)
+    _domain_labels(ax_a, acc_domains)
     ax_a.set_xlabel("F1 vs KEGG's own KO assignments", fontsize=8.5, color=INK_MUTED)
     ax_a.set_title("a   Accuracy against an independently-derived reference",
                    loc="left", fontsize=10.5, color=INK, pad=26)
@@ -144,6 +197,7 @@ def figure_annotation(accuracy: pd.DataFrame, agreement: pd.DataFrame,
     _style_axis(ax_b)
     _grouped_barh(ax_b, agr_groups, pairs, agr_vals, PAIR_COLOR, PAIR_LABEL)
     _tier_dividers(ax_b, agr_groups, agr_tiers)
+    _domain_labels(ax_b, agr_domains)
     ax_b.set_xlabel("Jaccard overlap of (gene, KO) calls", fontsize=8.5, color=INK_MUTED)
     ax_b.set_title("b   Agreement between tools, including where no reference exists",
                    loc="left", fontsize=10.5, color=INK, pad=26)

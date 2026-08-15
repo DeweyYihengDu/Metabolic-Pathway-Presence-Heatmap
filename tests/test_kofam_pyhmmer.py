@@ -107,6 +107,32 @@ def test_annotate_fasta_ko_subset_including_the_profile_still_finds_the_hit(tmp_
     assert {a.gene_id: a.ko_id for a in assignments} == {"gene_match": "TESTKO"}
 
 
+def test_streaming_and_prefetch_give_identical_assignments(tmp_path):
+    """The two sequence-loading paths must not change the answer.
+
+    Prefetching holds every target in RAM at a measured ~1 kB per protein,
+    which only matters at metagenome-catalogue scale (see
+    PREFETCH_MAX_SEQUENCES). Since `auto` silently picks between them by
+    input size, a user must never be able to tell which one ran from the
+    output -- so assert bit-identity rather than assume it. Confirmed on real
+    data too: B. subtilis gives byte-identical TSVs either way.
+    """
+    db_dir = _write_kofam_db(tmp_path, threshold=50.0)
+    fasta = _write_query_fasta(tmp_path)
+
+    prefetched = annotate_fasta(fasta, db_dir, cpus=1, prefetch=True)
+    streamed = annotate_fasta(fasta, db_dir, cpus=1, prefetch=False)
+    assert prefetched == streamed
+    assert prefetched  # and not trivially empty
+
+
+def test_count_sequences_does_not_load_the_proteome(tmp_path):
+    from mpph.kofam import count_sequences
+    fasta = tmp_path / "many.faa"
+    fasta.write_text("".join(f">g{i}\nMKTAYIAK\n" for i in range(2500)))
+    assert count_sequences(fasta) == 2500
+
+
 def test_parse_ko_list_reads_the_same_file_annotate_fasta_uses(tmp_path):
     db_dir = _write_kofam_db(tmp_path, threshold=50.0)
     entries = parse_ko_list((db_dir / "ko_list").read_text(encoding="utf-8"))

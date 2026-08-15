@@ -1,4 +1,4 @@
-# MPPH: an end-to-end, phylogeny-aware toolkit for comparative metabolic-pathway analysis across arbitrary genomes and MAGs
+# MPPH: an end-to-end, phylogeny-aware toolkit for comparative metabolic-pathway analysis across any genome
 
 **Yiheng Du**
 
@@ -25,7 +25,10 @@ essentially call for call while requiring no external HMMER installation,
 and its differential test can be corrected for phylogenetic
 non-independence against a user-supplied reference phylogeny. Uncorrected,
 the same test's false-positive rate reaches 94.8% at a nominal 5% on
-simulated data containing no group effect at all.
+simulated data containing no group effect at all. The toolkit is not
+restricted to any domain of life: annotation was validated against KEGG's own
+assignments on bacterial, archaeal and eukaryotic genomes, including a
+48,265-protein plant proteome, with F1 between 0.84 and 0.93 throughout.
 
 **Availability and implementation.** MPPH is a pure-Python package
 (Python ≥3.9, MIT licence) installable with `pip`. Source, documentation and
@@ -37,15 +40,17 @@ all validation code and results: https://github.com/DeweyYihengDu/Metabolic-Path
 
 Two gaps recur in comparative metabolic-profile work.
 
-The first is upstream. Assigning KO terms to a newly assembled genome or
-metagenome-assembled genome (MAG) is a precondition for everything
-downstream, but the accessible options are awkward: KEGG's own KOALA servers
-are browser-and-email services with no programmatic interface; KofamScan
-requires a separate HMMER installation and Ruby toolchain; approaches that
-transfer annotation from a fixed panel of reference species degrade with
-evolutionary distance, which is precisely the regime environmental genomics
-operates in. Users therefore either leave the annotation step outside their
-pipeline or accept a narrowing of taxonomic scope.
+The first is upstream. Assigning KO terms to a newly sequenced genome,
+proteome or metagenome-assembled genome (MAG) is a precondition for
+everything downstream, but the accessible options are awkward: KEGG's own
+KOALA servers are browser-and-email services with no programmatic interface;
+KofamScan requires a separate HMMER installation and Ruby toolchain;
+approaches that transfer annotation from a fixed panel of reference species
+degrade with evolutionary distance, and tools of the KOBAS type ship
+curated background sets for a short list of model organisms — human, mouse
+and a handful of others — leaving everything else unsupported. Users
+therefore either leave the annotation step outside their pipeline or accept a
+narrowing of taxonomic scope.
 
 The second is downstream and is a statistical error rather than an
 inconvenience. Testing whether a metabolic feature differs between two
@@ -78,7 +83,9 @@ using the best single domain's score for KOs marked `score_type = domain`
 and the full-sequence score otherwise. Because profile HMMs are built from
 many species' sequences rather than transferred from a nearest reference,
 the method's applicability does not depend on taxonomic proximity to a model
-organism. Output is `gene<TAB>KO`, identical in shape to KofamScan's mapper
+organism, nor on which domain of life the input belongs to — the same
+profile set is searched for a plant proteome as for a bacterial genome
+(§3.1). Output is `gene<TAB>KO`, identical in shape to KofamScan's mapper
 format, so it feeds the rest of the toolkit with no conversion step.
 
 **Matrix construction and NaN semantics.** Presence mode records whether
@@ -136,30 +143,43 @@ All validation code, container digests, accessions and result tables are in
 ### 3.1 KO annotation
 
 `mpph annotate` was compared with KofamScan 1.3.0 (against the same KOfam
-database) and eggNOG-mapper 2.1.15 across three tiers of increasing
-difficulty: three model organisms (*Escherichia coli* K-12, *Bacillus
-subtilis* 168, *Methanocaldococcus jannaschii*), two environmental genomes
-KEGG has never hand-curated (*Verrucomicrobia* sp. S94, *Lentisphaerae* sp.
-WC36 — both PVC superphylum, both carrying placeholder strain names), and
-three marine MAGs with no reference annotation at all.
+database) and eggNOG-mapper 2.1.15 on ten genomes spanning all three domains
+of life, in tiers of increasing difficulty: five model organisms
+(*Escherichia coli* K-12, *Bacillus subtilis* 168, *Methanocaldococcus
+jannaschii*, *Saccharomyces cerevisiae* S288C, *Arabidopsis thaliana*
+Col-0), two environmental genomes KEGG has never hand-curated
+(*Verrucomicrobia* sp. S94, *Lentisphaerae* sp. WC36 — both PVC superphylum,
+both carrying placeholder strain names), and three marine MAGs with no
+reference annotation at all.
 
 The reference is KEGG's own KO assignment for each genome. That reference is
 methodologically independent of the methods being tested: KEGG's GENES
 annotations are built on best-hit sequence-similarity tables, whereas both
 MPPH and KofamScan score profile HMMs against per-KO thresholds.
 
-**MPPH reproduces KofamScan almost exactly.** The Jaccard overlap of
-(gene, KO) assignments is 1.000 on six of the eight genomes, and 0.9997 and
-0.9994 on the remaining two — a difference of one call in 3,517 and one in
-1,718 respectively. F1 against KEGG's assignments:
+Eukaryotic proteomes require one adjustment before they can be scored at all:
+they list every splice isoform (*A. thaliana*: 48,265 proteins) while KEGG
+names one representative protein per gene (27,562). Calls are therefore
+restricted to the proteins the reference covers; without this, 10,025 calls
+on isoforms the reference cannot represent would have been counted as false
+positives, and a hypothetical perfectly-correct tool would score precision
+0.5. The restriction is applied identically to all three tools and is
+essentially a no-op for prokaryotes (*E. coli*: 4,288 of 4,300 covered).
 
-| Tier | Genome | MPPH | KofamScan | eggNOG-mapper |
-|---|---|---|---|---|
-| Model | *E. coli* K-12 | 0.934 | 0.934 | 0.851 |
-| Model | *B. subtilis* 168 | 0.898 | 0.898 | 0.825 |
-| Model | *M. jannaschii* | 0.894 | 0.894 | 0.907 |
-| Non-model | *Verrucomicrobia* sp. S94 | 0.848 | 0.848 | 0.755 |
-| Non-model | *Lentisphaerae* sp. WC36 | 0.842 | 0.842 | 0.761 |
+**MPPH reproduces KofamScan almost exactly.** The Jaccard overlap of
+(gene, KO) assignments is 1.000 on seven of the ten genomes, and 0.9997,
+0.9999 and 0.9994 on the remaining three — one call in 3,517, one in 12,223
+and one in 1,718. F1 against KEGG's assignments:
+
+| Tier | Domain | Genome | MPPH | KofamScan | eggNOG-mapper |
+|---|---|---|---|---|---|
+| Model | Bacteria | *E. coli* K-12 | 0.934 | 0.934 | 0.851 |
+| Model | Bacteria | *B. subtilis* 168 | 0.898 | 0.898 | 0.825 |
+| Model | Archaea | *M. jannaschii* | 0.894 | 0.894 | 0.907 |
+| Model | Eukaryota | *S. cerevisiae* | 0.911 | 0.911 | 0.862 |
+| Model | Eukaryota | *A. thaliana* | 0.867 | 0.866 | 0.697 |
+| Non-model | Bacteria | *Verrucomicrobia* sp. S94 | 0.848 | 0.848 | 0.755 |
+| Non-model | Bacteria | *Lentisphaerae* sp. WC36 | 0.842 | 0.842 | 0.761 |
 
 The objection this tier structure was built to test — that good accuracy on
 long-curated model organisms says little about arbitrary genomes — is not
@@ -168,15 +188,43 @@ non-model genomes (+0.09, +0.08) than on the model organisms (+0.08, +0.07).
 On the three MAGs, where no reference exists to score against, MPPH and
 KofamScan still agree at 1.000, 0.9994 and 1.000.
 
+Accuracy does not degrade outside bacteria: yeast (0.911) scores above three
+of the four prokaryotes, and *A. thaliana* (0.867) falls within the
+prokaryotic range while carrying the benchmark's widest margin over
+eggNOG-mapper (+0.17 F1) — the similarity-transfer approach loses most ground
+precisely where the query is furthest from a close reference. What does fall
+is coverage, for all three tools alike: the fraction of proteins receiving any
+KO drops from 76% (*E. coli*) to 62% (yeast) to 24% (*A. thaliana*). That is
+a property of KO's scope, which describes metabolism and core cellular
+processes rather than a plant's full protein complement; recall against what
+KEGG does assign remains highest of any genome tested (0.925).
+
+The residual disagreements between MPPH and KofamScan have a single
+explanation. All three differing calls across *A. thaliana* lie within 0.016
+bits of the relevant KO threshold, and in both directions. HMMER prints bit
+scores to one decimal place, and KofamScan parses that text output, so it
+compares a rounded score against a threshold specified to two decimals
+(`332.1 ≥ 332.13` is false; `164.1 ≥ 164.07` is true), whereas MPPH reads the
+score from `pyhmmer`'s in-memory hit object at full precision. The two
+implementations therefore agree on every call that is not a tie within the
+reference database's own printing precision.
+
 eggNOG-mapper is not thereby "worse": it annotates more genes at lower
 precision, a different operating point, and produces far more than KO calls.
 
 **Cost, including where MPPH is worse.** Wall-clock time is comparable —
-MPPH is faster on five of eight genomes. Peak memory is not: 2.3–12.3 GB
-against KofamScan's 0.13–0.72 GB, 10–17× higher and scaling erratically with
-input size, attributable to `pyhmmer`'s prefetching search strategy. This is
-a genuine limitation of the current implementation and is reported in full
-rather than omitted.
+MPPH is faster on seven of ten genomes. Peak memory is not: 2.3–11.8 GB against
+KofamScan's 0.13–0.74 GB, 11–18× higher. It is, however, not a function of
+input size, and the obvious explanation is the wrong one: a prefetched
+sequence block costs a measured ~1 kB per protein (45 MB for the entire
+*A. thaliana* proteome), and re-running *B. subtilis* with targets streamed
+rather than prefetched changes peak RSS from 11.4 to 11.6 GB with
+byte-identical output. The worst case in the benchmark is in fact the
+4,237-protein *B. subtilis* (11.8 GB), not the 48,265-protein *A. thaliana*
+(9.7 GB). Memory is dominated by the profile search rather than by the
+targets; the absolute level is a genuine limitation of the current
+implementation and is reported in full rather than omitted, but no proteome
+is too large for the method on memory grounds.
 
 ### 3.2 Enrichment
 
@@ -228,7 +276,9 @@ external toolchain requirement, and its enrichment statistics match the
 reference R implementation to three decimal places. The correction for
 phylogenetic non-independence is opt-in, requires a reference phylogeny
 independent of the data, and reduces a 94.8% worst-case false-positive rate to
-7.2%.
+7.2%. None of this is restricted to a taxonomic scope: the same code and the
+same reference database were validated on bacteria, archaea, a fungus, a
+plant, and metagenome-assembled genomes with no reference annotation at all.
 
 ---
 

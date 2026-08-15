@@ -1,7 +1,7 @@
 # MPPH documentation
 
 MPPH turns KEGG (or your own KO annotations) into auditable, comparable
-microbial metabolic-function profiles.
+metabolic-function profiles — for bacteria, archaea and eukaryotes alike.
 
 - [Methods](methods.md) — what "presence" and "completeness" mean, how modules
   are scored, and how the dendrogram should (and should not) be interpreted.
