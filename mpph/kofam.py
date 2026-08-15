@@ -162,12 +162,14 @@ def is_significant_hit(entry: KOListEntry, full_sequence_score: float,
 # ~45 MB, and even the human RefSeq set (137k entries) costs ~135 MB.
 #
 # That is a rounding error next to this function's actual peak RSS, which is
-# 2-12 GB and is dominated by the profile search itself, not by the targets
-# (measured on the same input: prefetch 11.4 GB vs stream 11.6 GB -- streaming
-# is, if anything, marginally worse). Streaming therefore buys nothing for any
-# single organism's proteome and the threshold is placed accordingly: it bites
-# only on metagenome-scale protein catalogues in the millions, where ~1 GB of
-# held targets does start to matter.
+# 2-12 GB and tracks `cpus`, not the input: on one fixed proteome, 1/4/28
+# threads measured 1.0/2.9/11.8 GB (~0.4 GB per thread at the top end), while
+# prefetch vs stream differed by less than that command's own run-to-run
+# spread.
+# Streaming therefore buys nothing for any single organism's proteome, and the
+# threshold is placed accordingly: it bites only on metagenome-scale protein
+# catalogues in the millions, where ~1 GB of held targets does start to matter.
+# `cpus` is the lever for memory; this constant is not.
 PREFETCH_MAX_SEQUENCES = 1_000_000
 
 

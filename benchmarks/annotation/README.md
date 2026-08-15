@@ -213,24 +213,46 @@ case in the whole benchmark is *B. subtilis* at 4,237 proteins (11.8 GB),
 while *Arabidopsis* at 48,265 proteins — 11x larger — peaks *lower*, at
 9.7 GB. Memory here is dominated by the profile search, not by the targets.
 
-Two direct measurements pin that down, because the obvious explanation
-(pyhmmer's own docs note that prefetching targets trades "much higher memory
-consumption" for speed) turns out to be the wrong one:
+Two direct measurements rule out the obvious explanation (pyhmmer's own docs
+note that prefetching targets trades "much higher memory consumption" for
+speed):
 
 - **A prefetched sequence block costs ~1.0 kB per protein** — 4.5 MB for
   *B. subtilis*, 45.5 MB for *Arabidopsis*. Holding an entire plant proteome
   in memory is ~0.5% of the peak.
 - **Re-running *B. subtilis* both ways changes nothing.** Prefetch 11.4 GB /
-  2:06.9; stream 11.6 GB / 2:07.5 — streaming is marginally *worse* on both
-  axes, and the two output TSVs are byte-identical.
+  2:06.9; stream 11.7 GB / 2:07.5 — byte-identical output, and the 0.3 GB gap
+  is *smaller than the run-to-run spread of the identical prefetch command*
+  (two runs measured 11.4 and 11.8 GB). There is no difference here to
+  attribute to sequence loading at all.
 
 `--sequence-loading` is therefore kept as a control for metagenome-scale
 protein catalogues (millions of sequences, where ~1 kB each does add up), not
 as a fix for eukaryotic genomes, and `auto` prefetches up to 1,000,000
-proteins. The residual 2–12 GB is not explained here; what *is* established
-is that it is not the target sequences, so no proteome is too large for this
-on memory grounds. Recorded because a benchmark that only reports the
-flattering numbers is not a benchmark.
+proteins.
+
+**What memory actually tracks is `--cpus`.** Same 4,237-protein
+*B. subtilis* input, same prefetch path, only the thread count varied:
+
+| `--cpus` | peak RSS | wall clock | speed-up |
+|---|---|---|---|
+| 1 | **1.0 GB** | 21:07 | 1.0× |
+| 4 | **2.9 GB** | 5:17 | 4.0× |
+| 28 | **11.8 GB** | 2:07 | 10.0× |
+
+All three produced byte-identical output.
+
+Roughly 0.4 GB per thread at the top end, and the whole 2.3–11.8 GB spread
+across the benchmark is explained by nothing more exotic than 28 threads
+against KOfam's 26,498 profiles. That makes `--cpus` the memory knob, and
+the trade is worth knowing: going 28 → 4 threads cuts peak memory 4× and
+costs 2.5× wall-clock, because parallel scaling is already well past its
+linear region by 28 (4 threads gives a perfect 4.0× speed-up; 28 gives only
+10×). On a memory-constrained machine, lower `--cpus` — the tool does not
+need a large-memory node.
+
+Recorded because a benchmark that only reports the flattering numbers is not
+a benchmark.
 
 ## Tools and versions
 

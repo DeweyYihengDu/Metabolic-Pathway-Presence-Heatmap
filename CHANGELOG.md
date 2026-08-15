@@ -1,5 +1,38 @@
 # Changelog
 
+## 3.19.1
+
+**`mpph annotate`'s peak memory is set by `--cpus`, not by your input.**
+3.19.0 established what the 2.3-11.8 GB peak is *not* (the target sequences)
+but left what it *is* unexplained. Measured now, varying only the thread
+count on one fixed 4,237-protein genome:
+
+| `--cpus` | peak RSS | wall clock | speed-up |
+|---|---|---|---|
+| 1 | 1.0 GB | 21:07 | 1.0x |
+| 4 | 2.9 GB | 5:17 | 4.0x |
+| 28 | 11.8 GB | 2:07 | 10.0x |
+
+Roughly 0.4 GB per thread, which accounts for the entire spread across the
+benchmark without anything exotic. Two consequences worth acting on, now
+documented in `--cpus`' own help text, `docs/`, and the benchmark README:
+
+- **No proteome is too large on memory grounds**, and no large-memory node is
+  needed. If RAM is tight, lower `--cpus`.
+- **That costs little.** Parallel scaling is already well past its linear
+  region at 28 threads (4 threads gives a perfect 4.0x speed-up; 28 gives
+  only 10x), so 28 -> 4 threads cuts peak memory 4x for 2.5x the wall-clock.
+
+**Correction to 3.19.0's own wording**: it reported prefetch 11.4 GB vs
+stream 11.6 GB and called streaming "marginally worse". Two runs of the
+*identical* prefetch command have since measured 11.4 and 11.8 GB, so that
+0.2 GB gap is inside run-to-run noise and there is no difference to
+attribute to sequence loading in either direction. The substantive claim it
+supported -- that sequence loading is not what drives peak memory -- is
+unchanged and now has a positive explanation rather than only a negative one.
+
+Documentation and help text only; no change to any result.
+
 ## 3.19.0
 
 **Validated beyond microbes: all three domains of life.** The toolkit was

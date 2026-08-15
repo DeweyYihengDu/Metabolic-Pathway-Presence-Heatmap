@@ -218,13 +218,17 @@ KofamScan's 0.13–0.74 GB, 11–18× higher. It is, however, not a function of
 input size, and the obvious explanation is the wrong one: a prefetched
 sequence block costs a measured ~1 kB per protein (45 MB for the entire
 *A. thaliana* proteome), and re-running *B. subtilis* with targets streamed
-rather than prefetched changes peak RSS from 11.4 to 11.6 GB with
-byte-identical output. The worst case in the benchmark is in fact the
+rather than prefetched changes peak RSS from 11.4 to 11.7 GB with
+byte-identical output — less than the spread between two runs of the
+identical prefetch command. The worst case in the benchmark is in fact the
 4,237-protein *B. subtilis* (11.8 GB), not the 48,265-protein *A. thaliana*
-(9.7 GB). Memory is dominated by the profile search rather than by the
-targets; the absolute level is a genuine limitation of the current
-implementation and is reported in full rather than omitted, but no proteome
-is too large for the method on memory grounds.
+(9.7 GB). What peak memory tracks is thread count: on one fixed input,
+1/4/28 threads give 1.0/2.9/11.8 GB and 21:07/5:17/2:07, with identical
+output. `--cpus` is
+therefore the memory control, and lowering it is cheap — parallel scaling is
+already well past linear by 28 threads (4 threads is a perfect 4.0× speed-up,
+28 only 10×). The absolute level is reported in full rather than omitted, but
+neither a large proteome nor a large-memory node is required.
 
 ### 3.2 Enrichment
 

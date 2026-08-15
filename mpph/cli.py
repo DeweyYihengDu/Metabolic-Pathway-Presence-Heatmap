@@ -1475,7 +1475,11 @@ def build_parser() -> argparse.ArgumentParser:
     ann.add_argument("--cpus", type=int, default=0,
                      help="Worker threads (0 = auto-detect all cores, "
                           "matching pyhmmer's own default; 1 = "
-                          "single-threaded).")
+                          "single-threaded). This is also what peak memory "
+                          "tracks -- roughly 0.4 GB per thread, and largely "
+                          "independent of proteome size. Lower it if RAM is "
+                          "tight: measured 11.8 GB at 28 threads vs 2.9 GB "
+                          "at 4, for only 2.5x the wall-clock.")
     ann.add_argument("--ko-subset", metavar="FILE", default=None,
                      help="Restrict the search to these KO ids only (one "
                           "per line -- also accepts KEGG's own "

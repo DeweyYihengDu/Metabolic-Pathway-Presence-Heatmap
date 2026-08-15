@@ -267,6 +267,13 @@ mpph run --user genome_annotated.tsv --completeness
   default) controls search parallelism; searching the full ~20,000+ profile
   database against a genome's worth of proteins takes real time (minutes,
   not seconds) -- `--ko-subset` is the main lever for cutting that down.
+- **`--cpus` is also the memory knob**, and it is the *only* thing peak
+  memory really tracks -- not the size of your proteome. Measured on one
+  bacterial genome: 1 thread 1.0 GB / 21 min, 4 threads 2.9 GB / 5 min,
+  28 threads 11.8 GB / 2 min, with byte-identical output throughout. Parallel scaling is already well past linear
+  by 28 (4 threads is a perfect 4.0x speed-up; 28 threads only 10x), so on a
+  memory-constrained machine lowering `--cpus` costs far less time than it
+  saves memory. This tool does not need a large-memory node.
 - **Any organism works, not just microbes.** Measured F1 against KEGG's own
   assignments: 0.89-0.93 across bacteria and archaea, 0.911 for
   *S. cerevisiae*, 0.867 for *A. thaliana*. Scale is the only practical
