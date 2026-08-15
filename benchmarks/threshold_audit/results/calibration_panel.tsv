@@ -1,0 +1,97 @@
+org	name	kingdom	domain	clade	genus
+sco	Streptomyces coelicolor	Prokaryotes	Bacteria	Actinomycetota	Streptomyces
+salb	Streptomyces albidoflavus	Prokaryotes	Bacteria	Actinomycetota	Streptomyces
+sma	Streptomyces avermitilis	Prokaryotes	Bacteria	Actinomycetota	Streptomyces
+sgr	Streptomyces griseus	Prokaryotes	Bacteria	Actinomycetota	Streptomyces
+pae	Pseudomonas aeruginosa PAO1	Prokaryotes	Bacteria	other Gammaproteobacteria	Pseudomonas
+paev	Pseudomonas aeruginosa PAO1-VE13	Prokaryotes	Bacteria	other Gammaproteobacteria	Pseudomonas
+paei	Pseudomonas aeruginosa PAO1-VE2	Prokaryotes	Bacteria	other Gammaproteobacteria	Pseudomonas
+pau	Pseudomonas aeruginosa UCBPP-PA14	Prokaryotes	Bacteria	other Gammaproteobacteria	Pseudomonas
+spy	Streptococcus pyogenes M1 GAS (serotype M1)	Prokaryotes	Bacteria	Bacilli	Streptococcus
+spz	Streptococcus pyogenes MGAS5005 (serotype M1)	Prokaryotes	Bacteria	Bacilli	Streptococcus
+spym	Streptococcus pyogenes M1 476 (serotype M1)	Prokaryotes	Bacteria	Bacilli	Streptococcus
+spya	Streptococcus pyogenes A20 (serotype M1)	Prokaryotes	Bacteria	Bacilli	Streptococcus
+cgl	Corynebacterium glutamicum ATCC 13032 (Kyowa Hakko)	Prokaryotes	Bacteria	Actinomycetota	Corynebacterium
+cgb	Corynebacterium glutamicum ATCC 13032 (Bielefeld)	Prokaryotes	Bacteria	Actinomycetota	Corynebacterium
+cgu	Corynebacterium glutamicum K051	Prokaryotes	Bacteria	Actinomycetota	Corynebacterium
+cgt	Corynebacterium glutamicum R	Prokaryotes	Bacteria	Actinomycetota	Corynebacterium
+bsu	Bacillus subtilis subsp. subtilis 168	Prokaryotes	Bacteria	Bacilli	Bacillus
+bsr	Bacillus subtilis subsp. subtilis RO-NN-1	Prokaryotes	Bacteria	Bacilli	Bacillus
+bsl	Bacillus subtilis subsp. subtilis BSP1	Prokaryotes	Bacteria	Bacilli	Bacillus
+bsh	Bacillus subtilis subsp. subtilis 6051-HGW	Prokaryotes	Bacteria	Bacilli	Bacillus
+ctr	Chlamydia trachomatis D/UW-3/CX	Prokaryotes	Bacteria	Chlamydiota	Chlamydia
+ctd	Chlamydia trachomatis D-EC	Prokaryotes	Bacteria	Chlamydiota	Chlamydia
+ctf	Chlamydia trachomatis D-LC	Prokaryotes	Bacteria	Chlamydiota	Chlamydia
+ctrd	Chlamydia trachomatis D/SotonD1	Prokaryotes	Bacteria	Chlamydiota	Chlamydia
+sau	Staphylococcus aureus subsp. aureus N315 (MRSA/VSSA)	Prokaryotes	Bacteria	Bacilli	Staphylococcus
+sav	Staphylococcus aureus subsp. aureus Mu50 (MRSA/VISA)	Prokaryotes	Bacteria	Bacilli	Staphylococcus
+saw	Staphylococcus aureus subsp. aureus Mu3 (MRSA/hetero-VISA)	Prokaryotes	Bacteria	Bacilli	Staphylococcus
+sah	Staphylococcus aureus subsp. aureus JH1 (MRSA/VSSA)	Prokaryotes	Bacteria	Bacilli	Staphylococcus
+mtu	Mycobacterium tuberculosis H37Rv	Prokaryotes	Bacteria	Actinomycetota	Mycobacterium
+mtv	Mycobacterium tuberculosis H37Rv	Prokaryotes	Bacteria	Actinomycetota	Mycobacterium
+mtc	Mycobacterium tuberculosis CDC1551	Prokaryotes	Bacteria	Actinomycetota	Mycobacterium
+mra	Mycobacterium tuberculosis H37Ra	Prokaryotes	Bacteria	Actinomycetota	Mycobacterium
+bma	Burkholderia mallei ATCC 23344	Prokaryotes	Bacteria	Betaproteobacteria	Burkholderia
+bmv	Burkholderia mallei SAVP1	Prokaryotes	Bacteria	Betaproteobacteria	Burkholderia
+bml	Burkholderia mallei NCTC 10229	Prokaryotes	Bacteria	Betaproteobacteria	Burkholderia
+bmn	Burkholderia mallei NCTC 10247	Prokaryotes	Bacteria	Betaproteobacteria	Burkholderia
+vch	Vibrio cholerae O1 El Tor N16961	Prokaryotes	Bacteria	other Gammaproteobacteria	Vibrio
+vcf	Vibrio cholerae O1 El Tor FJ147	Prokaryotes	Bacteria	other Gammaproteobacteria	Vibrio
+vcs	Vibrio cholerae O1 El Tor MS6	Prokaryotes	Bacteria	other Gammaproteobacteria	Vibrio
+vce	Vibrio cholerae O1 2010EL-1786	Prokaryotes	Bacteria	other Gammaproteobacteria	Vibrio
+acb	Acinetobacter baumannii ATCC 17978	Prokaryotes	Bacteria	other Gammaproteobacteria	Acinetobacter
+abm	Acinetobacter baumannii SDF	Prokaryotes	Bacteria	other Gammaproteobacteria	Acinetobacter
+aby	Acinetobacter baumannii AYE	Prokaryotes	Bacteria	other Gammaproteobacteria	Acinetobacter
+abc	Acinetobacter baumannii ACICU	Prokaryotes	Bacteria	other Gammaproteobacteria	Acinetobacter
+cje	Campylobacter jejuni subsp. jejuni NCTC 11168 = ATCC 700819	Prokaryotes	Bacteria	Campylobacterota	Campylobacter
+cjb	Campylobacter jejuni subsp. jejuni NCTC 11168-BN148	Prokaryotes	Bacteria	Campylobacterota	Campylobacter
+cjj	Campylobacter jejuni subsp. jejuni 81-176	Prokaryotes	Bacteria	Campylobacterota	Campylobacter
+cju	Campylobacter jejuni subsp. jejuni 81116	Prokaryotes	Bacteria	Campylobacterota	Campylobacter
+hpy	Helicobacter pylori 26695	Prokaryotes	Bacteria	Campylobacterota	Helicobacter
+heo	Helicobacter pylori 26695	Prokaryotes	Bacteria	Campylobacterota	Helicobacter
+hpj	Helicobacter pylori J99	Prokaryotes	Bacteria	Campylobacterota	Helicobacter
+hpa	Helicobacter pylori HPAG1	Prokaryotes	Bacteria	Campylobacterota	Helicobacter
+cac	Clostridium acetobutylicum ATCC 824	Prokaryotes	Bacteria	Clostridia	Clostridium
+cae	Clostridium acetobutylicum DSM 1731	Prokaryotes	Bacteria	Clostridia	Clostridium
+cay	Clostridium acetobutylicum EA 2018	Prokaryotes	Bacteria	Clostridia	Clostridium
+cpe	Clostridium perfringens 13	Prokaryotes	Bacteria	Clostridia	Clostridium
+eco	Escherichia coli K-12 MG1655	Prokaryotes	Bacteria	Enterobacteria	Escherichia
+ecj	Escherichia coli K-12 W3110	Prokaryotes	Bacteria	Enterobacteria	Escherichia
+ecd	Escherichia coli K-12 DH10B	Prokaryotes	Bacteria	Enterobacteria	Escherichia
+ebw	Escherichia coli K-12 BW2952	Prokaryotes	Bacteria	Enterobacteria	Escherichia
+fps	Flavobacterium psychrophilum JIP02/86	Prokaryotes	Bacteria	Bacteroidota	Flavobacterium
+fpc	Flavobacterium psychrophilum CSF259-93	Prokaryotes	Bacteria	Bacteroidota	Flavobacterium
+fpy	Flavobacterium psychrophilum FPG101	Prokaryotes	Bacteria	Bacteroidota	Flavobacterium
+fpo	Flavobacterium psychrophilum FPG3	Prokaryotes	Bacteria	Bacteroidota	Flavobacterium
+enc	Enterobacter cloacae subsp. cloacae ATCC 13047	Prokaryotes	Bacteria	Enterobacteria	Enterobacter
+enl	Enterobacter cloacae subsp. dissolvens SDM	Prokaryotes	Bacteria	Enterobacteria	Enterobacter
+eclg	Enterobacter cloacae GGT036	Prokaryotes	Bacteria	Enterobacteria	Enterobacter
+ecle	Enterobacter cloacae ECNIH2	Prokaryotes	Bacteria	Enterobacteria	Enterobacter
+rpr	Rickettsia prowazekii Madrid E	Prokaryotes	Bacteria	Alphaproteobacteria	Rickettsia
+rpo	Rickettsia prowazekii BuV67-CWPP	Prokaryotes	Bacteria	Alphaproteobacteria	Rickettsia
+rpw	Rickettsia prowazekii Chernikova	Prokaryotes	Bacteria	Alphaproteobacteria	Rickettsia
+rpz	Rickettsia prowazekii Dachau	Prokaryotes	Bacteria	Alphaproteobacteria	Rickettsia
+kpn	Klebsiella pneumoniae subsp. pneumoniae MGH 78578 (serotype K52)	Prokaryotes	Bacteria	Enterobacteria	Klebsiella
+kpu	Klebsiella pneumoniae subsp. pneumoniae NTUH-K2044 (serotype K1)	Prokaryotes	Bacteria	Enterobacteria	Klebsiella
+kpm	Klebsiella pneumoniae subsp. pneumoniae HS11286	Prokaryotes	Bacteria	Enterobacteria	Klebsiella
+kpp	Klebsiella pneumoniae subsp. pneumoniae 1084 (serotype K1)	Prokaryotes	Bacteria	Enterobacteria	Klebsiella
+sphm	Sphingomonas sp. MM-1	Prokaryotes	Bacteria	Alphaproteobacteria	Sphingomonas
+stax	Sphingomonas taxi	Prokaryotes	Bacteria	Alphaproteobacteria	Sphingomonas
+sphi	Sphingomonas hengshuiensis	Prokaryotes	Bacteria	Alphaproteobacteria	Sphingomonas
+ssan	Sphingomonas sanxanigenens	Prokaryotes	Bacteria	Alphaproteobacteria	Sphingomonas
+mmy	Mycoplasma mycoides subsp. mycoides SC PG1	Prokaryotes	Bacteria	Mycoplasmatota	Mycoplasma
+mmym	Mycoplasma mycoides subsp. mycoides SC Gladysdale	Prokaryotes	Bacteria	Mycoplasmatota	Mycoplasma
+mmyi	Mycoplasma mycoides subsp. mycoides izsam_mm5713	Prokaryotes	Bacteria	Mycoplasmatota	Mycoplasma
+mml	Mycoplasma mycoides subsp. capri LC 95010	Prokaryotes	Bacteria	Mycoplasmatota	Mycoplasma
+bme	Brucella melitensis bv. 1 16M	Prokaryotes	Bacteria	Alphaproteobacteria	Brucella
+bmel	Brucella melitensis bv. 1 16M	Prokaryotes	Bacteria	Alphaproteobacteria	Brucella
+bmi	Brucella melitensis ATCC 23457	Prokaryotes	Bacteria	Alphaproteobacteria	Brucella
+bmz	Brucella melitensis M28	Prokaryotes	Bacteria	Alphaproteobacteria	Brucella
+chz	Chryseobacterium sp. StRB126	Prokaryotes	Bacteria	Bacteroidota	Chryseobacterium
+cgn	Chryseobacterium gallinarum	Prokaryotes	Bacteria	Bacteroidota	Chryseobacterium
+cih	Chryseobacterium sp. IHB B 17019	Prokaryotes	Bacteria	Bacteroidota	Chryseobacterium
+chh	Chryseobacterium glaciei	Prokaryotes	Bacteria	Bacteroidota	Chryseobacterium
+nme	Neisseria meningitidis MC58 (serogroup B)	Prokaryotes	Bacteria	Betaproteobacteria	Neisseria
+nmp	Neisseria meningitidis alpha710 (serogroup B)	Prokaryotes	Bacteria	Betaproteobacteria	Neisseria
+nmh	Neisseria meningitidis H44/76 (serogroup B)	Prokaryotes	Bacteria	Betaproteobacteria	Neisseria
+nmd	Neisseria meningitidis G2136 (serogroup B)	Prokaryotes	Bacteria	Betaproteobacteria	Neisseria
