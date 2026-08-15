@@ -292,6 +292,12 @@ mpph run --user genome_annotated.tsv --completeness
   **Default is `all`**, which reproduces KofamScan exactly. Add
   `--min-ko-gap BITS` to also require a clear win over the runner-up (more
   precision, less recall). See [Methods](methods.md#local-ko-annotation-annotate).
+- `--min-margin BITS` drops calls close to their KO's threshold. With
+  arbitration on, mean precision runs 0.903 (0) / 0.915 (10) / 0.924 (20) /
+  0.943 (50) / 0.956 (80) while recall falls 0.886 -> 0.630 and F1 declines
+  throughout -- a deliberate trade for analyses where a false positive costs
+  more than a false negative. Default 0 (off). Not a replacement for
+  `--multi-ko-policy best`, which beats a raised margin on both axes.
 - `--sequence-loading {auto,prefetch,stream}` chooses whether the proteome is
   held in memory or streamed. Both give identical output; the difference is
   ~1 kB per protein, so this only matters for metagenome-scale protein

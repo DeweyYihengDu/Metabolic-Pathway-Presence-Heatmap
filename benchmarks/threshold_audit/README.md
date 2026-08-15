@@ -106,6 +106,33 @@ recall cost.
 call-for-call out of the box and the equivalence result stands. `best` is
 opt-in.
 
+### Pushing precision further: `--min-margin`
+
+Dropping calls close to their threshold trades recall for precision along a
+measured frontier (mean over the seven genomes):
+
+| `--min-margin` | precision, no arbitration | precision **+ arbitration** | recall (+arb) | F1 (+arb) |
+|---|---|---|---|---|
+| 0 | 0.874 | **0.903** | 0.886 | 0.893 |
+| 10 | 0.894 | **0.915** | 0.864 | 0.888 |
+| 20 | 0.907 | **0.924** | 0.840 | 0.879 |
+| 50 | 0.932 | **0.943** | 0.739 | 0.826 |
+| 80 | 0.947 | **0.956** | 0.630 | 0.755 |
+
+Two things this shows, both worth stating:
+
+1. **Arbitration is not "being stricter".** Arbitration alone (precision
+   0.903, recall 0.886) beats a raised margin alone at 10 bits (0.894, 0.876)
+   on *both* axes, and the two stack at every point on the frontier.
+   Competing-KO error and weak-hit error are different failures.
+2. **F1 falls monotonically with `--min-margin`.** It is only worth using when
+   a false positive genuinely costs more than a false negative — a property of
+   the downstream analysis, not of the tool. The default is 0.
+
+Verified end-to-end: `--multi-ko-policy best --min-margin 20` on
+*M. jannaschii* gives precision 0.955 / recall 0.796, against KofamScan's
+0.903 / 0.884 on the same input.
+
 **Caveat that constrains the claim.** KEGG's one-KO-per-gene structure may be
 partly a curation convention rather than pure biology, so some of this gain is
 agreement with how the reference is built. What is not convention: KOfam

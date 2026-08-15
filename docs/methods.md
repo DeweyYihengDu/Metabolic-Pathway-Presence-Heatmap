@@ -354,6 +354,19 @@ is a preference about which error you would rather make, not a better setting.
 would silently alter existing users' results and invalidate that equivalence.
 Full comparison of five candidate rules: `benchmarks/threshold_audit/`.
 
+**Pushing precision further (`--min-margin BITS`).** Dropping calls close to
+their threshold trades recall for precision on a measured frontier. With
+arbitration on, mean precision runs 0.903 (0 bits) → 0.915 (10) → 0.924 (20) →
+0.943 (50) → 0.956 (80), while recall falls 0.886 → 0.630 and **F1 declines
+monotonically**. So this is worth using only when a false positive costs more
+than a false negative — a property of your analysis, not of the tool. Default
+is 0 (off).
+
+It is not a substitute for arbitration and does not overlap with it:
+arbitration alone (precision 0.903, recall 0.886) beats a raised margin alone
+at 10 bits (0.894, 0.876) on *both* axes, because a wrong winner among
+competing paralogous KOs and a weak hit are different errors.
+
 **Memory is set by `--cpus`, not by your input.** Measured on one bacterial
 genome, varying only the thread count: 1 thread 1.0 GB / 21 min, 4 threads
 2.9 GB / 5 min, 28 threads 11.8 GB / 2 min — roughly 0.4 GB per thread, with

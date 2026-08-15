@@ -267,6 +267,29 @@ def annotate_fasta(
     return assignments
 
 
+def filter_by_margin(assignments: list[Assignment],
+                     min_margin: float) -> list[Assignment]:
+    """Drop assignments closer than ``min_margin`` bits to their threshold.
+
+    A deliberate precision-for-recall trade, on a measured frontier. Combined
+    with :func:`arbitrate_best_per_gene`, mean precision over the seven
+    benchmark genomes runs 0.903 (0 bits) → 0.915 (10) → 0.924 (20) → 0.943
+    (50) → 0.956 (80), with recall falling 0.886 → 0.630. F1 declines
+    monotonically, so this is only worth using when false positives cost more
+    than false negatives — which is a property of the analysis, not of the
+    tool.
+
+    Note this is *not* redundant with arbitration and does not substitute for
+    it: arbitration alone (precision 0.903, recall 0.886) beats a raised
+    margin alone at 10 bits (0.894, 0.876) on **both** axes. Competing-KO
+    error is not the same failure as weak-hit error, and being stricter does
+    not fix it.
+    """
+    if min_margin <= 0:
+        return assignments
+    return [a for a in assignments if a.margin >= min_margin]
+
+
 def arbitrate_best_per_gene(assignments: list[Assignment], *,
                             min_gap: float = 0.0) -> list[Assignment]:
     """Resolve competing KO assignments on the same gene, keeping the best.

@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.21.0
+
+**`--min-margin BITS`: a precision dial with a measured frontier.** Drops
+calls closer than the given margin to their KO's own threshold. Combined with
+`--multi-ko-policy best`, mean precision over the seven benchmark genomes:
+
+| `--min-margin` | precision (no arb) | precision (**+ arb**) | recall | F1 |
+|---|---|---|---|---|
+| 0 | 0.874 | **0.903** | 0.886 | 0.893 |
+| 10 | 0.894 | **0.915** | 0.864 | 0.888 |
+| 20 | 0.907 | **0.924** | 0.840 | 0.879 |
+| 50 | 0.932 | **0.943** | 0.739 | 0.826 |
+| 80 | 0.947 | **0.956** | 0.630 | 0.755 |
+
+Two results worth separating:
+
+- **Arbitration is not the same thing as being stricter, and cannot be
+  replaced by it.** Arbitration alone (precision 0.903, recall 0.886) beats a
+  raised margin alone at 10 bits (0.894, 0.876) on *both* axes, and the two
+  stack at every point on the frontier. Competing-KO error and weak-hit error
+  are distinct failure modes.
+- **F1 falls monotonically as the margin rises.** `--min-margin` is only worth
+  using when a false positive genuinely costs more than a false negative,
+  which is a property of the downstream analysis rather than of the tool. It
+  is documented as a trade, not recommended as a better setting, and the
+  default is 0 (off).
+
+Verified end-to-end: `--multi-ko-policy best --min-margin 20` on
+*M. jannaschii* gives precision 0.955 / recall 0.796, against KofamScan's
+0.903 / 0.884 on the same input.
+
 ## 3.20.0
 
 **`--multi-ko-policy best`: resolve competing KO calls, +2.9 points of

@@ -1056,6 +1056,7 @@ def cmd_annotate(args) -> int:
         annotate_fasta,
         arbitrate_best_per_gene,
         download_kofam_db,
+        filter_by_margin,
         load_ko_thresholds,
         read_ko_subset,
         write_mapper_tsv,
@@ -1100,6 +1101,11 @@ def cmd_annotate(args) -> int:
         print(f"      arbitration: {n_before} -> {len(assignments)} "
               f"assignment(s); {n_before - len(assignments)} competing KO "
               f"call(s) on multi-KO genes resolved")
+    if args.min_margin > 0:
+        n_pre_margin = len(assignments)
+        assignments = filter_by_margin(assignments, args.min_margin)
+        print(f"      margin filter (>={args.min_margin:g} bits): "
+              f"{n_pre_margin} -> {len(assignments)} assignment(s)")
 
     print(f"[3/3] Writing {out} ...", flush=True)
     write_mapper_tsv(assignments, out)
@@ -1524,6 +1530,17 @@ def build_parser() -> argparse.ArgumentParser:
                           "recall for precision (mean precision 0.909 at 40) "
                           "and leaves F1 flat, so it is a choice about which "
                           "error you prefer. Default 0 (no gap required).")
+    ann.add_argument("--min-margin", type=float, default=0.0, metavar="BITS",
+                     help="Drop calls closer than this many bits to their "
+                          "KO's threshold. A deliberate precision-for-recall "
+                          "trade on a measured frontier: with "
+                          "--multi-ko-policy best, mean precision runs 0.903 "
+                          "(0) / 0.915 (10) / 0.924 (20) / 0.943 (50) / 0.956 "
+                          "(80) while recall falls 0.886 -> 0.630. F1 declines "
+                          "throughout, so use it only when a false positive "
+                          "costs more than a false negative. Not a substitute "
+                          "for --multi-ko-policy best, which beats a raised "
+                          "margin on both precision and recall.")
     ann.add_argument("--overwrite-db", action="store_true",
                      help="With --setup-db: re-download even if DIR already "
                           "looks populated (default: skip).")

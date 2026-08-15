@@ -8,6 +8,7 @@ from mpph.kofam import (
     Assignment,
     arbitrate_best_per_gene,
     discover_profiles,
+    filter_by_margin,
     is_significant_hit,
     load_ko_thresholds,
     parse_ko_list,
@@ -232,3 +233,27 @@ def test_arbitration_can_only_shrink_the_call_set():
     kept = arbitrate_best_per_gene(assignments)
     assert len(kept) <= len(assignments)
     assert set(kept).issubset(set(assignments))   # never invents a call
+
+
+def test_filter_by_margin_drops_only_calls_below_the_cut():
+    assignments = [Assignment("g1", "K1", 100.0, margin=25.0),
+                   Assignment("g2", "K2", 100.0, margin=5.0),
+                   Assignment("g3", "K3", 100.0, margin=20.0)]
+    kept = filter_by_margin(assignments, 20.0)
+    assert [a.ko_id for a in kept] == ["K1", "K3"]     # >= is inclusive
+
+
+def test_filter_by_margin_is_a_no_op_at_zero_or_below():
+    # Must be the identity, not "drop everything with margin < 0", so the
+    # default path is untouched.
+    assignments = [Assignment("g", "K1", 100.0, margin=0.0)]
+    assert filter_by_margin(assignments, 0.0) == assignments
+    assert filter_by_margin(assignments, -5.0) == assignments
+
+
+def test_filter_by_margin_composes_with_arbitration_without_reordering():
+    assignments = [Assignment("gB", "K2", 100.0, margin=30.0),
+                   Assignment("gA", "K1", 100.0, margin=50.0),
+                   Assignment("gA", "K3", 100.0, margin=10.0)]
+    out = filter_by_margin(arbitrate_best_per_gene(assignments), 20.0)
+    assert [(a.gene_id, a.ko_id) for a in out] == [("gA", "K1"), ("gB", "K2")]
