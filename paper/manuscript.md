@@ -23,12 +23,14 @@ KEGG pathway-map rendering, and differential testing — with two properties
 that are unusual in this space: its KO annotation reproduces KofamScan
 essentially call for call while requiring no external HMMER installation,
 and its differential test can be corrected for phylogenetic
-non-independence against a user-supplied reference phylogeny. Uncorrected,
-the same test's false-positive rate reaches 94.8% at a nominal 5% on
-simulated data containing no group effect at all. The toolkit is not
-restricted to any domain of life: annotation was validated against KEGG's own
-assignments on bacterial, archaeal and eukaryotic genomes, including a
-48,265-protein plant proteome, with F1 between 0.84 and 0.93 throughout.
+non-independence against a user-supplied reference phylogeny — a correction
+standard in bacterial GWAS but absent from every comparable
+metabolic-profiling tool. Uncorrected, the same test's false-positive rate
+reaches 94.8% at a nominal 5% on simulated data containing no group effect at
+all. The toolkit is not restricted to any domain of life: annotation was
+validated against KEGG's own assignments on bacterial, archaeal and eukaryotic
+genomes, including a 48,265-protein plant proteome, with F1 between 0.84 and
+0.93 throughout.
 
 **Availability and implementation.** MPPH is a pure-Python package
 (Python ≥3.9, MIT licence) installable with `pip`. Source, documentation and
@@ -60,9 +62,26 @@ close relatives share features by common descent, so the same evolutionary
 event is counted many times. The resulting p-values are anti-conservative,
 and the effect is not marginal — see §3.3.
 
+**This second problem is well known and has been solved before, for a
+different feature type.** Bacterial GWAS has a mature literature on exactly
+this: Scoary (Brynildsrud *et al.*, 2016) scores accessory-gene
+presence/absence by counting minimum independent co-emergences on a tree,
+treeWAS (Collins and Didelot, 2018) pairs ancestral-state reconstruction with
+simulation under a homoplasy distribution, pyseer (Lees *et al.*, 2018)
+controls population structure with mixed models and lineage effects, and
+hogwash (Saund *et al.*, 2020) implements two ancestral-reconstruction tests.
+MPPH's contribution here is **not** the idea. It is that this correction is
+absent from every tool in the metabolic-profiling space specifically (§1
+above; DRAM, anvi'o, MicrobeAnnotator and KEGG-Decoder all compare groups of
+genomes with no phylogenetic model), and that the implementation ships with a
+Type I error calibration across tree shapes, prevalences and rates that the
+bGWAS tools do not report for this use. The novelty claimed is the transfer
+plus the validation, not the statistics.
+
 MPPH addresses both within one toolkit, and — because a tool's own claims
 about itself are worth little — ships the validation that supports each
-claim as runnable code with committed results.
+claim as runnable code with committed results, **including where that
+validation returned an unwelcome answer** (§3.4).
 
 ---
 
@@ -98,6 +117,17 @@ a distinction that matters for MAGs, where a missing feature is frequently
 an assembly gap. `--unknown-policy` makes the handling of unknowns an
 explicit choice (exclude, treat as absent, or refuse to run) rather than a
 hidden default, and the reported evidence counts remain policy-independent.
+
+**Competing KO calls (`mpph annotate --multi-ko-policy`).** KOfam fits every
+KO's threshold independently, each maximising its own F-measure; nothing makes
+KOs compete. A protein matching several related profiles therefore clears all
+of their thresholds, and KofamScan emits all of them. KEGG's reference assigns
+exactly one KO to ≥99.88% of genes across the seven benchmark genomes, so the
+extras are over-calls: on *E. coli* they are 13.5% of calls but 69% of all
+false positives. `--multi-ko-policy best` keeps, per gene, the KO furthest
+above its own threshold. The default remains `all`, both because changing it
+would silently alter existing results and because the gain does not survive to
+the module level (§3.4).
 
 **Phylogeny-aware differential testing (`mpph compare --tree`).** Given an
 independent reference phylogeny with branch lengths, the exchangeable-samples
@@ -268,21 +298,72 @@ unconditioned formulation of the null averaged to an acceptable ~5% overall
 while being roughly fourfold anti-conservative on exactly the
 intermediate-prevalence features that produce reportable results.
 
+### 3.4 What the binary KO call discards, and where fixing it stops helping
+
+Every tool in this space collapses the HMM search to a binary call at each
+KO's adaptive threshold and discards the score. Retaining it and scoring
+against KEGG's assignments shows the call is far from homogeneous: **precision
+rises monotonically with margin above threshold, from 0.27–0.59 in the first 5
+bits to 0.94–0.99 above 200, in all seven genomes.** Calls within 20 bits of
+threshold are 5.6–12.9% of a genome's calls but carry 24.4–46.9% of its false
+positives, a 2.7–4.5× enrichment with no exceptions, and that fraction roughly
+doubles away from the model bacteria — worst on the environmental genomes
+these tools are built for. The band *below* threshold is not a reservoir of
+lost signal (precision ~0.10 in the first 5 bits, background by −20), so
+KOfam's threshold is well placed; the information is in the accepted calls.
+
+Arbitrating competing calls (§2) raises mean per-gene precision from 0.874 to
+0.903 and F1 from 0.885 to 0.893, improving both on all seven genomes, every
+95% CI excluding zero (paired bootstrap over genes), sign test p = 0.0078. On
+*E. coli* this puts MPPH ahead of the tool it reimplements (F1 0.941 vs 0.935).
+
+**It does not follow through to the module level, and reporting that matters
+more than the gain.** At the KO-set level — deduplicated, which is what module
+completeness consumes — the same change is worth +0.0006 F1, because a
+false-positive KO on one gene usually names a KO genuinely present on another,
+so removing it does not shrink the set, while removing a true positive that
+was a KO's only representative does. Against completeness computed from KEGG's
+own KO sets over 522 Pathway modules, mean absolute error is unchanged
+(0.0268 → 0.0266), signed bias becomes 44% more negative, and modules complete
+in truth but broken in the estimate rise from 13.7 to 15.7 per genome. The
+recall given up is also not uniform: it concentrates in large paralogous
+families — ABC transporters (5.5× the baseline loss rate), chemotaxis (7.5×),
+two-component systems (2.8×), respiratory-chain subunits (2.9×). Arbitration
+exists to fix over-calling caused by paralogy and over-corrects hardest
+exactly where paralogy is highest.
+
+The practical consequence is a scoping rule rather than a recommendation:
+use `best` when the per-gene assignment is the product, keep the default when
+the annotation feeds pathway-level analysis, and not at all when transport or
+signal transduction is the question.
+
 ---
 
 ## 4 Conclusion
 
 MPPH covers the comparative metabolic-profiling path end to end, removing the
-identifier hand-offs where errors enter silently, and closes a statistical gap
-that is standard practice to document as a caveat rather than fix. Its KO
-annotation is empirically interchangeable with KofamScan while dropping the
-external toolchain requirement, and its enrichment statistics match the
-reference R implementation to three decimal places. The correction for
-phylogenetic non-independence is opt-in, requires a reference phylogeny
-independent of the data, and reduces a 94.8% worst-case false-positive rate to
-7.2%. None of this is restricted to a taxonomic scope: the same code and the
-same reference database were validated on bacteria, archaea, a fungus, a
-plant, and metagenome-assembled genomes with no reference annotation at all.
+identifier hand-offs where errors enter silently, and brings to
+metabolic-profiling a correction for phylogenetic non-independence that
+bacterial GWAS has had for a decade but that no tool in this space applies —
+carrying, in addition, the Type I calibration those tools do not report for
+this use. Its KO annotation is empirically interchangeable with KofamScan
+while dropping the external toolchain requirement, and its enrichment
+statistics match the reference R implementation to three decimal places. The
+phylogenetic correction is opt-in, requires a reference phylogeny independent
+of the data, and reduces a 94.8% worst-case false-positive rate to 7.2%. None
+of this is restricted to a taxonomic scope: the same code and the same
+reference database were validated on bacteria, archaea, a fungus, a plant, and
+metagenome-assembled genomes with no reference annotation at all.
+
+Two results are reported here that a tool paper would ordinarily omit. The
+per-KO threshold structure that every tool in this space inherits from KOfam
+produces a call whose reliability varies from 0.27 to 0.99, all of it written
+as the same `1`; and the obvious fix for the resulting over-calls, though it
+improves per-gene precision on every genome tested, buys essentially nothing
+at the pathway level and costs accuracy in exactly the paralogous families
+where the artefact originates. Both are stated because a validation suite that
+only reports the flattering half is not a validation suite, and because the
+second constrains how the first should be used.
 
 ---
 
@@ -297,14 +378,23 @@ plant, and metagenome-assembled genomes with no reference annotation at all.
   is preferred, the natural expansion is a real application section using the
   marine PVC MAGs already present in the benchmark, which would carry the
   biological result the Applications Note format has no room for.
-- **Figures**: all three are submission-ready PDFs in
-  `benchmarks/figures/` — `fig1_annotation_benchmark` (§3.1),
-  `fig2_enrichment_benchmark` (§3.2), `fig3_phylo_calibration` (§3.3).
-  An Applications Note normally allows one; Fig. 1 carries the most
-  distinctive claim, Fig. 3 the most consequential one. Combining Fig. 1a
-  with Fig. 3 into a two-panel figure is the likely compromise.
+- **Figures**: four submission-ready PDFs in `benchmarks/figures/` —
+  `fig1_annotation_benchmark` (§3.1), `fig2_enrichment_benchmark` (§3.2),
+  `fig3_phylo_calibration` (§3.3), `fig4_margin_precision` (§3.4).
+  An Applications Note normally allows one. Fig. 4 is arguably now the
+  strongest single panel — it shows a property of the whole field's method,
+  not of this implementation — with Fig. 3 the most consequential. A
+  two-panel Fig. 4 + Fig. 3 is the likely compromise.
+- **Positioning of §3.3 was corrected during drafting** and must not drift
+  back. An earlier version presented phylogenetic correction as an
+  unaddressed gap; it is not — Scoary, treeWAS, pyseer and hogwash all
+  implement it for accessory genes. The defensible claim is that no tool in
+  the *metabolic-profiling* space applies it, plus the Type I calibration
+  those tools do not report for this use. Reviewers will check this.
 - **References** are cited in text but not yet formatted; the substantive ones
   are Kanehisa (KEGG), Aramaki et al. 2020 (KofamScan), Larralde and Zeller
   2023 (pyhmmer), Cantalapiedra et al. 2021 (eggNOG-mapper), Wu et al.
-  (clusterProfiler), Felsenstein 1985/2004, Garland et al. 1993, and Maddison
-  and FitzJohn 2015.
+  (clusterProfiler), Felsenstein 1985/2004, Garland et al. 1993, Maddison
+  and FitzJohn 2015, and — added with §1's prior-art paragraph —
+  Brynildsrud et al. 2016 (Scoary), Collins and Didelot 2018 (treeWAS), Lees
+  et al. 2018 (pyseer), Saund et al. 2020 (hogwash).

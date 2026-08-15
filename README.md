@@ -232,7 +232,39 @@ mpph pathmap --map ko00010 --codes-a marine.txt --label-a Marine \
 # then offline) and feed the output straight into --user above
 mpph annotate --setup-db .mpph_kofam_db
 mpph annotate --fasta genome.faa --out genome_annotated.tsv
+
+# Higher per-gene precision: resolve competing KO calls on the same gene
+# (+2.9 points precision; see the caveat below before using it)
+mpph annotate --fasta genome.faa --multi-ko-policy best --out genome_best.tsv
 ```
+
+### Choosing a KO-calling policy
+
+KOfam fits each KO's threshold independently, so a protein matching several
+related profiles clears all of them at once and KofamScan emits every one.
+KEGG's own reference assigns exactly one KO to ≥99.88% of genes, so the
+extras are over-calls — on *E. coli* they are 13.5% of calls but **69% of all
+false positives**.
+
+| | `--multi-ko-policy all` (default) | `--multi-ko-policy best` |
+|---|---|---|
+| per-gene precision | 0.874 | **0.903** |
+| per-gene F1 | 0.885 | **0.893** |
+| KO-set F1 (what completeness uses) | 0.9290 | 0.9296 |
+| KEGG modules broken per genome | **13.7** | 15.7 |
+
+**Use `best` when the per-gene assignment is the product.** It improves
+precision and F1 on all seven benchmark genomes, every 95% CI excluding zero.
+
+**Keep the default when the annotation feeds `--user` into
+presence/completeness analysis** — the gain does not survive deduplication
+into a KO set, and slightly *more* modules end up broken. And avoid `best`
+entirely if transport, signal transduction, chemotaxis or respiratory-chain
+content is central to your question: the recall it gives up concentrates 3–11×
+in exactly those paralogous families.
+
+`--min-margin BITS` pushes precision further (0.903 → 0.956 at 80 bits) at a
+steep recall cost. Full evidence: [benchmarks/threshold_audit/](benchmarks/threshold_audit/).
 
 ### Key options
 

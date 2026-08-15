@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 
 import matplotlib
+import numpy as np
 import pandas as pd
 from scipy import stats
 
@@ -271,6 +272,13 @@ def main() -> int:
     if calib_path.exists():
         figure_phylo_calibration(pd.read_csv(calib_path),
                                  out_dir / "fig3_phylo_calibration.png")
+
+    curve_path = here / "threshold_audit" / "results" / "curve.csv"
+    summary_path = here / "threshold_audit" / "results" / "summary.csv"
+    if curve_path.exists() and summary_path.exists():
+        figure_margin_precision(pd.read_csv(curve_path),
+                                pd.read_csv(summary_path),
+                                out_dir / "fig4_margin_precision.png")
     return 0
 
 
@@ -318,6 +326,97 @@ def figure_phylo_calibration(calib: pd.DataFrame, out_path: Path) -> None:
 
     fig.savefig(out_path, dpi=200, bbox_inches="tight", facecolor=SURFACE)
     fig.savefig(out_path.with_suffix(".pdf"), bbox_inches="tight", facecolor=SURFACE)
+    plt.close(fig)
+    print(f"Wrote {out_path} and {out_path.with_suffix('.pdf')}")
+
+DISPLAY_SHORT = {
+    "eco": r"$\it{E.\ coli}$", "bsu": r"$\it{B.\ subtilis}$",
+    "mja": r"$\it{M.\ jannaschii}$", "vbs": r"$\it{Verrucomicrobia}$ S94",
+    "lbac": r"$\it{Lentisphaerae}$ WC36", "sce": r"$\it{S.\ cerevisiae}$",
+    "ath": r"$\it{A.\ thaliana}$",
+}
+
+
+def figure_margin_precision(curve: pd.DataFrame, summary: pd.DataFrame,
+                            out_path: Path) -> None:
+    """The reliability of a KO call as a function of its margin above threshold.
+
+    This is a property of the field's method, not of this implementation:
+    every tool built on KOfam emits all of these as the same `1`. Panel (a) is
+    the curve per genome; panel (b) is the consequence -- the small, knowable
+    set of low-margin calls carries a wildly disproportionate share of errors.
+    """
+    order = ["eco", "bsu", "mja", "vbs", "lbac", "sce", "ath"]
+    present = [o for o in order if o in set(curve["organism"])]
+
+    fig, (ax_a, ax_b) = plt.subplots(
+        1, 2, figsize=(11.0, 4.6), facecolor=SURFACE,
+        gridspec_kw={"width_ratios": [1.35, 1.0], "wspace": 0.28})
+
+    for ax in (ax_a, ax_b):
+        ax.set_facecolor(SURFACE)
+        ax.grid(True, color=GRID, linewidth=0.7, zorder=0)
+        ax.set_axisbelow(True)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            ax.spines[side].set_color(GRID)
+        ax.tick_params(colors=INK_MUTED, length=0)
+
+    # (a) precision vs margin. x is the band index so the open-ended top bin
+    # is drawn at a finite position; a log axis would misrepresent it.
+    bands = (curve[curve["organism"] == present[0]]
+             .sort_values("margin_lo")[["margin_lo", "margin_hi"]])
+    labels = [f"{int(lo)}–{int(hi)}" if np.isfinite(hi) else f"≥{int(lo)}"
+              for lo, hi in bands.itertuples(index=False)]
+    xs = range(len(labels))
+    palette = [BLUE, ORANGE, AQUA, "#7b5cd6", "#c2185b", "#00796b", "#8d6e63"]
+    for org, colour in zip(present, palette):
+        sub = curve[curve["organism"] == org].sort_values("margin_lo")
+        ax_a.plot(xs, sub["precision"], marker="o", markersize=4.5,
+                  linewidth=1.7, color=colour, zorder=3,
+                  label=DISPLAY_SHORT.get(org, org))
+    ax_a.set_xticks(list(xs))
+    ax_a.set_xticklabels(labels, fontsize=7.5, rotation=30, ha="right")
+    ax_a.set_ylim(0, 1.02)
+    ax_a.set_xlabel("margin above that KO's own threshold (bits)",
+                    fontsize=8.5, color=INK_MUTED)
+    ax_a.set_ylabel("precision vs KEGG's own assignments",
+                    fontsize=8.5, color=INK_MUTED)
+    ax_a.set_title("a   Every one of these is written as the same `1`",
+                   loc="left", fontsize=10.5, color=INK, pad=26)
+    ax_a.legend(frameon=False, fontsize=7.5, loc="lower right", ncol=2,
+                handlelength=1.4)
+
+    # (b) share of calls vs share of errors, low-margin band.
+    s = summary.set_index("organism").loc[present]
+    y = np.arange(len(present))
+    h = 0.36
+    ax_b.barh(y - h / 2, 100 * s["frac_calls_low_margin"], height=h,
+              color=BLUE, zorder=3, label="share of all calls")
+    ax_b.barh(y + h / 2, 100 * s["frac_fp_from_low_margin"], height=h,
+              color=ORANGE, zorder=3, label="share of all false positives")
+    for i, org in enumerate(present):
+        ax_b.text(100 * s.loc[org, "frac_fp_from_low_margin"] + 1.0, i + h / 2,
+                  f"{s.loc[org, 'fp_enrichment_low_margin']:.1f}×",
+                  va="center", fontsize=7.5, color=INK_MUTED, zorder=4)
+    ax_b.set_yticks(y)
+    ax_b.set_yticklabels([DISPLAY_SHORT.get(o, o) for o in present], fontsize=8.5)
+    ax_b.invert_yaxis()
+    # Headroom for the "N.Nx" enrichment labels, which are drawn just past the
+    # end of the longest bar and would otherwise be clipped at the axis edge.
+    ax_b.set_xlim(0, 100 * s["frac_fp_from_low_margin"].max() + 9)
+    ax_b.set_xlabel("percent", fontsize=8.5, color=INK_MUTED)
+    ax_b.set_title("b   Calls within 20 bits of threshold",
+                   loc="left", fontsize=10.5, color=INK, pad=26)
+    # Above the axes, not inside it: the y-axis is inverted so the last rows
+    # sit at the bottom right, exactly where a "lower right" legend lands.
+    ax_b.legend(frameon=False, fontsize=7.5, ncol=2, loc="lower left",
+                bbox_to_anchor=(0, 1.005), handlelength=1.4)
+
+    fig.savefig(out_path, dpi=200, bbox_inches="tight", facecolor=SURFACE)
+    fig.savefig(out_path.with_suffix(".pdf"), bbox_inches="tight",
+                facecolor=SURFACE)
     plt.close(fig)
     print(f"Wrote {out_path} and {out_path.with_suffix('.pdf')}")
 
