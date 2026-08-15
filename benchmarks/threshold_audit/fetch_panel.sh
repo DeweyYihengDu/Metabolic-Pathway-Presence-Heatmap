@@ -57,7 +57,14 @@ while IFS=$'\t' read -r org name kingdom domain clade genus; do
     if [[ -z "${acc:-}" ]]; then
       skipped+=("$org (no assembly accession in KEGG record)"); continue
     fi
-    ftp=$(awk -F'\t' -v a="${acc%%.*}" '$1 ~ a {print $20; exit}' "$SUMMARY")
+    # KEGG's DATA_SOURCE usually names the *GenBank* assembly (GCA_...), while
+    # column 1 of the RefSeq summary holds GCF_ accessions -- the GCA pairing
+    # lives in column 18. Matching only column 1 skipped ~90% of the panel.
+    # Compared version-stripped and exactly, not by regex: a substring match
+    # on an accession can hit the wrong assembly.
+    ftp=$(awk -F'\t' -v a="${acc%%.*}" '
+        {split($1, x, "."); split($18, y, ".");
+         if (x[1] == a || y[1] == a) {print $20; exit}}' "$SUMMARY")
     if [[ -z "${ftp:-}" ]]; then
       skipped+=("$org ($acc not in RefSeq summary)"); continue
     fi
