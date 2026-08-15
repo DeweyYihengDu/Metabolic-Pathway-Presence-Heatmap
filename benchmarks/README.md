@@ -8,7 +8,7 @@ numbers measure the implementations rather than their inputs.
 |---|---|---|
 | [`annotation/`](annotation/) | `mpph annotate` vs **KofamScan** vs **eggNOG-mapper**, 8 genomes across 3 difficulty tiers | `mpph` reproduces KofamScan at Jaccard **1.000** on 6 of 8 genomes (0.9997, 0.9994 on the other two); F1 vs KEGG's own KO assignments 0.842–0.934 |
 | [`enrichment/`](enrichment/) | `mpph gsea`/`mpph enrich` vs **clusterProfiler** | GSEA ES Spearman ρ = **1.000**, NES ρ = 0.999; ORA p-value ρ = **1.000** |
-| [`phylo/`](phylo/) | `mpph compare --tree`'s Type I error against the uncorrected test, 54 simulated cells with no group effect present | uncorrected reaches **94.8%** false positives at a nominal 5%; corrected worst **7.2%**, median **0.0%** |
+| [`phylo/`](phylo/) | `mpph compare --tree`'s Type I error **and power** against the uncorrected test, 54 + 96 simulated cells | uncorrected reaches **94.8%** false positives at a nominal 5%; corrected worst **7.2%**, median **0.0%**. Power ([`POWER.md`](phylo/POWER.md)): the correction costs ~14 points where power was real (86.3% vs Fisher's 100% on unconfounded groups) and is calibrated at 0.024 whether or not groups follow the tree |
 | [`threshold_audit/`](threshold_audit/) | what the binary KO call discards, across 7 genomes with KEGG ground truth + 3 MAGs | a KO call's precision spans **0.27 → 0.99** with margin above threshold; 6–13% of calls carry **24–47%** of all false positives. Arbitrating competing calls gains **+2.9** points of per-gene precision — and **+0.0006 F1 at the KO-set level**, with *more* modules broken, so the gain does not reach the level this toolkit reports |
 
 Figures: [`figures/`](figures/) — regenerate with `python make_figures.py`

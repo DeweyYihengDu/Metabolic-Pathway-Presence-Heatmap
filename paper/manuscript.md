@@ -298,6 +298,27 @@ unconditioned formulation of the null averaged to an acceptable ~5% overall
 while being roughly fourfold anti-conservative on exactly the
 intermediate-prevalence features that produce reportable results.
 
+**Power, since a test that never rejects is perfectly calibrated and
+useless.** The same design was rerun with a genuine group effect added, under
+two groupings: groups as the two root clades (a real difference maximally
+confounded with phylogeny) and groups scattered at random (not confounded).
+Type I error is 0.024 under both. Fisher is well calibrated when the groups
+are scattered (0.023) and rejects 21.7% of the time on pure noise when they
+are clade-structured, which localises the problem to phylogenetic confounding
+rather than to group testing as such. At a large effect the corrected test
+rejects 86.3% of the time under scattered groups against Fisher's 100% — the
+correction costs roughly 14 points of power, and costs it in the regime where
+Fisher was already correct.
+
+Under clade-structured groups the corrected test's power *falls* as the effect
+grows (0.352 → 0.326 → 0.205 at effect 0.6, 0.8, 1.0). This is not a defect
+but Maddison and FitzJohn's argument appearing as a measured curve: a trait
+that separates the two clades perfectly is exactly what a single origin on the
+separating branch produces, so the conditioned null generates equally extreme
+patterns more often as the alignment becomes perfect. The effective sample
+size is one, and the reported `n_state_changes` is what makes a large
+corrected p-value interpretable there rather than puzzling.
+
 ### 3.4 What the binary KO call discards, and where fixing it stops helping
 
 Every tool in this space collapses the HMM search to a binary call at each
