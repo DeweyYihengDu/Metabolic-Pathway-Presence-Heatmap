@@ -52,6 +52,15 @@ class Assignment:
     gene_id: str
     ko_id: str
     score: float
+    #: ``score_used - threshold``, where ``score_used`` is whichever score the
+    #: significance test actually compared (best-domain for ``score_type ==
+    #: "domain"`` KOs, full-sequence otherwise). ``score`` above is always the
+    #: full-sequence score, so for a domain-scored KO the two do not describe
+    #: the same quantity -- this one does, and it is what
+    #: :func:`arbitrate_best_per_gene` ranks by. Defaults to NaN so an
+    #: Assignment built without it (older callers, tests) is not silently
+    #: given a margin of zero, which would read as "exactly at threshold".
+    margin: float = float("nan")
 
 
 def parse_ko_list(text: str) -> dict[str, KOListEntry]:
@@ -236,8 +245,11 @@ def annotate_fasta(
             for hit in hits:
                 best_dom = hit.best_domain.score if len(hit.domains) else None
                 if is_significant_hit(entry, hit.score, best_dom):
+                    score_used = (best_dom if entry.score_type == "domain"
+                                  else hit.score)
                     assignments.append(
-                        Assignment(hit.name, hits.query.name, hit.score))
+                        Assignment(hit.name, hits.query.name, hit.score,
+                                   score_used - entry.threshold))
 
     if use_prefetch:
         with pyhmmer.easel.SequenceFile(fasta_path, digital=True,
@@ -253,6 +265,55 @@ def annotate_fasta(
 
     assignments.sort(key=lambda a: (a.gene_id, a.ko_id))
     return assignments
+
+
+def arbitrate_best_per_gene(assignments: list[Assignment], *,
+                            min_gap: float = 0.0) -> list[Assignment]:
+    """Resolve competing KO assignments on the same gene, keeping the best.
+
+    KOfam sets every KO's threshold independently, by maximising that KO's own
+    F-measure in isolation; nothing makes KOs compete. So a protein matching
+    several related profiles -- paralogous subfamilies, different specificities
+    of one enzyme family -- can clear all of their thresholds at once, and both
+    KofamScan and :func:`annotate_fasta` then emit all of them.
+
+    KEGG's own reference does not work that way. Across the seven benchmark
+    genomes spanning all three domains, **>=99.88% of genes carry exactly one
+    KO** (maximum observed: 2). Multi-KO calls are therefore over-calls almost
+    by construction, and they are where the errors are: on *E. coli* they are
+    13.5% of calls but 69% of all false positives.
+
+    Ranking is by :attr:`Assignment.margin` -- the distance above that KO's own
+    threshold -- not by raw score, since thresholds span roughly 30 to over
+    2000 bits and raw scores are not comparable between KOs. Measured on the
+    benchmark (``benchmarks/threshold_audit/``), this raises mean precision
+    from 0.874 to 0.903 and mean F1 from 0.885 to 0.893, improving both on
+    every one of the seven genomes.
+
+    ``min_gap`` > 0 additionally requires the winner to beat the runner-up by
+    that many bits, dropping the gene entirely when the evidence does not
+    separate them. This buys precision at the cost of recall (mean precision
+    0.909 at ``min_gap=40``) and leaves F1 essentially flat, so it is a
+    preference about error type rather than a better setting.
+
+    A tie in margin is broken by KO id, so the result does not depend on the
+    order hits happened to arrive in.
+    """
+    by_gene: dict[str, list[Assignment]] = {}
+    for a in assignments:
+        by_gene.setdefault(a.gene_id, []).append(a)
+
+    kept: list[Assignment] = []
+    for group in by_gene.values():
+        if len(group) == 1:
+            kept.append(group[0])
+            continue
+        ranked = sorted(group, key=lambda a: (-a.margin, a.ko_id))
+        if min_gap > 0 and (ranked[0].margin - ranked[1].margin) < min_gap:
+            continue  # ambiguous: guessing here is what costs precision
+        kept.append(ranked[0])
+    kept.sort(key=lambda a: (a.gene_id, a.ko_id))
+    return kept
 
 
 def write_mapper_tsv(assignments: list[Assignment], out_path: str | Path) -> None:

@@ -1,5 +1,68 @@
 # Changelog
 
+## 3.20.0
+
+**`--multi-ko-policy best`: resolve competing KO calls, +2.9 points of
+precision.** KOfam fits every KO's threshold **independently**, each
+maximising its own F-measure; nothing in that procedure makes KOs compete. A
+protein matching several related profiles clears all of their thresholds at
+once, and KofamScan -- and therefore `mpph annotate`, which reproduces it --
+emits every one.
+
+KEGG's reference does not work that way. Across the seven benchmark genomes
+spanning all three domains, **>=99.88% of genes carry exactly one KO** (max
+observed 2), so the extras are over-calls almost by construction. They are
+also where the errors are: on *E. coli* multi-KO genes are 13.5% of calls but
+**69% of all false positives**, at precision 0.39 against 0.96 for single-KO
+genes.
+
+The new policy keeps, per gene, the KO furthest above *its own* threshold:
+
+| genome | precision (all -> best) | F1 (all -> best) |
+|---|---|---|
+| *E. coli* K-12 | 0.900 -> **0.937** | 0.935 -> **0.941** |
+| *B. subtilis* 168 | 0.858 -> **0.908** | 0.898 -> **0.911** |
+| *M. jannaschii* | 0.903 -> **0.934** | 0.894 -> **0.904** |
+| *Verrucomicrobia* sp. S94 | 0.845 -> **0.878** | 0.848 -> **0.861** |
+| *Lentisphaerae* sp. WC36 | 0.848 -> **0.864** | 0.842 -> **0.849** |
+| *S. cerevisiae* | 0.945 -> **0.960** | 0.911 -> **0.914** |
+| *A. thaliana* | 0.815 -> **0.837** | 0.867 -> **0.874** |
+| **mean** | **0.874 -> 0.903** | **0.885 -> 0.893** |
+
+Precision *and* F1 improve on all seven, so this is a net gain rather than
+recall traded away. On *E. coli* it puts `mpph annotate` ahead of the tool it
+reimplements: F1 0.941 against KofamScan's 0.935.
+
+- **Ranking is by margin above threshold, not raw score.** Thresholds span
+  ~30 to >2000 bits, so raw scores are not comparable between KOs. Ranking by
+  *relative* margin (score/threshold) was also tried and is consistently
+  worse, contradicting the obvious scale argument -- so this was measured, not
+  reasoned.
+- **`--min-ko-gap BITS`** additionally requires the winner to beat the
+  runner-up, dropping the gene when the evidence does not separate them. Mean
+  precision reaches 0.909 at 40 bits with F1 flat, so it is a preference about
+  error type rather than a better setting.
+- **The default stays `all`.** Changing it would silently alter existing
+  users' results and would invalidate the KofamScan-equivalence result. `best`
+  is opt-in, and the two claims now stand together: identical to the incumbent
+  by default, better than it on request.
+- New `Assignment.margin` field records the distance above threshold, using
+  whichever score the significance test actually compared (best-domain for
+  `score_type = domain` KOs, full-sequence otherwise) -- `Assignment.score`
+  remains the full-sequence score and for domain-scored KOs the two are
+  genuinely different quantities.
+
+Evidence and the comparison of five candidate rules:
+`benchmarks/threshold_audit/`. The shipped implementation was validated
+end-to-end against the offline analysis on three genomes, reproducing
+precision, recall and F1 to six decimal places.
+
+**Caveat that constrains the claim**: KEGG's one-KO-per-gene structure may be
+partly a curation convention rather than pure biology, so some of this gain is
+agreement with how the reference is built. What is not convention is KOfam
+emitting several mutually exclusive orthology assignments for one protein --
+that is a real consequence of fitting thresholds per KO in isolation.
+
 ## 3.19.1
 
 **`mpph annotate`'s peak memory is set by `--cpus`, not by your input.**

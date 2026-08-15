@@ -323,6 +323,37 @@ is a defect:
   built from, are unaffected: isoforms of one gene collapse to the same KO.
   Per-gene call counts are not comparable to a prokaryotic genome's.
 
+**Competing KO calls on one gene (`--multi-ko-policy`).** KOfam's thresholds
+are fitted **per KO independently**, each maximising its own F-measure; nothing
+in that procedure makes KOs compete with one another. A protein matching
+several related profiles — paralogous subfamilies, different specificities of
+one enzyme family — therefore clears all of their thresholds at once, and
+KofamScan emits every one of them.
+
+KEGG's own reference does not: across the seven benchmark genomes spanning all
+three domains, **≥99.88% of genes carry exactly one KO** (max observed 2). The
+extra calls are over-calls almost by construction, and they are where the
+errors concentrate — on *E. coli* they are 13.5% of calls but **69% of all
+false positives**, with precision 0.39 against 0.96 for single-KO genes.
+
+`--multi-ko-policy best` keeps, per gene, the KO furthest above *its own*
+threshold. Ranking is by that margin rather than raw score because thresholds
+span roughly 30 to over 2000 bits, so raw scores are not comparable between
+KOs — and empirically, ranking by *relative* margin (score/threshold) is
+consistently worse than absolute margin. Measured against KEGG's assignments,
+this raises mean precision from 0.874 to 0.903 and mean F1 from 0.885 to
+0.893, improving **both on all seven genomes**; on *E. coli* it puts `mpph
+annotate` ahead of the tool it reimplements (F1 0.941 vs KofamScan's 0.935).
+
+`--min-ko-gap BITS` additionally requires the winner to beat the runner-up by
+a margin, dropping the gene when the evidence does not separate them. It buys
+precision (mean 0.909 at 40 bits) at a recall cost and leaves F1 flat, so it
+is a preference about which error you would rather make, not a better setting.
+
+**The default is `all`**, which reproduces KofamScan exactly — changing it
+would silently alter existing users' results and invalidate that equivalence.
+Full comparison of five candidate rules: `benchmarks/threshold_audit/`.
+
 **Memory is set by `--cpus`, not by your input.** Measured on one bacterial
 genome, varying only the thread count: 1 thread 1.0 GB / 21 min, 4 threads
 2.9 GB / 5 min, 28 threads 11.8 GB / 2 min — roughly 0.4 GB per thread, with

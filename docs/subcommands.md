@@ -282,6 +282,16 @@ mpph run --user genome_annotated.tsv --completeness
   [Methods](methods.md#local-ko-annotation-annotate) for what changes with a
   eukaryotic input (lower KO coverage, splice isoforms) and
   `benchmarks/annotation/` for the full comparison.
+- `--multi-ko-policy {all,best}` decides what happens when several KOs pass
+  their thresholds on the same gene. KOfam fits each threshold independently,
+  so related profiles can all fire on one protein; KEGG's reference assigns
+  exactly one KO to >=99.88% of genes, making the extras over-calls. They are
+  13.5% of calls but 69% of false positives on *E. coli*. `best` keeps the KO
+  furthest above its own threshold and raises mean precision 0.874 -> 0.903 and
+  mean F1 0.885 -> 0.893, improving both on all seven benchmark genomes.
+  **Default is `all`**, which reproduces KofamScan exactly. Add
+  `--min-ko-gap BITS` to also require a clear win over the runner-up (more
+  precision, less recall). See [Methods](methods.md#local-ko-annotation-annotate).
 - `--sequence-loading {auto,prefetch,stream}` chooses whether the proteome is
   held in memory or streamed. Both give identical output; the difference is
   ~1 kB per protein, so this only matters for metagenome-scale protein

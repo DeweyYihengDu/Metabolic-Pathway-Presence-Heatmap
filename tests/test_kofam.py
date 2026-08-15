@@ -6,6 +6,7 @@ import pytest
 
 from mpph.kofam import (
     Assignment,
+    arbitrate_best_per_gene,
     discover_profiles,
     is_significant_hit,
     load_ko_thresholds,
@@ -164,3 +165,70 @@ def test_read_ko_subset_no_matches_raises(tmp_path):
     p.write_text("nothing here\n")
     with pytest.raises(ValueError, match="no KO ids"):
         read_ko_subset(p)
+
+
+# --- arbitrate_best_per_gene --------------------------------------------
+
+def test_arbitration_keeps_the_largest_margin_not_the_largest_score():
+    # The whole point: raw scores are not comparable between KOs because
+    # thresholds span ~30 to >2000 bits. A 400-bit hit that only just clears a
+    # 395-bit threshold is weaker evidence than a 60-bit hit on a 20-bit
+    # threshold, and ranking by score would pick the wrong one.
+    assignments = [
+        Assignment("geneA", "K_high_score", 400.0, margin=5.0),
+        Assignment("geneA", "K_high_margin", 60.0, margin=40.0),
+    ]
+    kept = arbitrate_best_per_gene(assignments)
+    assert [a.ko_id for a in kept] == ["K_high_margin"]
+
+
+def test_arbitration_leaves_single_ko_genes_untouched():
+    assignments = [Assignment("geneA", "K00001", 400.0, margin=300.0),
+                   Assignment("geneB", "K00002", 50.0, margin=10.0)]
+    assert arbitrate_best_per_gene(assignments) == sorted(
+        assignments, key=lambda a: (a.gene_id, a.ko_id))
+
+
+def test_arbitration_is_independent_of_input_order():
+    # Hits arrive in profile order, which is arbitrary; the result must not be.
+    a = Assignment("g", "K00001", 100.0, margin=10.0)
+    b = Assignment("g", "K00002", 100.0, margin=30.0)
+    assert arbitrate_best_per_gene([a, b]) == arbitrate_best_per_gene([b, a])
+
+
+def test_arbitration_breaks_exact_margin_ties_deterministically():
+    a = Assignment("g", "K00002", 100.0, margin=10.0)
+    b = Assignment("g", "K00001", 100.0, margin=10.0)
+    assert [x.ko_id for x in arbitrate_best_per_gene([a, b])] == ["K00001"]
+    assert [x.ko_id for x in arbitrate_best_per_gene([b, a])] == ["K00001"]
+
+
+def test_min_gap_drops_a_gene_whose_top_two_are_too_close():
+    assignments = [Assignment("g", "K00001", 100.0, margin=12.0),
+                   Assignment("g", "K00002", 100.0, margin=10.0)]
+    assert arbitrate_best_per_gene(assignments, min_gap=10.0) == []
+    assert len(arbitrate_best_per_gene(assignments, min_gap=1.0)) == 1
+
+
+def test_min_gap_never_drops_an_unambiguous_single_ko_gene():
+    # A gene with one passing KO has no runner-up; requiring a gap must not
+    # silently delete it, which would tank recall for no reason.
+    assignments = [Assignment("g", "K00001", 100.0, margin=0.5)]
+    assert arbitrate_best_per_gene(assignments, min_gap=1000.0) == assignments
+
+
+def test_arbitration_output_is_sorted_like_write_mapper_tsv_expects():
+    assignments = [Assignment("geneB", "K00002", 50.0, margin=5.0),
+                   Assignment("geneA", "K00001", 400.0, margin=300.0)]
+    kept = arbitrate_best_per_gene(assignments)
+    assert [(a.gene_id, a.ko_id) for a in kept] == [
+        ("geneA", "K00001"), ("geneB", "K00002")]
+
+
+def test_arbitration_can_only_shrink_the_call_set():
+    assignments = [Assignment("g1", "K1", 10.0, margin=5.0),
+                   Assignment("g1", "K2", 10.0, margin=3.0),
+                   Assignment("g2", "K3", 10.0, margin=1.0)]
+    kept = arbitrate_best_per_gene(assignments)
+    assert len(kept) <= len(assignments)
+    assert set(kept).issubset(set(assignments))   # never invents a call
