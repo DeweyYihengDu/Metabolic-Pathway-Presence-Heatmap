@@ -27,20 +27,25 @@ wrong would inflate the headline number.
 `results/summary.csv`, `results/curve.csv`, `results/transfer.csv`,
 `results/reliability.csv`.
 
-**A KO call's precision spans 0.28 → 0.99 as a function of its margin above
+**A KO call's precision spans 0.27 → 0.99 as a function of its margin above
 threshold.** Every tool writes all of them as the same `1`.
 
-| genome | precision, all calls | % calls within 20 bits | precision of those | % of all false positives they carry |
-|---|---|---|---|---|
-| *E. coli* K-12 | 0.900 | 5.7% | 0.572 | 24.4% |
-| *B. subtilis* 168 | 0.858 | 7.9% | 0.449 | 30.8% |
-| *M. jannaschii* | 0.903 | 12.9% | 0.652 | 46.5% |
-| *Verrucomicrobia* sp. S94 | 0.845 | 12.7% | 0.431 | 46.9% |
-| *Lentisphaerae* sp. WC36 | 0.848 | 11.3% | 0.597 | 29.9% |
+| genome | domain | precision, all calls | % calls within 20 bits | precision of those | % of all false positives they carry |
+|---|---|---|---|---|---|
+| *E. coli* K-12 | Bacteria | 0.900 | 5.7% | 0.572 | 24.4% |
+| *B. subtilis* 168 | Bacteria | 0.858 | 7.9% | 0.449 | 30.8% |
+| *M. jannaschii* | Archaea | 0.903 | 12.9% | 0.652 | 46.5% |
+| *Verrucomicrobia* sp. S94 | Bacteria (PVC) | 0.845 | 12.7% | 0.431 | 46.9% |
+| *Lentisphaerae* sp. WC36 | Bacteria (PVC) | 0.848 | 11.3% | 0.597 | 29.9% |
+| *S. cerevisiae* | Eukaryota | 0.945 | 5.6% | 0.752 | 25.4% |
+| *A. thaliana* | Eukaryota | 0.815 | 7.6% | 0.319 | 28.0% |
 
-6–13% of calls carry 24–47% of every error, and that fraction roughly doubles
-away from the model bacteria — i.e. it is worst on exactly the environmental
-genomes these tools are built for.
+6–13% of calls carry 24–47% of every error — a **2.7–4.5× enrichment in every
+one of seven genomes spanning all three domains**. The low-margin fraction
+roughly doubles from the model bacteria to the archaeon and the two
+environmental PVC genomes, i.e. it is worst on exactly the genomes these tools
+are built for. *A. thaliana* is the sharpest case: its low-margin calls are
+correct less than a third of the time.
 
 **The sub-threshold band is not a reservoir of lost signal**: precision below
 the cut is ~0.10 in the first 5 bits and reaches background by −20. KOfam's
