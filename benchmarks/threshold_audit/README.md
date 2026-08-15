@@ -147,19 +147,18 @@ Measured, not assumed — and the answer is unwelcome:
 | level of the analysis | precision | recall | F1 |
 |---|---|---|---|
 | per-gene (gene, KO) pairs | +2.9 pts | −1.3 | **+0.8** |
-| **KO set** (deduplicated, what completeness consumes) | +1.6 pts | −1.4 | **+0.0004** |
+| **KO set** (deduplicated, what completeness consumes) | +1.6 pts | −1.4 | **+0.0006** |
 
-Against module completeness computed from KEGG's own KO sets (six genomes,
+Against module completeness computed from KEGG's own KO sets (seven genomes,
 522 Pathway modules):
 
 | policy | MAE | bias | RMSE | modules broken | modules invented |
 |---|---|---|---|---|---|
-| `all` | 0.0272 | −0.0152 | 0.0987 | **14.7** | 1.50 |
-| `best` | 0.0267 | **−0.0184** | 0.0989 | **16.0** | 1.17 |
+| `all` | 0.0268 | −0.0122 | 0.0992 | **13.7** | 1.43 |
+| `best` | 0.0266 | **−0.0176** | 0.1016 | **15.7** | 1.00 |
 
-MAE is unchanged, bias becomes more negative, and *more* modules that are
-complete in truth get broken. Per genome the broken count is worse on four of
-six and equal on two — better on none.
+MAE is unchanged, bias becomes 44% more negative, RMSE slightly worse, and
+**two more modules per genome** that are complete in truth get broken.
 
 **Mechanism — a level mismatch, not noise.** A genome has many genes but one
 KO set. A false-positive KO call on gene X usually names a KO genuinely
@@ -169,23 +168,43 @@ roughly halved on the way up while the recall loss carries over intact.
 
 ### The recall loss is biased toward paralogous families (`recall_loss_bias.py`)
 
-Whether losing 1.3 points of recall matters depends entirely on *which* calls
-are lost. Pooled over six genomes, arbitration drops 215 true (gene, KO)
-calls; a hypergeometric test per pathway with BH correction, against a 2.6%
-baseline loss rate, finds three significantly enriched:
+Whether losing recall matters depends entirely on *which* calls are lost.
+Pooled over all seven genomes, arbitration drops 333 true (gene, KO) calls; a
+hypergeometric test per pathway with BH correction, against a 2.78% baseline
+loss rate, returns 17 significant pathways — but **those 17 are not 17
+independent findings**, and reporting them as such would be wrong.
+
+Eight of them (Parkinson, Alzheimer, Huntington, prion disease,
+neurodegeneration, diabetic cardiomyopathy, thermogenesis, chemical
+carcinogenesis) each lost exactly 11 KOs, and those 11 are **100% the same
+oxidative-phosphorylation subunits in every case** — KEGG's disease maps
+embed the respiratory chain, so one signal is counted eight times. Verified
+directly, not inferred from the equal counts.
+
+Collapsing the redundancy leaves about six distinct signals:
 
 | pathway | true calls lost | enrichment | q |
 |---|---|---|---|
-| ABC transporters (ko02010) | 38 / 246 = 15.4% | **5.9×** | 6×10⁻¹⁷ |
-| Two-component system (ko02020) | 20 / 260 = 7.7% | **2.9×** | 0.0024 |
-| Bacterial chemotaxis (ko02030) | 5 / 24 = 20.8% | **7.9×** | 0.035 |
+| Glucosinolate biosynthesis (ko00966) | 5 / 16 = 31.3% | **11.2×** | 0.0038 |
+| Bacterial chemotaxis (ko02030) | 5 / 24 = 20.8% | **7.5×** | 0.015 |
+| β-Lactam resistance (ko01501) | 4 / 21 = 19.0% | **6.9×** | 0.050 |
+| ABC transporters (ko02010) | 38 / 249 = 15.3% | **5.5×** | 1×10⁻¹⁵ |
+| 2-Oxocarboxylic acid metabolism (ko01210) | 9 / 87 = 10.3% | **3.7×** | 0.018 |
+| Oxidative phosphorylation (ko00190) | 13 / 160 = 8.1% | **2.9×** | 0.015 |
+| Two-component system (ko02020) | 20 / 261 = 7.7% | **2.8×** | 0.0033 |
+| Biosynthesis of secondary metabolites (ko01110) | 41 / 859 = 4.8% | 1.7× | 0.015 |
 
-These are the three most heavily paralogous families in bacterial genomes,
-which is the mechanism restating itself: arbitration exists to fix over-calling
-caused by paralogy, and it over-corrects hardest exactly where paralogy is
-highest. A permease genuinely matching several transporter KOs is forced to
-pick one and sometimes picks wrong. **The method trades one paralogy artefact
-for another** rather than removing the problem.
+Every one is a large paralogous family: transporters, two-component
+kinases/regulators, chemotaxis proteins, respiratory-complex subunits
+(the lost KOs are succinate dehydrogenase K00234/K00235, F-type ATPase
+K02132/K02133/K02137, NADH dehydrogenase K03882/K03883), and in
+*Arabidopsis* the P450/glucosyltransferase families behind glucosinolates.
+
+That is the mechanism restating itself: arbitration exists to fix
+over-calling caused by paralogy, and it over-corrects hardest exactly where
+paralogy is highest. A permease genuinely matching several transporter KOs is
+forced to pick one and sometimes picks wrong. **The method trades one paralogy
+artefact for another** rather than removing the problem.
 
 Loss is also very uneven between genomes — 3.0% (*E. coli*) and 2.9%
 (*B. subtilis*) against 0.1% (*Lentisphaerae*) — tracking each genome's
@@ -207,14 +226,14 @@ keeping the first KO listed per gene:
 
 | tool | precision | recall | F1 |
 |---|---|---|---|
-| eggNOG, as published | 0.771 | 0.896 | 0.827 |
-| eggNOG, one-KO-per-gene bound | 0.828 | 0.845 | 0.836 |
-| `mpph annotate` **unarbitrated** | **0.883** | 0.894 | **0.888** |
-| `mpph annotate --multi-ko-policy best` | **0.914** | 0.881 | **0.897** |
+| eggNOG, as published | 0.749 | 0.883 | 0.809 |
+| eggNOG, one-KO-per-gene bound | 0.807 | 0.835 | 0.820 |
+| `mpph annotate` **unarbitrated** | **0.874** | 0.899 | **0.885** |
+| `mpph annotate --multi-ko-policy best` | **0.903** | 0.886 | **0.893** |
 
-The correction matters (eggNOG gains +5.7 points of precision from it) but
+The correction matters (eggNOG gains +5.8 points of precision from it) but
 **does not change the ranking**: unarbitrated mpph still leads the bounded
-eggNOG by 5.5 points of precision. The gap is not an artefact of arbitration.
+eggNOG by 6.7 points of precision. The gap is not an artefact of arbitration.
 
 ### Are the gains significant? (`fairness_and_ci.py`)
 
@@ -230,20 +249,50 @@ dependency the statistic is about and give CIs that are too narrow.
 | *Verrucomicrobia* S94 | +0.033 [0.025, 0.042] | +0.013 [0.008, 0.018] |
 | *Lentisphaerae* WC36 | +0.016 [0.010, 0.022] | +0.007 [0.004, 0.011] |
 | *S. cerevisiae* | +0.015 [0.011, 0.019] | +0.003 [0.000, 0.005] |
+| *A. thaliana* | +0.022 [0.019, 0.025] | +0.007 [0.005, 0.009] |
 
-Every interval excludes zero for both metrics; precision improves on 6/6
-(one-sided sign test p = 0.016). The per-gene gain is solid — it is the
+Every interval excludes zero for both metrics; precision improves on **7/7**
+(one-sided sign test p = 0.0078). The per-gene gain is solid — it is the
 *level* at which it stops mattering (above), not its reality.
 
 ### Which KOs lose arbitration
 
 No single KO dominates: the most frequently displaced is lost 4 times across
-six genomes, the rest twice or fewer. The identities are ABC-transporter
+seven genomes, the rest twice or fewer. The identities are ABC-transporter
 components (K10009/K10010, K15581/K15582), pilus/flagellar and motility genes
 (K02652, K02424), and similar — the same families the pathway enrichment
 picked out. So this is a broad property of paralogous families rather than a
 handful of badly-built profiles, which also means it is not fixable by
 blacklisting a few KOs.
+
+### What arbitration does on MAGs — the target use case
+
+MAGs have no KEGG ground truth, so precision there is unmeasurable and this
+whole result is formally untested on the genomes the tool is most used for.
+What *is* measurable is how much arbitration changes, and it is markedly less:
+
+| genome | kind | calls (all → best) | resolved |
+|---|---|---|---|
+| *E. coli* K-12 | reference | 3,516 → 3,275 | 6.85% |
+| *B. subtilis* 168 | reference | 2,702 → 2,478 | 8.29% |
+| *M. jannaschii* | reference | 1,046 → 1,002 | 4.21% |
+| *Verrucomicrobia* S94 | reference | 1,585 → 1,514 | 4.48% |
+| *Lentisphaerae* WC36 | reference | 1,100 → 1,079 | 1.91% |
+| *S. cerevisiae* | reference | 3,808 → 3,714 | 2.47% |
+| bin17 (SRR12479784) | MAG | 399 → 390 | 2.26% |
+| bin007 (SRR13122148) | MAG | 1,717 → 1,687 | 1.75% |
+| bin006 (SRR13122166) | MAG | 952 → 931 | 2.21% |
+| | **MAG mean** | | **2.07%** |
+| | **reference mean** | | **4.70%** |
+
+MAGs show **less than half** the conflict rate of finished genomes. The likely
+reason is the obvious one: an incomplete assembly recovers fewer members of
+each paralogous family, so fewer KO profiles compete on the same protein.
+
+The honest reading is bounded rather than reassuring — arbitration's *effect*
+on MAGs is roughly half as large, so whatever its untested benefit or harm
+there, the exposure is correspondingly smaller. It is not evidence that it
+helps on MAGs, because nothing here can be.
 
 ### Consequence for how the tool should be used
 

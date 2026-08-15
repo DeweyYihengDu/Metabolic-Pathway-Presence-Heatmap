@@ -360,13 +360,13 @@ This was measured rather than assumed, and the answer is unwelcome:
 | level of the analysis | precision | recall | F1 |
 |---|---|---|---|
 | per-gene (gene, KO) pairs | +2.9 pts | −1.3 | **+0.8** |
-| **KO set** (deduplicated, what completeness consumes) | +1.6 pts | −1.4 | **+0.0004** |
+| **KO set** (deduplicated, what completeness consumes) | +1.6 pts | −1.4 | **+0.0006** |
 
 And at the module level, against completeness computed from KEGG's own KO
-sets, `best` is *not* better: mean absolute error is unchanged (0.0272 →
-0.0267), signed bias gets more negative (−0.0152 → −0.0184), and the number of
-modules complete in truth but broken in the estimate **rises from 14.7 to
-16.0** per genome.
+sets, `best` is *not* better: mean absolute error is unchanged (0.0268 →
+0.0266), signed bias gets 44% more negative (−0.0122 → −0.0176), and the number of
+modules complete in truth but broken in the estimate **rises from 13.7 to
+15.7** per genome.
 
 The mechanism is a level mismatch. A genome has many genes but one KO set. A
 false-positive KO call on gene X usually names a KO that is genuinely present
@@ -376,22 +376,31 @@ precision gain is roughly halved on the way up; the recall loss carries over
 intact.
 
 **The recall it gives up is not uniform — it concentrates in paralogous
-families.** Of the 215 true calls arbitration drops across six genomes, three
-pathways are significantly enriched after BH correction against a 2.6%
-baseline loss rate:
+families.** Of the 333 true calls arbitration drops across seven genomes, 17
+pathways are enriched after BH correction against a 2.78% baseline — but
+eight of those are one signal counted repeatedly (KEGG's neurodegeneration and
+metabolic-disease maps all embed the respiratory chain, and each lost exactly
+the same 11 oxidative-phosphorylation subunits). The distinct signals:
 
 | pathway | true calls lost | enrichment | q |
 |---|---|---|---|
-| ABC transporters (ko02010) | 38 / 246 = 15.4% | **5.9×** | 6×10⁻¹⁷ |
-| Two-component system (ko02020) | 20 / 260 = 7.7% | **2.9×** | 0.0024 |
-| Bacterial chemotaxis (ko02030) | 5 / 24 = 20.8% | **7.9×** | 0.035 |
+| Glucosinolate biosynthesis (ko00966) | 5 / 16 = 31.3% | **11.2×** | 0.0038 |
+| Bacterial chemotaxis (ko02030) | 5 / 24 = 20.8% | **7.5×** | 0.015 |
+| β-Lactam resistance (ko01501) | 4 / 21 = 19.0% | **6.9×** | 0.050 |
+| ABC transporters (ko02010) | 38 / 249 = 15.3% | **5.5×** | 1×10⁻¹⁵ |
+| 2-Oxocarboxylic acid metabolism (ko01210) | 9 / 87 = 10.3% | **3.7×** | 0.018 |
+| Oxidative phosphorylation (ko00190) | 13 / 160 = 8.1% | **2.9×** | 0.015 |
+| Two-component system (ko02020) | 20 / 261 = 7.7% | **2.8×** | 0.0033 |
+| Biosynthesis of secondary metabolites (ko01110) | 41 / 859 = 4.8% | 1.7× | 0.015 |
 
-These are the three most heavily paralogous families in bacterial genomes, and
-that is the point: arbitration exists to fix over-calling caused by paralogy,
-and it over-corrects in exactly the families where paralogy is highest. A
-permease that genuinely matches several transporter KOs is forced to pick one,
-and sometimes picks wrong. **The method trades one paralogy artefact for
-another** rather than eliminating the problem.
+Every one is a large paralogous family — transporters, two-component
+kinases/regulators, chemotaxis proteins, respiratory-complex subunits, and in
+*Arabidopsis* the P450/glucosyltransferase families behind glucosinolates. That
+is the point: arbitration exists to fix over-calling caused by paralogy, and it
+over-corrects in exactly the families where paralogy is highest. A permease
+that genuinely matches several transporter KOs is forced to pick one, and
+sometimes picks wrong. **The method trades one paralogy artefact for another**
+rather than eliminating the problem.
 
 **Practical guidance:**
 
@@ -400,9 +409,9 @@ another** rather than eliminating the problem.
 - **Keep the default `all`** when the annotation feeds `--user` into
   presence/completeness analysis, which is this toolkit's main path. There is
   no measured benefit there and a small measured cost in broken modules.
-- **Do not use `best` if transport, signal transduction or chemotaxis are
-  central to your question.** The loss there is 3–8× the baseline rate and
-  will systematically under-call those pathways.
+- **Do not use `best` if transport, signal transduction, chemotaxis or
+  respiratory-chain content are central to your question.** The loss there is
+  3–11× the baseline rate and will systematically under-call those pathways.
 
 **Pushing precision further (`--min-margin BITS`).** Dropping calls close to
 their threshold trades recall for precision on a measured frontier. With

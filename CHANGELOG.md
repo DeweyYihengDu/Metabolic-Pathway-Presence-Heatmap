@@ -12,13 +12,37 @@ not:
 | level of the analysis | precision | recall | F1 |
 |---|---|---|---|
 | per-gene (gene, KO) pairs | +2.9 pts | -1.3 | **+0.8** |
-| KO set (deduplicated, what completeness consumes) | +1.6 pts | -1.4 | **+0.0004** |
+| KO set (deduplicated, what completeness consumes) | +1.6 pts | -1.4 | **+0.0006** |
 
-Against module completeness computed from KEGG's own KO sets, over six
-genomes and 522 Pathway modules: mean absolute error unchanged (0.0272 ->
-0.0267), signed bias **more** negative (-0.0152 -> -0.0184), and modules
-complete in truth but broken in the estimate **up from 14.7 to 16.0** per
+Against module completeness computed from KEGG's own KO sets, over seven
+genomes and 522 Pathway modules: mean absolute error unchanged (0.0268 ->
+0.0266), signed bias 44% **more** negative (-0.0122 -> -0.0176), and modules
+complete in truth but broken in the estimate **up from 13.7 to 15.7** per
 genome.
+
+The recall arbitration gives up is also not uniform. Of 333 true calls
+dropped, 17 pathways survive BH correction against a 2.78% baseline -- but
+eight of those are one signal counted repeatedly, since KEGG's
+neurodegeneration and metabolic-disease maps all embed the respiratory chain
+and each lost exactly the same 11 oxidative-phosphorylation subunits (checked
+directly, not inferred from the matching counts). The distinct signals are
+glucosinolate biosynthesis (11.2x), bacterial chemotaxis (7.5x), beta-lactam
+resistance (6.9x), ABC transporters (5.5x), 2-oxocarboxylic acid metabolism
+(3.7x), oxidative phosphorylation (2.9x), two-component system (2.8x) and
+secondary metabolite biosynthesis (1.7x) -- every one a large paralogous
+family. Arbitration exists to fix over-calling caused by paralogy and
+over-corrects hardest exactly where paralogy is highest: **it trades one
+paralogy artefact for another.**
+
+Per-gene gains, for the record, are individually significant: all seven
+genomes have 95% CIs excluding zero for both precision and F1 (paired
+bootstrap resampling genes, not calls), and precision improves 7/7
+(one-sided sign test p = 0.0078).
+
+On the three MAGs -- the actual target use case, where no ground truth exists
+and none of this is verifiable -- arbitration resolves 2.07% of calls against
+4.70% on reference genomes, i.e. its effect there is under half as large.
+That bounds the untested exposure; it is not evidence it helps.
 
 The mechanism is a level mismatch, not noise. A genome has many genes but one
 KO set. A false-positive KO call on gene X usually names a KO genuinely
