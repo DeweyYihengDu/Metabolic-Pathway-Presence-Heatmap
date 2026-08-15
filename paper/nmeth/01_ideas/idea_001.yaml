@@ -1,0 +1,70 @@
+idea_id: idea_001
+title: >-
+  Phylogeny-blind evaluation inflates genome-based metabolic prediction:
+  a clade-held-out re-assessment
+central_question: >-
+  Does the reported accuracy of machine-learning prediction of KEGG module
+  presence in incomplete genomes survive evaluation on phylogenetically
+  held-out clades, or is it inflated by pseudoreplication between train and
+  test sets drawn from a clade-redundant database?
+
+main_hypothesis: >-
+  MetaPathPredict-class accuracy (mean F1 0.96 at 30-90% genome completeness,
+  eLife 2024) is substantially inflated because the training and test genomes
+  were split at random over RefSeq+GTDB, which is extremely redundant at genus
+  and family level. Under genus-, family- and phylum-held-out splits, accuracy
+  should degrade monotonically with phylogenetic distance from the training
+  set, and degrade most for under-sampled lineages such as the PVC superphylum.
+  If so, the field's headline numbers describe memorisation of close relatives
+  rather than learned metabolic logic.
+
+novelty_score: 4
+feasibility_score: 5
+risk_score: 3
+
+required_data:
+  - GTDB representative genomes with taxonomy (public; needed for clade-blocked splits)
+  - KEGG module ground truth per genome via link/ko/<org> (already used in this repo's benchmark)
+  - KOfam HMM database (already on Hermes, /data/projects/mpph_benchmark/databases/kofam)
+  - MetaPathPredict released models and/or its published training protocol for a matched re-implementation
+  - In-silico gene down-sampling to 10-90% retention (protocol described in eLife 2024)
+
+required_methods:
+  - Clade-blocked cross-validation at genus / family / order / phylum ranks
+  - Matched random-split baseline run on the identical feature matrix and model class
+  - Accuracy reported as a function of phylogenetic distance to nearest training genome
+  - Existing mpph.phylo tree handling for distance computation and clade blocking
+
+expected_figures:
+  - "Fig 1a: F1 under random split vs clade-held-out split, by taxonomic rank of the block"
+  - "Fig 1b: per-module F1 vs patristic distance to nearest training genome"
+  - "Fig 1c: degradation stratified by phylum, highlighting under-sampled lineages (PVC)"
+  - "Fig 1d: which modules are memorised (clade-diagnostic) vs genuinely learned"
+
+key_references:
+  - "MetaPathPredict, eLife 2024 - reports F1 0.96, random splits, ~30,596 genomes"
+  - "Yu et al., PLOS Biology 2025 - population structure confounds ML in bacterial genomics; recommends clade-held-out validation; >24,000 genomes, 6,740 models"
+  - "ISME Communications 3:12 (2023) - completeness bias is itself phylum-structured, so the confound and the signal are entangled"
+
+main_risks:
+  - >-
+    Accuracy may hold up, i.e. a negative result. This is still worth
+    publishing as a validation of the incumbent, but it is not a Nature
+    Methods paper on its own and the framing must be decided before running,
+    not after.
+  - >-
+    Re-implementing rather than running the released model risks an unfair
+    comparison. Mitigation: run the authors' released model where possible and
+    state explicitly which numbers are theirs and which are a re-implementation.
+  - >-
+    Clade blocking reduces effective sample size; some of the drop is expected
+    from smaller training sets alone. Mitigation: size-matched random-split
+    control at each block size, so the phylogenetic effect is isolated from
+    the sample-size effect. This control is mandatory, not optional.
+
+killer_experiment_or_analysis: >-
+  Train one model class on one feature matrix, evaluate twice: random split vs
+  clade-held-out split, at matched training-set size. If Delta-F1 is small
+  (<0.03) the hypothesis is dead and the direction should be abandoned. If it
+  is large the entire benchmarking practice of the subfield is called into
+  question, which is the contribution.

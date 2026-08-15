@@ -1,0 +1,66 @@
+idea_id: idea_003
+title: >-
+  How much real signal does the KOfam threshold discard? A ground-truth
+  audit of the sub-threshold band
+central_question: >-
+  Among HMM hits that fall just below each KO's adaptive threshold and are
+  therefore written as absent by every tool in the field, what fraction are
+  in fact correct according to KEGG's own curated assignments?
+
+main_hypothesis: >-
+  KOfam's adaptive thresholds are tuned for precision on a per-KO F-measure
+  and therefore discard a non-trivial band of true positives. The rate should
+  rise as the score approaches the threshold from below, and should be higher
+  for lineages distant from the sequences the profile was built on - which is
+  exactly the regime environmental genomics operates in. If confirmed, the
+  binary call that the entire field builds on is throwing away recoverable,
+  quantifiable evidence, which is the empirical premise idea_002 needs.
+
+novelty_score: 4
+feasibility_score: 5
+risk_score: 2
+
+required_data:
+  - Already present on Hermes - no new downloads required
+  - Ten benchmarked genomes across Bacteria, Archaea, Eukaryota with KEGG ground truth
+  - Raw pyhmmer hit scores including hits currently discarded below threshold
+  - ko_list adaptive thresholds and score_type (full vs domain) per KO
+
+required_methods:
+  - Re-run annotation retaining all hits with score > 0 rather than only significant ones
+  - Bin hits by (score - threshold) and compute precision against KEGG ground truth per bin
+  - Stratify by taxonomic distance proxy - model organism vs non-model vs MAG vs eukaryote
+  - Stratify by KO score_type, since domain-scored KOs behave differently
+
+expected_figures:
+  - "Fig 3a: precision vs (score - threshold), with the discarded band shaded"
+  - "Fig 3b: number of recoverable true positives per genome as a function of how far below threshold one is willing to look"
+  - "Fig 3c: the same curve by tier - model organism, non-model, MAG, eukaryote"
+
+key_references:
+  - "Aramaki et al. 2020 - KofamScan / KOfam adaptive thresholds chosen per KO by F-measure"
+  - "This repo's own benchmark - all three mpph/KofamScan disagreements on A. thaliana lie within 0.016 bits of threshold, already showing the boundary is where the information is"
+  - "ISME Communications 3:12 (2023) - motivates why false absences matter downstream"
+
+main_risks:
+  - >-
+    KEGG's ground truth is itself similarity-derived and incomplete, so a
+    sub-threshold hit counted as a false positive may be a genuine annotation
+    the reference lacks. This biases the measured precision downward, meaning
+    the result is a conservative lower bound - which is the safe direction,
+    and must be stated as such rather than glossed.
+  - >-
+    Result may be uninteresting - if precision collapses immediately below
+    threshold then KOfam's cut is well placed and there is nothing to recover.
+    This is a genuinely useful negative result and cheap to obtain.
+  - >-
+    Eukaryotic isoform structure distorts per-gene precision; the existing
+    restrict_to_evaluable correction in the benchmark harness must be applied.
+
+killer_experiment_or_analysis: >-
+  Compute precision against KEGG ground truth in the band from 0 to 20 bits
+  below each KO's threshold. If precision in the first band below threshold is
+  near zero, KOfam's cut is optimal, idea_002's first channel is empty, and
+  that channel should be dropped. If precision is substantial and
+  distance-dependent, the premise of idea_002 is established on real data
+  with no modelling assumptions at all.

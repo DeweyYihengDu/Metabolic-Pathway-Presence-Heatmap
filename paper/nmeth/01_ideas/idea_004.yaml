@@ -1,0 +1,65 @@
+idea_id: idea_004
+title: >-
+  How many published comparative-metabolism differences survive joint
+  correction for genome completeness and phylogeny?
+central_question: >-
+  When a study reports that a metabolic capability differs between two groups
+  of genomes, what fraction of those calls survives once completeness bias and
+  phylogenetic non-independence are controlled simultaneously rather than
+  neither or one at a time?
+
+main_hypothesis: >-
+  The two known confounds are entangled rather than additive, because
+  completeness bias is itself phylum-structured (ISME Communications 2023).
+  Controlling for either alone should therefore be insufficient, and a
+  substantial fraction of reported group differences should fail joint
+  correction - with the failure rate highest in exactly the environmental,
+  MAG-based studies where the method is most used.
+
+novelty_score: 3
+feasibility_score: 3
+risk_score: 4
+
+required_data:
+  - Published comparative metabolic datasets with accessible genome/MAG accessions - SOURCE_REQUIRED, specific studies not yet selected
+  - CheckM2 completeness estimates per genome
+  - An independent reference phylogeny per dataset (GTDB-Tk)
+  - The user's own PVC-superphylum dataset as a controlled in-house case
+
+required_methods:
+  - mpph compare with and without --tree, already implemented and Type I calibrated
+  - Completeness-conditioned null, to be built - currently absent from mpph
+  - Factorial design - neither correction, completeness only, phylogeny only, both
+  - Effect on conclusions measured as sign/significance flips, not just p-value shifts
+
+expected_figures:
+  - "Fig 4a: surviving significant features under the four correction regimes"
+  - "Fig 4b: interaction - is joint correction worse than the sum of its parts"
+  - "Fig 4c: worked PVC case study where a conclusion changes"
+
+key_references:
+  - "ISME Communications 3:12 (2023) - completeness bias persists >90% and is phylum-structured"
+  - "Yu et al., PLOS Biology 2025 - lineage/phenotype conflation in bacterial genomics"
+  - "This repo's phylo calibration - uncorrected Type I reaches 0.948 at nominal 0.05"
+
+main_risks:
+  - >-
+    Re-analysing named published studies and reporting that their conclusions
+    do not survive is adversarial and invites disputes over whether the
+    re-analysis is faithful. Safer framing - use the method on the user's own
+    PVC data as the primary demonstration and treat public datasets as an
+    aggregate, de-identified survey rather than a list of accusations.
+  - >-
+    Over-correction is a real hazard - the ISME 2023 authors report their own
+    correction overcorrected. A method that discards true positives is not an
+    improvement, so power must be reported alongside Type I.
+  - >-
+    Depends on idea_002 for the completeness-conditioned null; not independently
+    executable yet.
+
+killer_experiment_or_analysis: >-
+  Factorial re-analysis on a dataset with independently known biology, where
+  the true answer is established by something other than genomics - e.g.
+  cultured phenotype. If joint correction removes findings that are
+  independently known to be true, the correction is too aggressive and the
+  idea fails regardless of how good the Type I numbers look.

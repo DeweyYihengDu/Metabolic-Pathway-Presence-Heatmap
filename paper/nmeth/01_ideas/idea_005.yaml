@@ -1,0 +1,60 @@
+idea_id: idea_005
+title: >-
+  Phylogenetically structured missingness as a benchmark: a simulator that
+  generates MAGs with known ground truth and known confounding
+central_question: >-
+  The field has no benchmark in which the truth about metabolic capability,
+  the genome incompleteness, and the phylogenetic structure are all known and
+  independently controllable. Can such a generator be built, and does it
+  reproduce the empirical distortions reported for real MAGs?
+
+main_hypothesis: >-
+  A generative model - evolve capabilities on a tree under Mk, encode them as
+  genes, then apply a realistic non-uniform recovery process - can reproduce
+  the published signatures of the completeness confound (15 +/- 10% fullness
+  change from 70->100%, persistence above 90%, phylum-dependence, stronger
+  effect on short modules). If it reproduces all four without being fitted to
+  them, it is a credible substrate for benchmarking every tool in the field
+  under conditions where the answer is known.
+
+novelty_score: 4
+feasibility_score: 4
+risk_score: 3
+
+required_data:
+  - No external data required for the generator itself
+  - Real MAG completeness distributions to parameterise the recovery process
+  - Published distortion statistics from ISME Communications 2023 as validation targets
+
+required_methods:
+  - Existing mpph.phylo simulate_mk for capability evolution on a tree
+  - Gene-content model mapping capabilities to KOs via real KEGG module definitions
+  - Non-uniform recovery model - contig breakage, coverage-dependent loss, GC bias
+  - Validation against the four published empirical signatures, held out from fitting
+
+expected_figures:
+  - "Fig 5a: simulated vs published completeness-fullness relationship"
+  - "Fig 5b: phylum-analogue dependence emerging without being fitted"
+  - "Fig 5c: tool leaderboard on simulated data where truth is known - DRAM, anvi'o, MetaPathPredict, mpph"
+
+key_references:
+  - "ISME Communications 3:12 (2023) - supplies the four validation targets"
+  - "MetaPathPredict, eLife 2024 - used uniform random gene down-sampling, which this argues is unrealistic"
+  - "Benchmarking bacterial phylogenomic workflows using in silico evolution, Microb Genom - precedent for simulation-based benchmarking in this field"
+
+main_risks:
+  - >-
+    A simulator is only as persuasive as its realism, and reviewers discount
+    simulation-only papers. This must accompany a real-data result, not replace one.
+  - >-
+    Risk of building a benchmark that this repo's own tool happens to win on.
+    Mitigation - fix the generator and its parameters before running any tool,
+    register the comparison, and include tools expected to beat mpph.
+  - >-
+    Uniform down-sampling being unrealistic is an assumption that itself needs
+    evidence from real MAG/isolate pairs.
+
+killer_experiment_or_analysis: >-
+  Hold out all four published empirical signatures during construction, then
+  test whether the simulator reproduces them. If it only matches after tuning
+  to them, it has no independent validity and cannot serve as a benchmark.
