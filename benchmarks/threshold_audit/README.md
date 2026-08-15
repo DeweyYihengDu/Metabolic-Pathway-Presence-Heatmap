@@ -59,6 +59,37 @@ absolute probabilities do not.** A single global confidence curve is therefore
 not shippable, and calibration has to be lineage-aware. That is a result about
 what the method must do, not a failed experiment.
 
+### Is the curve a property of the method, or of KEGG? (`independent_truth.py`)
+
+The whole audit is scored against KEGG's `link/ko`, which invites a sceptical
+reading: perhaps precision rises with margin because high-margin hits are the
+ones KEGG's own similarity pipeline also finds, and the curve measures
+agreement between two views of one body of evidence rather than reliability.
+
+That reading predicts the curve should flatten against a different reference.
+It does not. Scored against eggNOG-mapper — a different orthology resource,
+different clade-specific models, and no exposure to KOfam's profiles or
+thresholds:
+
+| margin (bits) | precision vs KEGG | precision vs eggNOG |
+|---|---|---|
+| 0–5 | 0.405 | 0.447 |
+| 20–40 | 0.742 | 0.720 |
+| 100–200 | 0.938 | 0.865 |
+| ≥200 | 0.970 | 0.913 |
+| **span** | **0.565** | **0.466** |
+| **correlation with margin** | **+0.793** | **+0.808** |
+
+Same shape, essentially the same correlation. The slightly smaller span
+against eggNOG is expected — it is a *noisier* reference, not a better one,
+and noise compresses precision toward the middle everywhere. Only the shape is
+compared and only the shape is interpreted.
+
+This does not rule out every bias the two references might share, since both
+are similarity-flavoured. It rules out the specific and most likely
+alternative: that the relationship is an artefact of KEGG's curation. **The
+margin–reliability relationship is a property of the HMM score.**
+
 ## The fix that came out of it: KO arbitration
 
 The audit said the errors live on genes that received more than one KO. That
