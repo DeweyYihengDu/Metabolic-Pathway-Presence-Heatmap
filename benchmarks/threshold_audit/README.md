@@ -140,6 +140,119 @@ emitting several mutually exclusive orthology assignments for one protein is a
 real artefact of per-KO threshold fitting, and those extra calls are wrong far
 more often than the calls they accompany (0.39 vs 0.96 precision on *E. coli*).
 
+### The gain does not reach the module level (`downstream_impact.py`)
+
+Measured, not assumed — and the answer is unwelcome:
+
+| level of the analysis | precision | recall | F1 |
+|---|---|---|---|
+| per-gene (gene, KO) pairs | +2.9 pts | −1.3 | **+0.8** |
+| **KO set** (deduplicated, what completeness consumes) | +1.6 pts | −1.4 | **+0.0004** |
+
+Against module completeness computed from KEGG's own KO sets (six genomes,
+522 Pathway modules):
+
+| policy | MAE | bias | RMSE | modules broken | modules invented |
+|---|---|---|---|---|---|
+| `all` | 0.0272 | −0.0152 | 0.0987 | **14.7** | 1.50 |
+| `best` | 0.0267 | **−0.0184** | 0.0989 | **16.0** | 1.17 |
+
+MAE is unchanged, bias becomes more negative, and *more* modules that are
+complete in truth get broken. Per genome the broken count is worse on four of
+six and equal on two — better on none.
+
+**Mechanism — a level mismatch, not noise.** A genome has many genes but one
+KO set. A false-positive KO call on gene X usually names a KO genuinely
+present on another gene, so dropping it does not shrink the set; dropping a
+true positive that was a KO's only representative does. The precision gain is
+roughly halved on the way up while the recall loss carries over intact.
+
+### The recall loss is biased toward paralogous families (`recall_loss_bias.py`)
+
+Whether losing 1.3 points of recall matters depends entirely on *which* calls
+are lost. Pooled over six genomes, arbitration drops 215 true (gene, KO)
+calls; a hypergeometric test per pathway with BH correction, against a 2.6%
+baseline loss rate, finds three significantly enriched:
+
+| pathway | true calls lost | enrichment | q |
+|---|---|---|---|
+| ABC transporters (ko02010) | 38 / 246 = 15.4% | **5.9×** | 6×10⁻¹⁷ |
+| Two-component system (ko02020) | 20 / 260 = 7.7% | **2.9×** | 0.0024 |
+| Bacterial chemotaxis (ko02030) | 5 / 24 = 20.8% | **7.9×** | 0.035 |
+
+These are the three most heavily paralogous families in bacterial genomes,
+which is the mechanism restating itself: arbitration exists to fix over-calling
+caused by paralogy, and it over-corrects hardest exactly where paralogy is
+highest. A permease genuinely matching several transporter KOs is forced to
+pick one and sometimes picks wrong. **The method trades one paralogy artefact
+for another** rather than removing the problem.
+
+Loss is also very uneven between genomes — 3.0% (*E. coli*) and 2.9%
+(*B. subtilis*) against 0.1% (*Lentisphaerae*) — tracking each genome's
+multi-KO rate.
+
+### Is the eggNOG comparison fair? (`fairness_and_ci.py`)
+
+It was not, and this is the tool's own thumb on the scale: **eggNOG-mapper also
+emits multiple KOs per gene** — 15.4% of *E. coli* genes, 9.9% of
+*Arabidopsis*, 723 and 3,327 extra calls respectively. Comparing an arbitrated
+`mpph annotate` against an unarbitrated eggNOG measures the arbitration step,
+not the two annotators.
+
+eggNOG cannot be arbitrated the same way: its `KEGG_ko` column carries no
+per-KO score to rank by. That is a real structural advantage of the
+profile-HMM route — comparable per-KO evidence exists — and it should be
+claimed as one rather than quietly enjoyed. The closest like-for-like bound is
+keeping the first KO listed per gene:
+
+| tool | precision | recall | F1 |
+|---|---|---|---|
+| eggNOG, as published | 0.771 | 0.896 | 0.827 |
+| eggNOG, one-KO-per-gene bound | 0.828 | 0.845 | 0.836 |
+| `mpph annotate` **unarbitrated** | **0.883** | 0.894 | **0.888** |
+| `mpph annotate --multi-ko-policy best` | **0.914** | 0.881 | **0.897** |
+
+The correction matters (eggNOG gains +5.7 points of precision from it) but
+**does not change the ranking**: unarbitrated mpph still leads the bounded
+eggNOG by 5.5 points of precision. The gap is not an artefact of arbitration.
+
+### Are the gains significant? (`fairness_and_ci.py`)
+
+Paired bootstrap resampling **genes**, not calls — calls on one gene are
+exactly what arbitration acts on, so resampling calls would break the
+dependency the statistic is about and give CIs that are too narrow.
+
+| genome | Δprecision [95% CI] | ΔF1 [95% CI] |
+|---|---|---|
+| *E. coli* | +0.038 [0.031, 0.044] | +0.006 [0.001, 0.011] |
+| *B. subtilis* | +0.050 [0.043, 0.059] | +0.013 [0.008, 0.019] |
+| *M. jannaschii* | +0.031 [0.021, 0.042] | +0.010 [0.004, 0.017] |
+| *Verrucomicrobia* S94 | +0.033 [0.025, 0.042] | +0.013 [0.008, 0.018] |
+| *Lentisphaerae* WC36 | +0.016 [0.010, 0.022] | +0.007 [0.004, 0.011] |
+| *S. cerevisiae* | +0.015 [0.011, 0.019] | +0.003 [0.000, 0.005] |
+
+Every interval excludes zero for both metrics; precision improves on 6/6
+(one-sided sign test p = 0.016). The per-gene gain is solid — it is the
+*level* at which it stops mattering (above), not its reality.
+
+### Which KOs lose arbitration
+
+No single KO dominates: the most frequently displaced is lost 4 times across
+six genomes, the rest twice or fewer. The identities are ABC-transporter
+components (K10009/K10010, K15581/K15582), pilus/flagellar and motility genes
+(K02652, K02424), and similar — the same families the pathway enrichment
+picked out. So this is a broad property of paralogous families rather than a
+handful of badly-built profiles, which also means it is not fixable by
+blacklisting a few KOs.
+
+### Consequence for how the tool should be used
+
+- `best` when the per-gene assignment is the product.
+- The default `all` when the annotation feeds presence/completeness analysis —
+  this is the main reason leaving the default alone was the right call.
+- **Not `best`** if transport, signal transduction or chemotaxis are central
+  to the question.
+
 ## Reproducing
 
 ```bash

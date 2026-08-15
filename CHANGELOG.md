@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.21.1
+
+**Correction to how 3.20.0 and 3.21.0 were framed: the precision gain does not
+reach the module level.** Those releases reported `--multi-ko-policy best` as
+an improvement measured on per-gene (gene, KO) pairs, which it is. What was
+never measured, and should have been before shipping the claim, is whether it
+improves what this toolkit actually reports downstream. Measured now, it does
+not:
+
+| level of the analysis | precision | recall | F1 |
+|---|---|---|---|
+| per-gene (gene, KO) pairs | +2.9 pts | -1.3 | **+0.8** |
+| KO set (deduplicated, what completeness consumes) | +1.6 pts | -1.4 | **+0.0004** |
+
+Against module completeness computed from KEGG's own KO sets, over six
+genomes and 522 Pathway modules: mean absolute error unchanged (0.0272 ->
+0.0267), signed bias **more** negative (-0.0152 -> -0.0184), and modules
+complete in truth but broken in the estimate **up from 14.7 to 16.0** per
+genome.
+
+The mechanism is a level mismatch, not noise. A genome has many genes but one
+KO set. A false-positive KO call on gene X usually names a KO genuinely
+present on another gene, so dropping it does not shrink the set; dropping a
+true positive that was a KO's only representative does. The precision gain is
+roughly halved on the way up while the recall loss carries over intact.
+
+Guidance added to `docs/methods.md`: use `best` when the per-gene assignment
+is the product; **keep the default `all`** when the annotation feeds
+presence/completeness analysis. No code change — the default was already
+`all`, which is why this is a documentation correction and not a regression.
+New `benchmarks/threshold_audit/downstream_impact.py` makes it reproducible.
+
 ## 3.21.0
 
 **`--min-margin BITS`: a precision dial with a measured frontier.** Drops

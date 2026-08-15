@@ -15,7 +15,7 @@ doi:10.1101/2023.06.27.546232
 """
 from __future__ import annotations
 
-__version__ = "3.21.0"
+__version__ = "3.21.1"
 
 # --- Public KEGG connection interface (open; talks to rest.kegg.jp) ---------
 from .kegg import KEGG_API_BASE, kegg_get, kegg_release, make_session
