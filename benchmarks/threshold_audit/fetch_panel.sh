@@ -20,11 +20,19 @@ PANEL="${1:?usage: fetch_panel.sh PANEL.tsv OUTDIR}"
 OUT="${2:?usage: fetch_panel.sh PANEL.tsv OUTDIR}"
 mkdir -p "$OUT"/{genomes,ground_truth,logs}
 
-SUMMARY="$OUT/assembly_summary_refseq.txt"
-if [[ ! -s "$SUMMARY" ]]; then
+# Both summaries are needed, and which one is used per organism is decided by
+# the accession KEGG names -- see the resolution step below for why.
+REFSEQ="$OUT/assembly_summary_refseq.txt"
+GENBANK="$OUT/assembly_summary_genbank.txt"
+if [[ ! -s "$REFSEQ" ]]; then
   echo "[1/3] Fetching NCBI RefSeq assembly summary (~250 MB) ..."
-  wget -q -O "$SUMMARY" \
+  wget -q -O "$REFSEQ" \
     https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt
+fi
+if [[ ! -s "$GENBANK" ]]; then
+  echo "[1/3] Fetching NCBI GenBank assembly summary (~1.7 GB) ..."
+  wget -q -O "$GENBANK" \
+    https://ftp.ncbi.nlm.nih.gov/genomes/genbank/assembly_summary_genbank.txt
 fi
 
 skipped=()
@@ -57,14 +65,26 @@ while IFS=$'\t' read -r org name kingdom domain clade genus; do
     if [[ -z "${acc:-}" ]]; then
       skipped+=("$org (no assembly accession in KEGG record)"); continue
     fi
-    # KEGG's DATA_SOURCE usually names the *GenBank* assembly (GCA_...), while
-    # column 1 of the RefSeq summary holds GCF_ accessions -- the GCA pairing
-    # lives in column 18. Matching only column 1 skipped ~90% of the panel.
-    # Compared version-stripped and exactly, not by regex: a substring match
-    # on an accession can hit the wrong assembly.
+    # Resolve against the summary matching the accession KEGG names, and do
+    # NOT substitute the paired assembly from the other archive.
+    #
+    # This looks like an interchangeable detail and is not. KEGG's
+    # `conv/<org>/ncbi-proteinid` returns the protein accessions of the
+    # assembly it actually ingested -- original submitter ids (CAD..., BAB...,
+    # AAK...) for GenBank-sourced genomes. A RefSeq proteome of the *same*
+    # organism carries WP_/NP_ accessions instead, a different namespace for
+    # the same proteins. Measured on S. coelicolor: the GenBank proteome
+    # overlaps KEGG's conv table 8154/8154, the RefSeq one 0/8154. Silently
+    # taking the paired RefSeq assembly made 84 of 90 organisms unusable while
+    # producing files that looked perfectly healthy.
+    case "$acc" in
+      GCA_*) SUMMARY="$GENBANK" ;;
+      *)     SUMMARY="$REFSEQ" ;;
+    esac
+    # Version-stripped and exact, not a regex: a substring match on an
+    # accession can resolve to the wrong assembly.
     ftp=$(awk -F'\t' -v a="${acc%%.*}" '
-        {split($1, x, "."); split($18, y, ".");
-         if (x[1] == a || y[1] == a) {print $20; exit}}' "$SUMMARY")
+        {split($1, x, "."); if (x[1] == a) {print $20; exit}}' "$SUMMARY")
     if [[ -z "${ftp:-}" ]]; then
       skipped+=("$org ($acc not in RefSeq summary)"); continue
     fi
