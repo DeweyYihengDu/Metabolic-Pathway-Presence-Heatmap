@@ -112,6 +112,57 @@ but because the pre-registered bar was ECE, it was missed, and the natural
 consumer inside this toolkit is the one use that the residual miscalibration
 would actually hurt.
 
+## The fix: recalibrate on neighbours, not just re-level
+
+Refitting only the intercept cannot change how steeply confidence rises, so if
+the pooled slope is slightly wrong for a lineage the error stays *inside*
+probability bins — which is exactly the residual `neighbour_level` could not
+remove. Two standard recalibrations fitted on the neighbour set were added:
+Platt scaling (2 parameters, can rescale the slope) and isotonic regression
+(non-parametric, monotone, attacks reliability directly). PAVA is implemented
+inline rather than imported, so the benchmark needs no scikit-learn in
+whatever environment runs it; it is verified to match sklearn exactly.
+
+| method | ECE | Brier | reliability ↓ | resolution ↑ |
+|---|---|---|---|---|
+| `global_constant` | 0.03146 | 0.09921 | 0.00148 | 0.00000 |
+| `global_curve` (the failure) | 0.03658 | 0.08764 | 0.00473 | 0.01428 |
+| `neighbour_constant` | 0.00514 | 0.09780 | **0.00008** | 0.00000 |
+| `neighbour_level` | 0.01918 | 0.08455 | 0.00168 | 0.01419 |
+| `neighbour_platt` | 0.01683 | 0.08423 | 0.00135 | 0.01417 |
+| **`neighbour_isotonic`** | 0.00785 | **0.08269** | 0.00044 | **0.01491** |
+
+**On Brier — the only proper scoring rule here — `neighbour_isotonic` is the
+best method tested, beating every baseline including both constants.** It also
+has the highest resolution of any method, and reliability 3.4× better than a
+*global* constant (0.00044 vs 0.00148) and 10.7× better than the attempt it
+replaces.
+
+**The pre-registered bar is still, strictly, not met.** It was "lower ECE than
+every baseline", and `neighbour_constant` remains lower (0.00514 vs 0.00785).
+The gap has closed from 0.0141 to 0.0027, but a miss is a miss and it is
+recorded as one.
+
+## Recommendation, revised
+
+The earlier recommendation — ship nothing — was made when the residual was
+0.019 ECE and the concern was that module completeness consumes the number as
+a literal probability and would compound a 2% bias. At 0.008 ECE and 0.00044
+reliability that concern is much weaker, and the method now wins the proper
+scoring rule outright.
+
+So the recommendation changes to: **`neighbour_isotonic` is fit to ship as an
+opt-in confidence output**, with two conditions that are not negotiable —
+it requires reference genomes with ground truth at genus level or closer (all
+95 queries here had ≥2 congeners, and nothing establishes behaviour when they
+do not), and the documented ECE must travel with it so a downstream consumer
+can decide whether ~0.8% calibration error matters for its use.
+
+What still argues for waiting: every result here is prokaryotic, from one
+KEGG snapshot, and isotonic regression is the most overfit-prone of the
+methods tried — its advantage should be re-checked on a genome set that
+shares no genus with this panel before it becomes a default.
+
 ## What would actually settle it
 
 The obvious next step is shrinkage: fit the intercept on neighbours but pull

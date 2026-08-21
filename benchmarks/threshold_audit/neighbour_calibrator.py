@@ -85,6 +85,75 @@ def murphy_decomposition(p, y, n_bins: int = 10):
             "uncertainty": float(base * (1 - base))}
 
 
+def platt_on_neighbours(p_raw_nb, y_nb):
+    """Fit a 2-parameter Platt correction on the neighbour set.
+
+    `fit_intercept_only` moves the curve up or down but cannot change how
+    steeply confidence rises, so if the pooled slope is slightly wrong for
+    this lineage the error shows up *within* probability bins -- which is
+    exactly the residual the intercept-only version could not remove
+    (reliability 0.00168 against a constant's 0.00008).
+
+    Platt scaling fits `sigmoid(A * logit(p) + B)` on held-out data, so it can
+    rescale the slope as well as shift the level, while still spending only
+    two parameters on the (pooled, and therefore reasonably large) neighbour
+    sample.
+    """
+    eps = 1e-6
+    z = np.log(np.clip(p_raw_nb, eps, 1 - eps) / (1 - np.clip(p_raw_nb, eps, 1 - eps)))
+
+    def nll(params):
+        a, b = params
+        t = a * z + b
+        return float(np.sum(np.logaddexp(0.0, -t) + np.where(y_nb > 0, 0.0, t)))
+
+    res = optimize.minimize(nll, x0=np.array([1.0, 0.0]), method="Nelder-Mead",
+                            options={"xatol": 1e-8, "fatol": 1e-8, "maxiter": 5000})
+    return float(res.x[0]), float(res.x[1])
+
+
+def apply_platt(p_raw, a, b):
+    eps = 1e-6
+    q = np.clip(p_raw, eps, 1 - eps)
+    return 1.0 / (1.0 + np.exp(-(a * np.log(q / (1 - q)) + b)))
+
+
+def isotonic_on_neighbours(p_raw_nb, y_nb, p_raw_query):
+    """Non-parametric monotone recalibration fitted on neighbours.
+
+    Isotonic regression attacks reliability directly -- it maps predicted to
+    observed frequency with no functional form at all -- at the cost of being
+    the easiest of these to overfit. Included precisely because it is the
+    strongest available attempt: if even isotonic recalibration on close
+    relatives cannot beat a constant's reliability, the shortfall is not a
+    matter of choosing a better correction.
+
+    Implemented here (pool-adjacent-violators) rather than imported, so this
+    benchmark does not require installing scikit-learn into whatever
+    environment it runs in. PAVA is exact, not an approximation.
+    """
+    order = np.argsort(p_raw_nb, kind="mergesort")
+    xs = np.asarray(p_raw_nb, float)[order]
+    ys = np.asarray(y_nb, float)[order]
+
+    # Each block holds (weighted sum, weight); merge left while the running
+    # means are non-monotone.
+    vals: list[float] = []
+    wts: list[float] = []
+    for v in ys:
+        vals.append(v)
+        wts.append(1.0)
+        while len(vals) > 1 and vals[-2] / wts[-2] > vals[-1] / wts[-1]:
+            v2, w2 = vals.pop(), wts.pop()
+            vals[-1] += v2
+            wts[-1] += w2
+    fitted = np.concatenate([np.full(int(w), v / w) for v, w in zip(vals, wts)])
+
+    # Step function evaluated at the query's raw scores, clipped at the ends.
+    return np.clip(np.interp(np.asarray(p_raw_query, float), xs, fitted),
+                   0.0, 1.0)
+
+
 def fit_intercept_only(delta, y, slope):
     """Refit only the intercept, holding the pooled slope fixed.
 
@@ -170,11 +239,19 @@ def main() -> int:
         y_nb = np.concatenate([data[o][1] for o in peers])
         a_nb = fit_intercept_only(d_nb, y_nb, b_glob)
 
+        # Raw pooled-curve scores, on neighbours and on the query, are the
+        # input both recalibrators correct.
+        p_raw_nb = predict(d_nb, a_glob, b_glob)
+        p_raw_q = predict(d_q, a_glob, b_glob)
+        pa, pb = platt_on_neighbours(p_raw_nb, y_nb)
+
         preds = {
-            "global_curve": predict(d_q, a_glob, b_glob),
+            "global_curve": p_raw_q,
             "global_constant": np.full_like(y_q, float(y_all.mean())),
             "neighbour_constant": np.full_like(y_q, float(y_nb.mean())),
             "neighbour_level": predict(d_q, a_nb, b_glob),
+            "neighbour_platt": apply_platt(p_raw_q, pa, pb),
+            "neighbour_isotonic": isotonic_on_neighbours(p_raw_nb, y_nb, p_raw_q),
         }
         for name, p_hat in preds.items():
             rows.append({"query": query, "rank_used": rank, "n_peers": len(peers),

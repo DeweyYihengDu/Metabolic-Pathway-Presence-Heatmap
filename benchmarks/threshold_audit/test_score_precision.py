@@ -217,3 +217,74 @@ def test_bootstrap_ci_excludes_zero_for_a_clearly_better_predictor():
     const = np.full(1000, 0.5)                     # uninformative
     ci = bootstrap_ci(good, const, y, n_boot=300, seed=1)
     assert ci["brier_improvement_lo"] > 0.0
+
+
+# --- neighbour_calibrator.py: hand-rolled PAVA -------------------------------
+
+from neighbour_calibrator import (
+    apply_platt,
+    isotonic_on_neighbours,
+    murphy_decomposition,
+)
+
+
+def test_isotonic_output_is_monotone_non_decreasing():
+    # The defining property. A violation would silently make a "calibrated"
+    # score rank calls worse than the raw margin it was built from.
+    rng = np.random.default_rng(0)
+    p = np.sort(rng.uniform(size=200))
+    y = (rng.uniform(size=200) < p).astype(float)
+    out = isotonic_on_neighbours(p, y, p)
+    assert np.all(np.diff(out) >= -1e-12)
+
+
+def test_isotonic_pools_adjacent_violators_to_their_mean():
+    # Hand-checked: y = 0,1,0,1,1 at increasing x pools to 0, .5, .5, 1, 1.
+    p = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    y = np.array([0.0, 1.0, 0.0, 1.0, 1.0])
+    out = isotonic_on_neighbours(p, y, p)
+    assert out == pytest.approx([0.0, 0.5, 0.5, 1.0, 1.0])
+
+
+def test_isotonic_is_the_identity_on_already_calibrated_input():
+    p = np.array([0.1, 0.3, 0.6, 0.9])
+    y = np.array([0.0, 0.0, 1.0, 1.0])
+    assert isotonic_on_neighbours(p, y, p) == pytest.approx(y)
+
+
+def test_isotonic_clips_queries_outside_the_training_range():
+    p = np.array([0.3, 0.7])
+    y = np.array([0.0, 1.0])
+    out = isotonic_on_neighbours(p, y, np.array([0.0, 1.0]))
+    assert np.all((out >= 0.0) & (out <= 1.0))
+
+
+def test_platt_recovers_an_identity_mapping_on_calibrated_input():
+    rng = np.random.default_rng(1)
+    p = rng.uniform(0.05, 0.95, 4000)
+    y = (rng.uniform(size=p.size) < p).astype(float)
+    from neighbour_calibrator import platt_on_neighbours
+    a, b = platt_on_neighbours(p, y)
+    # Already calibrated -> the correction should be close to a=1, b=0.
+    assert a == pytest.approx(1.0, abs=0.15)
+    assert b == pytest.approx(0.0, abs=0.15)
+    assert apply_platt(p, a, b) == pytest.approx(p, abs=0.05)
+
+
+def test_murphy_resolution_is_zero_for_any_constant_predictor():
+    # This is why reliability, not ECE, is the fair calibration comparison:
+    # a constant is structurally advantaged on ECE and gets no credit here.
+    y = np.array([1.0] * 60 + [0.0] * 40)
+    d = murphy_decomposition(np.full(100, 0.6), y)
+    assert d["resolution"] == pytest.approx(0.0, abs=1e-12)
+    assert d["reliability"] == pytest.approx(0.0, abs=1e-12)  # 0.6 is the base rate
+
+
+def test_murphy_decomposition_reconstructs_the_brier_score():
+    rng = np.random.default_rng(2)
+    p = rng.uniform(size=500)
+    y = (rng.uniform(size=500) < p).astype(float)
+    d = murphy_decomposition(p, y, n_bins=10)
+    # Brier == reliability - resolution + uncertainty, up to binning error.
+    approx = d["reliability"] - d["resolution"] + d["uncertainty"]
+    assert approx == pytest.approx(brier(p, y), abs=0.02)
