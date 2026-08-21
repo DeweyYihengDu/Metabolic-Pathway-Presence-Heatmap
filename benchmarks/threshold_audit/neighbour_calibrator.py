@@ -49,6 +49,42 @@ from compare_annotation import load_ground_truth, load_protein_id_map
 RANKS = ("genus", "clade", "domain")
 
 
+def murphy_decomposition(p, y, n_bins: int = 10):
+    """Brier = reliability - resolution + uncertainty (Murphy 1973).
+
+    Needed because ECE structurally favours a constant predictor: a method
+    that makes no distinctions puts every call in one bin and so has far
+    fewer opportunities to be miscalibrated. That is a property of the metric,
+    not evidence the constant is better calibrated in any useful sense.
+
+    The decomposition separates the two things ECE conflates:
+
+    * **reliability** -- do stated confidences match observed frequencies.
+      This is the calibration comparison, and it is the fair one because a
+      constant gets no structural advantage from having only one bin.
+    * **resolution** -- how far bin frequencies depart from the base rate,
+      i.e. how much the method actually discriminates. Exactly 0 for any
+      constant predictor, by construction.
+
+    Lower reliability is better; higher resolution is better.
+    """
+    p = np.asarray(p, float)
+    y = np.asarray(y, float)
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    idx = np.clip(np.digitize(p, edges) - 1, 0, n_bins - 1)
+    base = y.mean()
+    reliability = resolution = 0.0
+    for b in range(n_bins):
+        sel = idx == b
+        if not sel.any():
+            continue
+        w = sel.mean()
+        reliability += w * (p[sel].mean() - y[sel].mean()) ** 2
+        resolution += w * (y[sel].mean() - base) ** 2
+    return {"reliability": float(reliability), "resolution": float(resolution),
+            "uncertainty": float(base * (1 - base))}
+
+
 def fit_intercept_only(delta, y, slope):
     """Refit only the intercept, holding the pooled slope fixed.
 
@@ -143,14 +179,18 @@ def main() -> int:
         for name, p_hat in preds.items():
             rows.append({"query": query, "rank_used": rank, "n_peers": len(peers),
                          "method": name, "ece": ece(p_hat, y_q),
-                         "brier": brier(p_hat, y_q)})
+                         "brier": brier(p_hat, y_q),
+                         **murphy_decomposition(p_hat, y_q)})
 
     out = pd.DataFrame(rows)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(args.out, index=False)
 
     print("\n=== leave-one-genome-out, mean over queries ===")
-    print(out.groupby("method")[["ece", "brier"]].mean().round(4).to_string())
+    print(out.groupby("method")[["ece", "brier", "reliability", "resolution"]]
+          .mean().round(5).to_string())
+    print("(reliability: lower is better -- the fair calibration comparison.)")
+    print("(resolution:  higher is better, and is 0 for any constant.)")
     print("\n=== by the rank the neighbours came from ===")
     print(out.groupby(["rank_used", "method"])[["ece", "brier"]]
           .agg(["mean", "count"]).round(4).to_string())

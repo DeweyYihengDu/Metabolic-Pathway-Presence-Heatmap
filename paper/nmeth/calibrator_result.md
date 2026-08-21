@@ -47,6 +47,33 @@ What the fix does achieve, stated without inflation:
 * **It is the sharpest method tested.** Brier 0.0845, best of the four, better
   than `neighbour_constant` on 93 of 95 genomes.
 
+## The proper decomposition, because ECE is not a proper scoring rule
+
+ECE structurally favours a constant: a method that makes no distinctions puts
+every call in one bin and so has far fewer opportunities to be miscalibrated.
+That is a property of the metric. The Murphy decomposition
+(Brier = reliability − resolution + uncertainty) separates the two things ECE
+conflates, and gives the constant no such advantage.
+
+| method | reliability ↓ | resolution ↑ |
+|---|---|---|
+| `global_constant` | 0.00148 | 0.00000 |
+| `global_curve` | 0.00473 | 0.01428 |
+| `neighbour_constant` | **0.00008** | 0.00000 |
+| `neighbour_level` | 0.00168 | **0.01419** |
+
+This does **not** overturn the verdict — `neighbour_constant` still has the
+best reliability by a wide margin, so its advantage was real and not merely a
+binning artefact. What the decomposition adds is the size of what is being
+traded:
+
+* `neighbour_level` reaches **the reliability of a global constant**
+  (0.00168 vs 0.00148) while keeping **essentially all** the discrimination
+  the fitted curve had (0.01419 vs 0.01428).
+* It is **2.8× better calibrated than the attempt it replaces**
+  (0.00473 → 0.00168), which is the fix working as diagnosed.
+* Every method that beats it on reliability has resolution of exactly zero.
+
 ## Why the constant's win is degenerate, and why that is not an excuse
 
 A constant assigns the same confidence to every call, so it cannot separate a
@@ -65,6 +92,25 @@ aimed for**, and the pre-registered bar was ECE. A 0.019 absolute calibration
 error may well be acceptable in practice; that is a judgement about the
 downstream use, not evidence that the method succeeded. Recording it as a
 partial result rather than a win.
+
+## Recommendation, bounded
+
+On the decomposition this is a usable score: reliability on par with a global
+constant, discrimination on par with the fitted curve, and 2.8× the
+calibration of the attempt it replaces. If the score is used to **rank or
+filter** calls — which is what a confidence on an annotation is for — that
+profile is adequate, and ~0.019 absolute calibration error is a small price
+for the only method here that separates a reliable call from an unreliable one.
+
+It is still not what was aimed for, and the residual risk is specific: if a
+downstream step consumes the number as a literal probability rather than as an
+ordering, a 2% bias compounds through it. That is exactly what module
+completeness would do.
+
+**So the decision stands: nothing ships yet.** Not because the method is bad,
+but because the pre-registered bar was ECE, it was missed, and the natural
+consumer inside this toolkit is the one use that the residual miscalibration
+would actually hurt.
 
 ## What would actually settle it
 
