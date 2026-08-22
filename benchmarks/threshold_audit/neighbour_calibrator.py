@@ -223,6 +223,30 @@ def fit_intercept_only(delta, y, slope):
     return float(res.x[0])
 
 
+def neighbours_at_rank(query, tax, orgs, rank, min_n):
+    """Neighbours at exactly `rank`, **excluding everything closer**.
+
+    The held-out-clade check the shipping decision depends on. Isotonic is the
+    most overfit-prone method tried here, so its advantage has to be
+    reconfirmed when its calibration set is not the query's own congeners --
+    otherwise the measured edge could be memorised lineage detail rather than
+    a transferable calibration map.
+
+    `clade` therefore excludes same-genus genomes and `domain` excludes
+    same-clade ones, rather than the outward-walking `neighbours_of`, which
+    would quietly hand back congeners and answer a different question.
+    """
+    closer = {"genus": [], "clade": ["genus"], "domain": ["genus", "clade"]}[rank]
+    peers = []
+    for o in orgs:
+        if o == query or not tax[o][rank] or tax[o][rank] != tax[query][rank]:
+            continue
+        if any(tax[o][c] and tax[o][c] == tax[query][c] for c in closer):
+            continue          # too close: excluded by construction
+        peers.append(o)
+    return (peers, rank) if len(peers) >= min_n else (None, rank)
+
+
 def neighbours_of(query, tax, orgs, min_n):
     """Closest available relatives, walking outward until enough are found.
 
@@ -244,6 +268,12 @@ def main() -> int:
     p.add_argument("--panel-dir", required=True)
     p.add_argument("--taxonomy", required=True)
     p.add_argument("--min-neighbours", type=int, default=2)
+    p.add_argument("--neighbour-rank", default="auto",
+                   choices=["auto", "genus", "clade", "domain"],
+                   help="auto walks outward from genus until enough peers are "
+                        "found. Naming a rank forces exactly that rank and "
+                        "EXCLUDES everything closer -- the held-out-clade "
+                        "check: does the edge survive without congeners?")
     p.add_argument("--out", required=True)
     args = p.parse_args()
 
@@ -283,7 +313,15 @@ def main() -> int:
         y_all = np.concatenate([data[o][1] for o in others])
         a_glob, b_glob = fit_logistic(d_all, y_all)
 
-        peers, rank = neighbours_of(query, tax, orgs, args.min_neighbours)
+        if args.neighbour_rank == "auto":
+            peers, rank = neighbours_of(query, tax, orgs, args.min_neighbours)
+        else:
+            peers, rank = neighbours_at_rank(query, tax, orgs,
+                                             args.neighbour_rank,
+                                             args.min_neighbours)
+            if peers is None:
+                continue      # no peers at this rank; skipped, not widened
+
         d_nb = np.concatenate([data[o][0] for o in peers])
         y_nb = np.concatenate([data[o][1] for o in peers])
         a_nb = fit_intercept_only(d_nb, y_nb, b_glob)

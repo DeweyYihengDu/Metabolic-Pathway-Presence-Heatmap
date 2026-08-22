@@ -108,12 +108,62 @@ clears it, and is simultaneously the most informative method tested. Nothing
 about the bar was relaxed to get there; what changed is that the metric's
 finite-sample behaviour was measured instead of assumed.
 
+## The held-out-clade check — and it fails
+
+The check flagged as required before shipping has now been run, by forcing the
+neighbour set to exactly one rank and **excluding everything closer**
+(`--neighbour-rank clade` drops the query's own congeners). The result is the
+most consequential in this document.
+
+ECE − its own floor, by the rank the calibration set was drawn from:
+
+| method | **genus** (congeners) | **clade** (no congeners) | **domain** (no same clade) |
+|---|---|---|---|
+| `global_constant` | +0.02478 | +0.02141 | +0.02468 |
+| `global_curve` | +0.02052 | **+0.01743** | +0.02044 |
+| `neighbour_level` | +0.00529 | +0.02252 | +0.02099 |
+| `neighbour_constant` | −0.00095 | **+0.02934** | +0.02522 |
+| **`neighbour_isotonic`** | **−0.00453** | **+0.02143** | +0.02017 |
+
+**It is a cliff, not a gradient.** Calibration transfers within a genus and
+collapses immediately outside it — clade-level peers are no more useful than
+domain-level ones, and both are no better than pooling every reference
+genome. The calibration map is genus-specific.
+
+**Every method is far above its floor once congeners are removed.** Isotonic
+goes from −0.0045 (calibrated to the limit of detection) to +0.0214 — no
+better than a global constant at +0.0214, and worse than the *global curve* at
++0.0174. Its entire advantage was contingent on same-genus references.
+
+Two details sharpen this rather than soften it:
+
+* `neighbour_constant` becomes the **worst** method (+0.0293), worse than
+  `global_constant` (+0.0214). Same-clade-but-different-genus genomes do not
+  share a base rate, so borrowing theirs is worse than borrowing everyone's.
+* `global_curve` — the original failure — is the *best* of the six at clade
+  level. When the available relatives are distant, pooling all references
+  beats trusting a small distant sample.
+
+## Verdict, revised by the check
+
+The earlier verdict (isotonic clears the bar) holds **only** in the regime it
+was measured in: queries with ≥2 same-genus references carrying KEGG ground
+truth. That is not a caveat attached to a working method; the check shows the
+precondition is **binding**, and outside it the method has no advantage at all.
+
+This makes `neighbours_of`'s outward walk an active hazard rather than a
+convenience: on a query with no congeners it silently falls back to clade or
+domain and returns a confident-looking score that the table above shows is
+uncalibrated. **Any shipped version must require genus-level references and
+refuse otherwise, not widen.**
+
 ## What is still required before this ships
 
-- **Genus-level references with ground truth.** All 95 queries had ≥2
-  congeners; behaviour without them is untested, and `neighbours_of` silently
-  widens the rank, which would quietly become the global fit.
-- **A held-out-clade check.** Isotonic is the most overfit-prone method here.
-  Its edge should be reconfirmed on genomes sharing no genus with this panel.
-- **Prokaryotes only, one KEGG snapshot.** No eukaryote or archaeon is in the
-  95, so the eukaryotic case is entirely unmeasured.
+- **A hard genus-level requirement in the code**, replacing the silent
+  outward walk — see above; this is now demonstrated, not precautionary.
+- **Prokaryotes only, one KEGG snapshot.** No eukaryote is among the 95, so
+  the eukaryotic case is entirely unmeasured.
+- **A realistic estimate of how often the precondition holds.** A user
+  annotating a novel environmental genome frequently has *no* congener with
+  curated KEGG annotation — which is precisely the case this fails on, and
+  precisely the case `mpph annotate` exists to serve.

@@ -335,3 +335,46 @@ def test_bagged_isotonic_stays_monotone_and_bounded():
     out = bagged_isotonic(p, y, p, n_bags=15, seed=2)
     assert np.all(np.diff(out) >= -1e-12)
     assert np.all((out >= 0.0) & (out <= 1.0))
+
+
+# --- neighbours_at_rank: the held-out-clade selector --------------------------
+
+from neighbour_calibrator import neighbours_at_rank
+
+_TAX = {
+    "a1": {"genus": "Gx", "clade": "Cx", "domain": "Bacteria"},
+    "a2": {"genus": "Gx", "clade": "Cx", "domain": "Bacteria"},   # congener of a1
+    "b1": {"genus": "Gy", "clade": "Cx", "domain": "Bacteria"},   # same clade only
+    "b2": {"genus": "Gz", "clade": "Cx", "domain": "Bacteria"},
+    "c1": {"genus": "Gw", "clade": "Cw", "domain": "Bacteria"},   # same domain only
+    "c2": {"genus": "Gv", "clade": "Cv", "domain": "Bacteria"},
+}
+_ORGS = sorted(_TAX)
+
+
+def test_clade_rank_excludes_the_query_s_congeners():
+    # The whole point of the held-out check: calibrating on a1's own genus
+    # would let isotonic memorise lineage detail, which is the failure mode
+    # being tested for.
+    peers, rank = neighbours_at_rank("a1", _TAX, _ORGS, "clade", min_n=1)
+    assert rank == "clade"
+    assert "a2" not in peers
+    assert set(peers) == {"b1", "b2"}
+
+
+def test_domain_rank_excludes_same_clade_as_well():
+    peers, _ = neighbours_at_rank("a1", _TAX, _ORGS, "domain", min_n=1)
+    assert set(peers) == {"c1", "c2"}
+
+
+def test_genus_rank_keeps_only_congeners():
+    peers, _ = neighbours_at_rank("a1", _TAX, _ORGS, "genus", min_n=1)
+    assert peers == ["a2"]
+
+
+def test_too_few_peers_returns_none_rather_than_widening():
+    # Silently widening would turn a "clade-level" result back into the global
+    # fit and answer a different question than the one asked.
+    peers, rank = neighbours_at_rank("a1", _TAX, _ORGS, "genus", min_n=5)
+    assert peers is None
+    assert rank == "genus"
