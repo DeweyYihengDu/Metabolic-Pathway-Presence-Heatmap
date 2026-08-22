@@ -339,7 +339,7 @@ def test_bagged_isotonic_stays_monotone_and_bounded():
 
 # --- neighbours_at_rank: the held-out-clade selector --------------------------
 
-from neighbour_calibrator import neighbours_at_rank
+from neighbour_calibrator import neighbours_at_rank, neighbours_of
 
 _TAX = {
     "a1": {"genus": "Gx", "clade": "Cx", "domain": "Bacteria"},
@@ -378,3 +378,23 @@ def test_too_few_peers_returns_none_rather_than_widening():
     peers, rank = neighbours_at_rank("a1", _TAX, _ORGS, "genus", min_n=5)
     assert peers is None
     assert rank == "genus"
+
+
+def test_neighbours_of_refuses_rather_than_widening_by_default():
+    # The held-out check showed clade-level peers give a measurably
+    # uncalibrated score, so falling back to them silently is worse than
+    # returning nothing. Regression guard for that decision.
+    peers, rank = neighbours_of("c1", _TAX, _ORGS, min_n=2)
+    assert peers is None            # c1 has no congener in the fixture
+    assert rank == "genus"
+
+
+def test_neighbours_of_widens_only_when_explicitly_asked():
+    peers, rank = neighbours_of("c1", _TAX, _ORGS, min_n=2, allow_widening=True)
+    assert peers is not None
+    assert rank in {"clade", "domain", "all"}
+
+
+def test_neighbours_of_returns_congeners_when_they_exist():
+    peers, rank = neighbours_of("a1", _TAX, _ORGS, min_n=1)
+    assert peers == ["a2"] and rank == "genus"

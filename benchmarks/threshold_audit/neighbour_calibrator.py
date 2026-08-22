@@ -247,19 +247,34 @@ def neighbours_at_rank(query, tax, orgs, rank, min_n):
     return (peers, rank) if len(peers) >= min_n else (None, rank)
 
 
-def neighbours_of(query, tax, orgs, min_n):
-    """Closest available relatives, walking outward until enough are found.
+def neighbours_of(query, tax, orgs, min_n, *, allow_widening=False):
+    """Congeners, or nothing.
 
-    Returns (list_of_orgs, rank_used). A query whose genus has no other member
-    falls back to clade, then domain -- reporting which rank was actually used
-    matters, because a "neighbour" calibration that silently fell back to
-    domain is just the global fit wearing a different name.
+    This used to walk outward to clade and then domain when a genus had too
+    few members. The held-out check makes that indefensible: calibration
+    transfers within a genus and collapses immediately outside it, so widening
+    returns a confident-looking score that is measurably uncalibrated --
+    at clade rank every method sits ~0.02 above its own ECE floor, no better
+    than pooling all references.
+
+    So the default is now to refuse: a query with too few congeners returns
+    ``(None, rank_reached)`` and the caller must handle it rather than receive
+    a silently degraded answer. ``allow_widening=True`` restores the old
+    behaviour for experiments that deliberately want distant peers, and is
+    never the default.
     """
-    for rank in RANKS:
-        peers = [o for o in orgs
+    peers = [o for o in orgs
+             if o != query and tax[o]["genus"]
+             and tax[o]["genus"] == tax[query]["genus"]]
+    if len(peers) >= min_n:
+        return peers, "genus"
+    if not allow_widening:
+        return None, "genus"
+    for rank in RANKS[1:]:
+        wider = [o for o in orgs
                  if o != query and tax[o][rank] and tax[o][rank] == tax[query][rank]]
-        if len(peers) >= min_n:
-            return peers, rank
+        if len(wider) >= min_n:
+            return wider, rank
     return [o for o in orgs if o != query], "all"
 
 
@@ -315,6 +330,11 @@ def main() -> int:
 
         if args.neighbour_rank == "auto":
             peers, rank = neighbours_of(query, tax, orgs, args.min_neighbours)
+            if peers is None:
+                # Refusing is the point; see neighbours_of.
+                print(f"  ({query}: fewer than {args.min_neighbours} congeners "
+                      f"-- skipped rather than widened)")
+                continue
         else:
             peers, rank = neighbours_at_rank(query, tax, orgs,
                                              args.neighbour_rank,
