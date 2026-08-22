@@ -288,3 +288,50 @@ def test_murphy_decomposition_reconstructs_the_brier_score():
     # Brier == reliability - resolution + uncertainty, up to binning error.
     approx = d["reliability"] - d["resolution"] + d["uncertainty"]
     assert approx == pytest.approx(brier(p, y), abs=0.02)
+
+
+# --- null_ece: the ECE floor a perfectly calibrated predictor still pays ------
+
+from neighbour_calibrator import bagged_isotonic, null_ece
+
+
+def test_null_ece_is_far_higher_for_a_spread_predictor_than_a_constant():
+    # The whole reason raw ECE cannot be compared across these methods. Both
+    # predictors below are perfectly calibrated by construction; the spread one
+    # still scores several times worse purely from per-bin sampling noise.
+    n = 3000
+    const = np.full(n, 0.9)
+    spread = np.linspace(0.05, 0.99, n)
+    assert null_ece(spread, n_draws=40, seed=0) > 3 * null_ece(const, n_draws=40, seed=0)
+
+
+def test_null_ece_falls_as_the_sample_grows():
+    # It is a finite-sample effect, so more data must shrink it. If this ever
+    # stopped holding, the floor would be measuring something else.
+    spread_small = np.linspace(0.05, 0.99, 300)
+    spread_big = np.linspace(0.05, 0.99, 30000)
+    assert null_ece(spread_big, n_draws=20, seed=1) < null_ece(spread_small, n_draws=20, seed=1)
+
+
+def test_null_ece_is_deterministic_for_a_fixed_seed():
+    p = np.linspace(0.1, 0.9, 500)
+    assert null_ece(p, n_draws=10, seed=7) == null_ece(p, n_draws=10, seed=7)
+
+
+def test_a_genuinely_miscalibrated_predictor_sits_above_its_floor():
+    # The floor test must have teeth: a predictor claiming 0.9 while being
+    # right 60% of the time has to land clearly above its own floor, or the
+    # test would excuse real miscalibration.
+    rng = np.random.default_rng(0)
+    p = np.full(3000, 0.9)
+    y = (rng.uniform(size=3000) < 0.6).astype(float)
+    assert ece(p, y) - null_ece(p, n_draws=40, seed=0) > 0.2
+
+
+def test_bagged_isotonic_stays_monotone_and_bounded():
+    rng = np.random.default_rng(3)
+    p = np.sort(rng.uniform(size=250))
+    y = (rng.uniform(size=250) < p).astype(float)
+    out = bagged_isotonic(p, y, p, n_bags=15, seed=2)
+    assert np.all(np.diff(out) >= -1e-12)
+    assert np.all((out >= 0.0) & (out <= 1.0))

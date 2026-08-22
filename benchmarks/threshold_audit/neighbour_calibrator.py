@@ -154,6 +154,55 @@ def isotonic_on_neighbours(p_raw_nb, y_nb, p_raw_query):
                    0.0, 1.0)
 
 
+def null_ece(p_hat, n_draws=200, seed=0, n_bins=10):
+    """The ECE a *perfectly calibrated* predictor with these probabilities gets.
+
+    ECE is not comparable across methods that spread their predictions
+    differently, and the reason is finite-sample noise rather than anything
+    about the methods. A constant puts all N calls in one bin, so its observed
+    frequency is estimated from N samples; a predictor with resolution spreads
+    them over ~10 bins and estimates each from ~N/10. The expected |stated -
+    observed| gap therefore scales like sqrt(bin occupancy), so a spread
+    predictor is penalised for spreading, not for being wrong.
+
+    This measures that floor directly instead of arguing about it: labels are
+    drawn from the model's own probabilities, which makes it perfectly
+    calibrated by construction, and ECE is recomputed. Any observed ECE at or
+    near this value is as calibrated as ECE can detect at this sample size.
+    """
+    rng = np.random.default_rng(seed)
+    p_hat = np.asarray(p_hat, float)
+    return float(np.mean([
+        ece((p_hat), (rng.uniform(size=p_hat.size) < p_hat).astype(float), n_bins)
+        for _ in range(n_draws)]))
+
+
+def bagged_isotonic(p_raw_nb, y_nb, p_raw_query, *, n_bags=50, seed=0):
+    """Isotonic recalibration, bagged to cut its variance.
+
+    The diagnosis that motivates this: plain isotonic's *level* is already
+    better than a neighbour constant's (mean absolute base-rate error 0.00428
+    vs 0.00514), so its remaining calibration gap is entirely **shape** error
+    inside probability bins. Isotonic is a high-variance estimator -- an
+    unconstrained step function fitted to whatever noise the neighbour sample
+    happens to carry -- and shape error from variance is exactly what bagging
+    removes.
+
+    Averaging monotone functions preserves monotonicity, so the bagged fit is
+    still a valid calibration map; it is simply smoother, with steps supported
+    by evidence that recurs across resamples rather than by single points.
+    """
+    rng = np.random.default_rng(seed)
+    p_raw_nb = np.asarray(p_raw_nb, float)
+    y_nb = np.asarray(y_nb, float)
+    n = len(y_nb)
+    acc = np.zeros(len(p_raw_query), float)
+    for _ in range(n_bags):
+        idx = rng.integers(0, n, n)
+        acc += isotonic_on_neighbours(p_raw_nb[idx], y_nb[idx], p_raw_query)
+    return acc / n_bags
+
+
 def fit_intercept_only(delta, y, slope):
     """Refit only the intercept, holding the pooled slope fixed.
 
@@ -252,11 +301,14 @@ def main() -> int:
             "neighbour_level": predict(d_q, a_nb, b_glob),
             "neighbour_platt": apply_platt(p_raw_q, pa, pb),
             "neighbour_isotonic": isotonic_on_neighbours(p_raw_nb, y_nb, p_raw_q),
+            "neighbour_isotonic_bagged": bagged_isotonic(p_raw_nb, y_nb, p_raw_q),
         }
         for name, p_hat in preds.items():
             rows.append({"query": query, "rank_used": rank, "n_peers": len(peers),
                          "method": name, "ece": ece(p_hat, y_q),
                          "brier": brier(p_hat, y_q),
+                         "null_ece": null_ece(p_hat, n_draws=60,
+                                              seed=abs(hash(query)) % 10000),
                          **murphy_decomposition(p_hat, y_q)})
 
     out = pd.DataFrame(rows)
@@ -264,8 +316,10 @@ def main() -> int:
     out.to_csv(args.out, index=False)
 
     print("\n=== leave-one-genome-out, mean over queries ===")
-    print(out.groupby("method")[["ece", "brier", "reliability", "resolution"]]
-          .mean().round(5).to_string())
+    summary = out.groupby("method")[
+        ["ece", "null_ece", "brier", "reliability", "resolution"]].mean()
+    summary["ece_above_floor"] = summary["ece"] - summary["null_ece"]
+    print(summary.round(5).to_string())
     print("(reliability: lower is better -- the fair calibration comparison.)")
     print("(resolution:  higher is better, and is 0 for any constant.)")
     print("\n=== by the rank the neighbours came from ===")

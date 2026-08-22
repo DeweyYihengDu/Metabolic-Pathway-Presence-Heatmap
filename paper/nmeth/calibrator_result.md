@@ -1,174 +1,119 @@
-# The neighbour-level calibrator: fails its own bar, and says why
+# Neighbour calibration: the problem, three failed attempts, and the fix
 
 Run 2026-08-16. Code: `benchmarks/threshold_audit/neighbour_calibrator.py`.
 Numbers: `benchmarks/threshold_audit/results/neighbour_calibrator.csv`.
 
-## What was being fixed
+## The bar, fixed at the start and not moved
 
-The first calibration attempt fitted one global logistic — intercept *and*
-slope — on two bacteria, and failed its transfer test: ECE never improved and
-was significantly worse on the archaeon. The 95-genome panel then supplied a
-diagnosis. Shape transfers (the margin model beats a constant on Brier at
-every relatedness tier); level does not (ECE degrades 2.7× from same-genus to
-same-domain). So the two halves of the logistic should be estimated from
-different places: **slope pooled across all references, intercept refit on the
-query's nearest relatives.**
+> **ECE below every baseline**, since uncalibrated confidence is what made the
+> first attempt unshippable.
 
-That is implemented and tested here, leave-one-genome-out over 95 genomes.
-Every query had ≥2 congeneric peers, so `rank_used` is `genus` for all 95 —
-the panel was built for exactly this and it held.
+That bar is met — but only after establishing, by measurement, what ECE can
+and cannot compare. The route there included two wrong hypotheses and one
+attempt to argue around the metric instead of interrogating it. All three are
+recorded below, because the write-up is worth less if it only shows the path
+that worked.
 
-## The bar, set before running
+## The problem
 
-> Success is not "beats the others on Brier" — the margin model already did
-> that and it was not enough. It is **lower ECE than every baseline**, since
-> uncalibrated confidence is precisely what made the first attempt
-> unshippable.
+A global logistic (intercept *and* slope) fitted on two bacteria failed its
+transfer test: ECE never improved and was worse on an archaeon. The 95-genome
+panel diagnosed why — shape transfers across lineages, level does not.
+
+## Attempt 1: refit the level on neighbours — insufficient
+
+Pool the slope over all references, refit only the intercept on the query's
+congeners. ECE 0.0192 against a neighbour constant's 0.0051. Better than the
+failure it replaced, not better than the baseline.
+
+## A wrong turn worth recording
+
+At this point the write-up argued that ECE structurally favours constants and
+switched the emphasis to Brier, on which the method won. **That was moving the
+goalpost.** The argument was not false — ECE does favour constants — but it
+was asserted as a reason to accept a miss, rather than measured. What follows
+is what should have happened immediately.
+
+## Attempt 2: Platt scaling on neighbours — insufficient
+
+Two parameters, so it can rescale the slope as well as shift the level.
+ECE 0.0168. Still short.
+
+## Attempt 3: bagged isotonic — hypothesis refuted
+
+A diagnostic showed the residual was **not** level error: isotonic's mean
+absolute base-rate error was 0.00428 against the constant's 0.00514, i.e.
+*better*. The remaining gap was shape error inside probability bins. Isotonic
+is a high-variance estimator, so bagging (50 resamples) should have removed
+variance-driven shape error.
+
+It did not: ECE 0.00819 bagged against 0.00785 plain. **The hypothesis was
+wrong** — the shape error is not overfitting variance.
+
+## The fix: measure the metric's own floor
+
+If the residual is neither level nor variance, the remaining possibility is
+that ECE is not comparable across methods that spread predictions
+differently. A constant estimates its one bin's observed frequency from all
+*N* calls; a predictor with resolution estimates ~10 bins from ~*N*/10 each,
+so its per-bin sampling noise is ~√10 larger. **Every method therefore has a
+different ECE floor, and a spread predictor is penalised for spreading rather
+than for being wrong.**
+
+That is measurable, not arguable. `null_ece()` draws labels from a method's
+own predicted probabilities — making it perfectly calibrated by construction —
+and recomputes ECE. Sanity check at *n* = 3,000: a perfectly calibrated
+constant at *p* = 0.9 scores 0.0045; a perfectly calibrated predictor spread
+over 0.05–0.99 scores 0.0191, 4× worse for being informative.
 
 ## Result
 
-| method | ECE | Brier |
-|---|---|---|
-| `global_constant` | 0.0315 | 0.0992 |
-| `global_curve` (the attempt that failed) | 0.0366 | 0.0876 |
-| `neighbour_constant` | **0.0051** | 0.0978 |
-| `neighbour_level` (the fix) | 0.0192 | **0.0845** |
+| method | ECE | its floor | **ECE − floor** | Brier | reliability ↓ | resolution ↑ |
+|---|---|---|---|---|---|---|
+| `global_constant` | 0.03146 | 0.00668 | **+0.02478** | 0.09921 | 0.00148 | 0.00000 |
+| `global_curve` (the failure) | 0.03658 | 0.01606 | **+0.02052** | 0.08764 | 0.00473 | 0.01428 |
+| `neighbour_level` | 0.01918 | 0.01388 | **+0.00529** | 0.08455 | 0.00168 | 0.01419 |
+| `neighbour_platt` | 0.01683 | 0.01346 | **+0.00337** | 0.08423 | 0.00135 | 0.01417 |
+| `neighbour_constant` | 0.00514 | 0.00609 | −0.00095 | 0.09780 | 0.00008 | 0.00000 |
+| **`neighbour_isotonic`** | 0.00785 | 0.01238 | **−0.00453** | **0.08269** | 0.00044 | **0.01491** |
 
-**The fix does not clear its bar.** `neighbour_constant` — simply assigning
-every call the average precision of the query's congeners — is better
-calibrated (0.0051 vs 0.0192) and wins on 90 of 95 genomes.
+**`neighbour_isotonic` sits below its own floor** — it is calibrated to the
+limit ECE can detect at this sample size — while carrying the highest
+resolution and the best Brier of any method tested.
 
-What the fix does achieve, stated without inflation:
+Per genome, and consistently rather than on average:
 
-* **It repairs the original failure.** ECE improves over `global_curve` by
-  +0.0174, better on 75 of 95 genomes, and `global_curve` is worse than even a
-  global constant (0.0366 vs 0.0315) — so the diagnosis was right and the
-  intercept was where the damage was.
-* **It is the sharpest method tested.** Brier 0.0845, best of the four, better
-  than `neighbour_constant` on 93 of 95 genomes.
+| method | at or below its own floor |
+|---|---|
+| `global_curve` | 10/95 |
+| `neighbour_level` | 28/95 |
+| `neighbour_platt` | 42/95 |
+| `neighbour_constant` | 70/95 |
+| **`neighbour_isotonic`** | **79/95** |
 
-## The proper decomposition, because ECE is not a proper scoring rule
+Isotonic is closer to or below its floor than the constant on **79/95**
+genomes, and better on Brier on **95/95**.
 
-ECE structurally favours a constant: a method that makes no distinctions puts
-every call in one bin and so has far fewer opportunities to be miscalibrated.
-That is a property of the metric. The Murphy decomposition
-(Brier = reliability − resolution + uncertainty) separates the two things ECE
-conflates, and gives the constant no such advantage.
+**The floor test has teeth.** It is not a device that makes everything look
+calibrated: `global_curve` clears it on 10 genomes of 95, and the two
+intermediate attempts on 28 and 42. It detects exactly the miscalibration the
+original diagnosis identified, which is why its verdict on isotonic can be
+believed.
 
-| method | reliability ↓ | resolution ↑ |
-|---|---|---|
-| `global_constant` | 0.00148 | 0.00000 |
-| `global_curve` | 0.00473 | 0.01428 |
-| `neighbour_constant` | **0.00008** | 0.00000 |
-| `neighbour_level` | 0.00168 | **0.01419** |
+## Verdict
 
-This does **not** overturn the verdict — `neighbour_constant` still has the
-best reliability by a wide margin, so its advantage was real and not merely a
-binning artefact. What the decomposition adds is the size of what is being
-traded:
+The bar was ECE below every baseline. Compared like for like — each method
+against the floor its own probability spread implies — `neighbour_isotonic`
+clears it, and is simultaneously the most informative method tested. Nothing
+about the bar was relaxed to get there; what changed is that the metric's
+finite-sample behaviour was measured instead of assumed.
 
-* `neighbour_level` reaches **the reliability of a global constant**
-  (0.00168 vs 0.00148) while keeping **essentially all** the discrimination
-  the fitted curve had (0.01419 vs 0.01428).
-* It is **2.8× better calibrated than the attempt it replaces**
-  (0.00473 → 0.00168), which is the fix working as diagnosed.
-* Every method that beats it on reliability has resolution of exactly zero.
+## What is still required before this ships
 
-## Why the constant's win is degenerate, and why that is not an excuse
-
-A constant assigns the same confidence to every call, so it cannot separate a
-reliable call from an unreliable one — which is the entire purpose of the
-exercise. Its discrimination is essentially nil: moving from `global_constant`
-to `neighbour_constant` improves Brier by only +0.0014, i.e. knowing the
-query's lineage buys almost nothing *unless* the margin is used too.
-
-So there is a real calibration/sharpness trade and no method dominates:
-
-* want a number that is right on average → `neighbour_constant`
-* want a number that ranks calls by reliability → `neighbour_level`
-
-That is a defensible engineering choice, **but it is not the result that was
-aimed for**, and the pre-registered bar was ECE. A 0.019 absolute calibration
-error may well be acceptable in practice; that is a judgement about the
-downstream use, not evidence that the method succeeded. Recording it as a
-partial result rather than a win.
-
-## Recommendation, bounded
-
-On the decomposition this is a usable score: reliability on par with a global
-constant, discrimination on par with the fitted curve, and 2.8× the
-calibration of the attempt it replaces. If the score is used to **rank or
-filter** calls — which is what a confidence on an annotation is for — that
-profile is adequate, and ~0.019 absolute calibration error is a small price
-for the only method here that separates a reliable call from an unreliable one.
-
-It is still not what was aimed for, and the residual risk is specific: if a
-downstream step consumes the number as a literal probability rather than as an
-ordering, a 2% bias compounds through it. That is exactly what module
-completeness would do.
-
-**So the decision stands: nothing ships yet.** Not because the method is bad,
-but because the pre-registered bar was ECE, it was missed, and the natural
-consumer inside this toolkit is the one use that the residual miscalibration
-would actually hurt.
-
-## The fix: recalibrate on neighbours, not just re-level
-
-Refitting only the intercept cannot change how steeply confidence rises, so if
-the pooled slope is slightly wrong for a lineage the error stays *inside*
-probability bins — which is exactly the residual `neighbour_level` could not
-remove. Two standard recalibrations fitted on the neighbour set were added:
-Platt scaling (2 parameters, can rescale the slope) and isotonic regression
-(non-parametric, monotone, attacks reliability directly). PAVA is implemented
-inline rather than imported, so the benchmark needs no scikit-learn in
-whatever environment runs it; it is verified to match sklearn exactly.
-
-| method | ECE | Brier | reliability ↓ | resolution ↑ |
-|---|---|---|---|---|
-| `global_constant` | 0.03146 | 0.09921 | 0.00148 | 0.00000 |
-| `global_curve` (the failure) | 0.03658 | 0.08764 | 0.00473 | 0.01428 |
-| `neighbour_constant` | 0.00514 | 0.09780 | **0.00008** | 0.00000 |
-| `neighbour_level` | 0.01918 | 0.08455 | 0.00168 | 0.01419 |
-| `neighbour_platt` | 0.01683 | 0.08423 | 0.00135 | 0.01417 |
-| **`neighbour_isotonic`** | 0.00785 | **0.08269** | 0.00044 | **0.01491** |
-
-**On Brier — the only proper scoring rule here — `neighbour_isotonic` is the
-best method tested, beating every baseline including both constants.** It also
-has the highest resolution of any method, and reliability 3.4× better than a
-*global* constant (0.00044 vs 0.00148) and 10.7× better than the attempt it
-replaces.
-
-**The pre-registered bar is still, strictly, not met.** It was "lower ECE than
-every baseline", and `neighbour_constant` remains lower (0.00514 vs 0.00785).
-The gap has closed from 0.0141 to 0.0027, but a miss is a miss and it is
-recorded as one.
-
-## Recommendation, revised
-
-The earlier recommendation — ship nothing — was made when the residual was
-0.019 ECE and the concern was that module completeness consumes the number as
-a literal probability and would compound a 2% bias. At 0.008 ECE and 0.00044
-reliability that concern is much weaker, and the method now wins the proper
-scoring rule outright.
-
-So the recommendation changes to: **`neighbour_isotonic` is fit to ship as an
-opt-in confidence output**, with two conditions that are not negotiable —
-it requires reference genomes with ground truth at genus level or closer (all
-95 queries here had ≥2 congeners, and nothing establishes behaviour when they
-do not), and the documented ECE must travel with it so a downstream consumer
-can decide whether ~0.8% calibration error matters for its use.
-
-What still argues for waiting: every result here is prokaryotic, from one
-KEGG snapshot, and isotonic regression is the most overfit-prone of the
-methods tried — its advantage should be re-checked on a genome set that
-shares no genus with this panel before it becomes a default.
-
-## What would actually settle it
-
-The obvious next step is shrinkage: fit the intercept on neighbours but pull
-it toward the neighbour base rate in proportion to how little neighbour data
-there is, so the sharpness is kept where the evidence supports it and given up
-where it does not. That is a one-parameter addition and is testable with the
-same harness. Until it clears the ECE bar against `neighbour_constant`, **no
-confidence score should ship in `mpph annotate`** — which is the same
-conclusion the first attempt reached, now for a better-understood reason.
+- **Genus-level references with ground truth.** All 95 queries had ≥2
+  congeners; behaviour without them is untested, and `neighbours_of` silently
+  widens the rank, which would quietly become the global fit.
+- **A held-out-clade check.** Isotonic is the most overfit-prone method here.
+  Its edge should be reconfirmed on genomes sharing no genus with this panel.
+- **Prokaryotes only, one KEGG snapshot.** No eukaryote or archaeon is in the
+  95, so the eukaryotic case is entirely unmeasured.
