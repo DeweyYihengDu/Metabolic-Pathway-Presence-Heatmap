@@ -398,3 +398,67 @@ def test_neighbours_of_widens_only_when_explicitly_asked():
 def test_neighbours_of_returns_congeners_when_they_exist():
     peers, rank = neighbours_of("a1", _TAX, _ORGS, min_n=1)
     assert peers == ["a2"] and rank == "genus"
+
+
+# --- selfcal: label-free calibration from a genome's own scores ---------------
+
+from selfcal import (
+    fit_base_rate_model,
+    intercept_for_target_rate,
+    observable_features,
+    predict_base_rate,
+)
+
+
+def test_intercept_for_target_rate_hits_the_target_mean():
+    rng = np.random.default_rng(0)
+    d = rng.gamma(2.0, 60.0, 4000)
+    for target in (0.5, 0.75, 0.9):
+        a = intercept_for_target_rate(d, 0.94, target)
+        assert predict(d, a, 0.94).mean() == pytest.approx(target, abs=1e-4)
+
+
+def test_intercept_for_target_rate_keeps_the_curve_spread():
+    # Regression guard for a real bug: the first version reused a
+    # likelihood fit with a constant array in place of labels, which read as
+    # "everything is a true positive" and collapsed the output to a constant
+    # (resolution 0.00000, Brier == ECE). Imposing the level must not destroy
+    # the shape.
+    rng = np.random.default_rng(1)
+    d = rng.gamma(2.0, 60.0, 4000)
+    p = predict(d, intercept_for_target_rate(d, 0.94, 0.8), 0.94)
+    assert p.max() - p.min() > 0.3
+
+
+def test_observable_features_need_no_labels_and_are_finite():
+    # The point of the whole approach: every feature comes from the search
+    # output alone, so it exists for a genome nobody has annotated.
+    d = np.array([0.5, 3.0, 40.0, 900.0, 12.0])
+    feats = observable_features(d)
+    assert set(feats) == {"mean_margin", "median_margin", "q25_margin",
+                          "q75_margin", "frac_low_margin", "log_n_calls",
+                          "mean_log1p_margin"}
+    assert all(np.isfinite(v) for v in feats.values())
+
+
+def test_base_rate_model_recovers_a_linear_relationship():
+    rng = np.random.default_rng(2)
+    x = rng.uniform(0, 100, (60, 7))
+    y = 0.5 + 0.002 * x[:, 0]          # depends on one feature only
+    model = fit_base_rate_model(x, y)
+    feats = dict(zip(
+        ("mean_margin", "median_margin", "q25_margin", "q75_margin",
+         "frac_low_margin", "log_n_calls", "mean_log1p_margin"), x[0]))
+    assert predict_base_rate(model, feats) == pytest.approx(y[0], abs=0.05)
+
+
+def test_predicted_base_rate_is_clipped_to_a_probability():
+    rng = np.random.default_rng(3)
+    x = rng.uniform(0, 1, (30, 7))
+    model = fit_base_rate_model(x, rng.uniform(0, 1, 30))
+    wild = dict(zip(
+        ("mean_margin", "median_margin", "q25_margin", "q75_margin",
+         "frac_low_margin", "log_n_calls", "mean_log1p_margin"),
+        [1e6] * 7))
+    out = predict_base_rate(model, wild)
+    assert 0.0 < out < 1.0

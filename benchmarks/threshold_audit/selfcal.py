@@ -33,10 +33,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "annotation"))
-from calibration_transfer import brier, ece, fit_logistic, predict
+from calibration_transfer import _features, brier, ece, fit_logistic, predict
 from compare_annotation import load_ground_truth, load_protein_id_map
 from neighbour_calibrator import (
-    fit_intercept_only,
     isotonic_on_neighbours,
     murphy_decomposition,
     neighbours_at_rank,
@@ -91,6 +90,31 @@ def predict_base_rate(model, feats: dict) -> float:
     x = np.array([feats[f] for f in FEATURES], float)
     xs = np.concatenate([[1.0], (x - model["mu"]) / model["sigma"]])
     return float(np.clip(xs @ model["coef"], 0.01, 0.99))
+
+
+def intercept_for_target_rate(delta, slope, target, lo=-30.0, hi=30.0):
+    """Intercept making the mean predicted probability equal `target`.
+
+    Not a likelihood fit. The earlier version reused `fit_intercept_only` with
+    a constant array in place of labels, which that function reads as "every
+    call is a true positive" -- it duly drove every probability to 1 and
+    produced a degenerate constant (resolution 0.00000, Brier == ECE). This
+    solves the intended equation directly: mean(sigmoid(a + slope*x)) =
+    target, by bisection on the monotone left-hand side over the *query's own*
+    margins, so the predicted level is imposed while the pooled shape is kept.
+    """
+    x = _features(np.asarray(delta, float))
+
+    def mean_p(a):
+        return float(np.mean(1.0 / (1.0 + np.exp(-(a + slope * x)))))
+
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if mean_p(mid) < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 def load_panel(root: Path, tax: dict) -> dict:
@@ -149,7 +173,7 @@ def main() -> int:
                  "global_constant": np.full_like(y_q, float(y_all.mean()))}
         # Level from the genome's own observable score distribution, shape
         # from the pooled fit. No relatives involved at any point.
-        a_self = fit_intercept_only(d_all, np.full_like(y_all, rate_hat), b_g)
+        a_self = intercept_for_target_rate(d_q, b_g, rate_hat)
         preds["self_level"] = predict(d_q, a_self, b_g)
         preds["self_constant"] = np.full_like(y_q, rate_hat)
 
