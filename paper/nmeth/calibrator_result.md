@@ -157,6 +157,45 @@ domain and returns a confident-looking score that the table above shows is
 uncalibrated. **Any shipped version must require genus-level references and
 refuse otherwise, not widen.**
 
+## The fix for the case that actually matters: no relatives at all
+
+The held-out check's real consequence was not "needs congeners" but "a novel
+environmental genome has none" — the case `mpph annotate` exists to serve.
+What congeners supplied was the **level**, one number per genome, and a
+genome's base rate is largely a consequence of how well its proteins match
+KOfam's profiles — which is visible in **its own margin distribution**, with no
+labels and no relatives.
+
+`selfcal.py` predicts base rate from seven label-free summary statistics of
+the query's own margins (ridge regression across reference genomes,
+leave-one-genome-out), then imposes that level on the pooled shape by
+bisection.
+
+| method | ECE − floor | Brier | resolution |
+|---|---|---|---|
+| `global_constant` | +0.02475 | 0.09921 | 0.00000 |
+| `global_curve` | +0.02057 | 0.08764 | 0.01428 |
+| `clade_isotonic` (what a novel genome really gets) | +0.02147 | 0.08859 | 0.01436 |
+| `self_constant` | **+0.00849** | 0.09806 | 0.00000 |
+| **`self_level`** | **+0.00948** | **0.08508** | **0.01413** |
+
+Base rate predicted from the genome's own scores has mean absolute error
+**0.01466**. `self_level` reaches `self_constant`'s calibration while keeping
+full resolution, and has the best Brier of any method tested — 2.2× closer to
+its floor than any congener-free alternative that discriminates at all.
+
+**Stated at its real strength.** Per genome the advantage is a consistent
+majority rather than uniform: closer to its floor than `global_curve` on
+58/95 and than `clade_isotonic` on 51/83, better on Brier on 63/95 and 58/83.
+The mean gap is driven partly by large wins on some genomes. And it does not
+match what genuine congeners give — `neighbour_isotonic` reached −0.0045
+against `self_level`'s +0.0095, so relatives remain better when they exist.
+
+The practical picture is therefore two regimes with different answers:
+**congeners available → `neighbour_isotonic`; none available →
+`self_level`**, which is the first method here that works at all in the
+regime the tool is actually used in.
+
 ## What is still required before this ships
 
 - **A hard genus-level requirement in the code**, replacing the silent
